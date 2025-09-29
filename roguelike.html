@@ -233,6 +233,7 @@
         <div class="controls">
             <h3>Controls:</h3>
             <p>Arrow Keys or WASD: Move / Bump door to open</p>
+            <p>hjklyubn: Vi-style movement (h=left, j=down, k=up, l=right, yubn=diagonals)</p>
             <p>Space: Use stairs</p>
             <p>O: Open adjacent doors</p>
             <p>P: Drink a potion (heal 20)</p>
@@ -511,6 +512,7 @@
                 }
                 let dx = 0, dy = 0;
                 switch (k) {
+                    // Arrow keys and WASD (original 4-directional movement)
                     case 'arrowup':
                     case 'w':
                         dy = -1;
@@ -526,6 +528,35 @@
                     case 'arrowright':
                     case 'd':
                         dx = 1;
+                        break;
+                    // Vi-style movement keys (hjklyubn) for 8-directional movement
+                    case 'h': // left
+                        dx = -1;
+                        break;
+                    case 'j': // down
+                        dy = 1;
+                        break;
+                    case 'k': // up
+                        dy = -1;
+                        break;
+                    case 'l': // right
+                        dx = 1;
+                        break;
+                    case 'y': // up-left (diagonal)
+                        dx = -1;
+                        dy = -1;
+                        break;
+                    case 'u': // up-right (diagonal)
+                        dx = 1;
+                        dy = -1;
+                        break;
+                    case 'b': // down-left (diagonal)
+                        dx = -1;
+                        dy = 1;
+                        break;
+                    case 'n': // down-right (diagonal)
+                        dx = 1;
+                        dy = 1;
                         break;
                     case ' ':
                         this.useStairs();
@@ -583,7 +614,7 @@
                 const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
                 const itemText = hasItem ? item.name : 'None';
                 const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
-                const unequipButton = hasItem ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPart}')">Remove</button></div>` : '';
+                const unequipButton = (hasItem && !(item instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPart}')">Remove</button></div>` : '';
                 return `<div class='${slotClass}'>
                     <span class='slot-label'>${label}:</span>
                     <span class='${itemClass}'>${itemText}</span>
@@ -625,7 +656,7 @@
         renderInvRow(category, item, index, equipped = false) {
             const tags = [];
             if (equipped) tags.push('<span class="tag">Eq</span>');
-            if (category === 'weapons') tags.push(`<span class='tag'>+${item.attackBonus} atk</span>`);
+            if (category === 'weapons') tags.push(`<span class='tag'>+${item.getDamage()} atk</span>`);
             if (category === 'armor') tags.push(`<span class='tag'>+${item.defense} def</span>`);
             if (category === 'potions') {
                 if (item.healAmount) tags.push(`<span class='tag'>+${item.healAmount} HP</span>`);
@@ -635,7 +666,7 @@
                 if (item.count > 1) tags.push(`<span class='tag'>x${item.count}</span>`);
             }
             let actionButtons = '';
-            if (category === 'weapons') {
+            if (category === 'weapons' && !(item instanceof Fists)) {
                 actionButtons += equipped ? `<button onclick="game.unequipInventoryItem('weapons')">Unequip</button>` : `<button onclick="game.equipInventoryItem('weapons',${index})">Equip</button>`;
             }
             if (category === 'armor') {
@@ -823,7 +854,12 @@
             }
             const monster = this.monsterManager.monsters.find(m => m.x === nx && m.y === ny);
             if (monster) {
-                this.monsterManager.attackMonster(monster);
+                const result = this.player.attemptAttack(monster)
+                if (result.hit) {
+                    this.monsterManager.attackMonster(monster);
+                } else {
+                    this.addMessage('You miss!');
+                }
                 return;
             }
             if (this.isValidMove(nx, ny)) {
@@ -842,7 +878,11 @@
 
         openAdjacentDoors() {
             let opened = 0;
-            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+            // Include diagonal directions for door opening
+            const dirs = [
+                [1, 0], [-1, 0], [0, 1], [0, -1], // Cardinal directions
+                [1, 1], [1, -1], [-1, 1], [-1, -1] // Diagonal directions
+            ];
             for (const [dx, dy] of dirs) {
                 const x = this.player.x + dx, y = this.player.y + dy;
                 if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;

@@ -10,6 +10,8 @@ class Monster {
     this.maxHp = this.hp;
     this.dmg = 1;
     this.speed = 100;
+    this.size = 100;
+    this.armor = 0;
     this.nextActionTime = 0; // Time when the monster can next act
     this.experience = 0; // Experience given to player on death
     this.type = this.getType();
@@ -63,12 +65,10 @@ class Monster {
         }
       }
     } else if (Math.random() < 0.2) {
-      // Random movement when not chasing
+      // Random movement when not chasing - now includes diagonal directions
       const dirs = [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
+        [1, 0], [-1, 0], [0, 1], [0, -1], // Cardinal directions
+        [1, 1], [1, -1], [-1, 1], [-1, -1] // Diagonal directions
       ];
       const d = dirs[Math.floor(Math.random() * dirs.length)];
       const wx = this.x + d[0];
@@ -78,7 +78,7 @@ class Monster {
       }
     }
 
-    // Check for adjacent attack after movement
+    // Check for adjacent attack after movement (now includes diagonal adjacency)
     if (this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y) === 1) {
       monsterManager.monsterAttackPlayer(this);
     }
@@ -719,9 +719,11 @@ class MonsterManager {
   }
 
   attackMonster(monster) {
-    const dmg = Math.max(1, this.game.player.getAttack() - 1);
-    const died = monster.takeDamage(dmg);
-    this.game.addMessage(`You hit ${monster.getDisplayName()} for ${dmg} damage.`);
+    const attack = this.game.player.getAttack();
+    const damage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus);
+
+    const died = monster.takeDamage(damage);
+    this.game.addMessage(`You hit ${monster.getDisplayName()} for ${damage} damage.`);
 
     if (died) {
       this.game.addMessage(`${monster.getDisplayName()} dies.`);
