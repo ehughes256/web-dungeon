@@ -938,6 +938,14 @@
                         return new Potion(x, y, item.name, item.healAmount);
                     case 'PsionicScroll':
                         return new PsionicScroll(x, y, item.name, item.damage);
+                    case 'TeleportScroll':
+                        return new TeleportScroll(x, y);
+                    case 'MappingScroll':
+                        return new MappingScroll(x, y);
+                    case 'FireballScroll':
+                        return new FireballScroll(x, y, item.damage, item.radius);
+                    case 'RegenerationScroll':
+                        return new RegenerationScroll(x, y, item.totalHeals, item.healPerTick, item.interval);
                     case 'Scroll':
                         return new Scroll(x, y, item.name, item.damage);
                     default:

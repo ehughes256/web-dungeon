@@ -18,6 +18,8 @@ class Monster {
         this.nextActionTime = 0; // Time when the monster can next act
         this.experience = 0; // Experience given to player on death
         this.description = "A generic monster.";
+        this.lastKnownPlayerLocation = null; // For tracking player last seen position
+        this.lastSawPlayerMoves = 0;
         this.type = this.getType();
 
         // Set stats - to be overridden by subclasses
@@ -49,13 +51,15 @@ class Monster {
     performAction(monsterManager) {
         const dist = this.distanceTo(Game.player.x, Game.player.y);
 
-        if (dist === 1) {
+        if (dist < 1.5) {
             monsterManager.monsterAttackPlayer(this);
             return;
         }
 
         // Default behavior: move toward player if visible
         if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x] && dist <= 10) {
+            this.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
+            this.lastSawPlayerMoves = 0;
             const step =
                 monsterManager.aStarNextStep(this.x, this.y, Game.player.x, Game.player.y) ||
                 monsterManager.pathStepToward(this.x, this.y, Game.player.x, Game.player.y);
@@ -67,6 +71,23 @@ class Monster {
                 ) {
                     this.moveToWithDelay(tx, ty, monsterManager.game, 50).then();
                 }
+            }
+        } else if (this.lastKnownPlayerLocation) {
+            // Move toward last known player location
+            if(this.lastSawPlayerMoves < 15) { // remember for 15 moves
+                const [lx, ly] = this.lastKnownPlayerLocation;
+                const step =
+                    monsterManager.aStarNextStep(this.x, this.y, lx, ly) ||
+                    monsterManager.pathStepToward(this.x, this.y, lx, ly);
+                if (step) {
+                    const [tx, ty] = step;
+                    if (!(tx === Game.player.x && ty === Game.player.y) &&
+                        monsterManager.isWalkableForMonster(tx, ty)) {
+                        this.moveToWithDelay(tx, ty, monsterManager.game, 50).then();
+                    }
+                }
+            } else {
+                this.lastKnownPlayerLocation = null; // forget after some time
             }
         } else if (Math.random() < 0.2) {
             // Random movement when not chasing - now includes diagonal directions
@@ -95,7 +116,9 @@ class Monster {
     }
 
     distanceTo(x, y) {
-        return Math.abs(this.x - x) + Math.abs(this.y - y);
+        const dx = this.x - x;
+        const dy = this.y - y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
 
     async moveToWithDelay(x, y, game, delay) {
@@ -246,7 +269,7 @@ class Spider extends Monster {
         // Spiders prefer to stay at range and dart in for quick attacks
         const dist = this.distanceTo(Game.player.x, Game.player.y);
 
-        if (dist === 1) {
+        if (dist < 1.5) {
             monsterManager.monsterAttackPlayer(this);
             // After attacking, try to move away
             const retreatDirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
@@ -343,7 +366,7 @@ class Bat extends Monster {
     performAction(monsterManager) {
         const dist = this.distanceTo(Game.player.x, Game.player.y);
 
-        if (dist === 1) {
+        if (dist < 1.5) {
             monsterManager.monsterAttackPlayer(this);
             return;
         }
@@ -482,7 +505,7 @@ class Minotaur extends Monster {
         }
 
         // Stop charging when adjacent or after a few moves
-        if (this.charging && (dist <= 1 || Math.random() < 0.3)) {
+        if (this.charging && (dist <= 1.5 || Math.random() < 0.3)) {
             this.charging = false;
             this.speed = 130; // Back to normal speed
         }
@@ -523,7 +546,7 @@ class Ghost extends Monster {
     performAction(monsterManager) {
         const dist = this.distanceTo(Game.player.x, Game.player.y);
 
-        if (dist === 1) {
+        if (dist < 1.5) {
             monsterManager.monsterAttackPlayer(this);
             return;
         }
@@ -646,8 +669,7 @@ class MonsterManager {
         if (x < 0 || y < 0 || x >= this.game.width || y >= this.game.height) return false;
         const t = this.game.dungeon[y][x];
         if (t === '#' || t === '+') return false; // wall or closed door
-        if (this.monsters.some((m) => m.x === x && m.y === y)) return false;
-        return true;
+        return !this.monsters.some((m) => m.x === x && m.y === y);
     }
 
     // Greedy step toward target (simple heuristic)
@@ -710,9 +732,13 @@ class MonsterManager {
 
             const dirs = [
                 [1, 0],
+                [1, 1],
                 [-1, 0],
+                [-1, 1],
                 [0, 1],
+                [-1, -1],
                 [0, -1],
+                [1, -1]
             ];
             for (const [dx, dy] of dirs) {
                 const nx = current.x + dx;
