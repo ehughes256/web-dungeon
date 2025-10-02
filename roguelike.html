@@ -230,18 +230,6 @@
             <div class="stat">Health: <span id="health">100</span></div>
             <div class="stat">Gold: <span id="gold">0</span></div>
         </div>
-        <div class="controls">
-            <h3>Controls:</h3>
-            <p>Arrow Keys or WASD: Move / Bump door to open</p>
-            <p>hjklyubn: Vi-style movement (h=left, j=down, k=up, l=right, yubn=diagonals)</p>
-            <p>Space: Use stairs</p>
-            <p>O: Open adjacent doors</p>
-            <p>P: Drink a potion (heal 20)</p>
-            <p>R: Cast a scroll (damage all visible monsters)</p>
-            <p>I: Open inventory (drop items)</p>
-            <p>Walk into a monster to attack it</p>
-            <button onclick="game.regenerateCurrentLevel()">Regenerate Level (Debug)</button>
-        </div>
         <div id="messages"
              style="margin-top: 15px; height: 160px; overflow-y: auto; background: #111; padding: 5px; border-radius: 3px;">
             <div>Welcome to the dungeon!</div>
@@ -282,12 +270,12 @@
 
     class Game {
         constructor() {
+            Game.player = new Player(this, 0, 0);
             this.canvas = document.getElementById('dungeon');
             this.ctx = this.canvas.getContext('2d');
             this.tileSize = 20;
             this.width = Math.floor(this.canvas.width / this.tileSize);
             this.height = Math.floor(this.canvas.height / this.tileSize);
-            this.player = new Player(0, 0, 100);
             this.dungeon = [];
             this.rooms = [];
             this.upStair = null;
@@ -327,7 +315,7 @@
                     this.visible[y][x] = false;
                 }
             }
-            const px = this.player.x, py = this.player.y;
+            const px = Game.player.x, py = Game.player.y;
             this.visible[py][px] = true;
             this.explored[py][px] = true;
             for (let octant = 0; octant < 8; octant++) {
@@ -431,17 +419,19 @@
 
         descend() {
             if (this.gameOver) return;
-            this.player.level += 1;
-            if (this.levelCache[this.player.level]) {
-                this.addMessage(`You return to level ${this.player.level}.`);
+            Game.player.level += 1;
+            if (this.levelCache[Game.player.level]) {
+                this.addMessage(`You return to level ${Game.player.level}.`);
             } else {
                 this.generateDungeon();
+                this.monsterManager.spawnMonsters();
+                this.itemManager.generateItems();
                 if (this.upStair) {
-                    this.player.x = this.upStair.x;
-                    this.player.y = this.upStair.y;
+                    Game.player.x = this.upStair.x;
+                    Game.player.y = this.upStair.y;
                 }
                 this.computeFOV();
-                this.addMessage(`You discover new level ${this.player.level}.`);
+                this.addMessage(`You discover new level ${Game.player.level}.`);
             }
             this.computeFOV();
             this.render();
@@ -450,25 +440,27 @@
 
         ascend() {
             if (this.gameOver) return;
-            if (this.player.level === 1) {
+            if (Game.player.level === 1) {
                 this.addMessage('You are already at the top.');
                 return;
             }
-            this.player.level -= 1;
+            Game.player.level -= 1;
             if (this.downStair) {
-                this.player.x = this.downStair.x;
-                this.player.y = this.downStair.y;
+                Game.player.x = this.downStair.x;
+                Game.player.y = this.downStair.y;
             }
             this.computeFOV();
             this.render();
             this.updateUI();
-            this.addMessage(`You return to level ${this.player.level}.`);
+            this.addMessage(`You return to level ${Game.player.level}.`);
         }
 
         regenerateCurrentLevel() {
             if (this.gameOver) return;
             this.addMessage('Regenerating current level (debug).');
             this.generateDungeon();
+            this.monsterManager.spawnMonsters();
+            this.itemManager.generateItems();
             this.computeFOV();
             this.render();
             this.updateUI();
@@ -488,10 +480,10 @@
             this.upStair = result.upStair;
             this.downStair = result.downStair;
 
-            if (this.rooms.length && !this.levelCache[this.player.level]) {
+            if (this.rooms.length && !this.levelCache[Game.player.level]) {
                 const r = this.rooms[0];
-                this.player.x = r.x + Math.floor(r.width / 2);
-                this.player.y = r.y + Math.floor(r.height / 2);
+                Game.player.x = r.x + Math.floor(r.width / 2);
+                Game.player.y = r.y + Math.floor(r.height / 2);
             }
         }
 
@@ -565,10 +557,10 @@
                         this.openAdjacentDoors();
                         return;
                     case 'p':
-                        this.player.drinkPotion(this);
+                        Game.player.drinkPotion(this);
                         return;
                     case 'r':
-                        this.player.castScroll(this);
+                        Game.player.castScroll(this);
                         return;
                     case 'i':
                         this.toggleInventory();
@@ -600,7 +592,7 @@
 
         buildInventoryModal() {
             const container = document.getElementById('inventoryContents');
-            const p = this.player;
+            const p = Game.player;
             const lines = [];
 
             // Add equipped items section at the top
@@ -609,28 +601,32 @@
             lines.push(`<div class='equipped-grid'>`);
 
             // Helper function to render equipment slot
-            const renderSlot = (label, item, bodyPart) => {
+            const renderSlot = (bodyPart) => {
+                let item = bodyPart.equipped;
+                if (!(bodyPart.equipped instanceof EmptyItem)) {
+                    item = bodyPart.equipped;
+                }
                 const hasItem = item && !(item instanceof EmptyItem);
                 const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
                 const itemText = hasItem ? item.name : 'None';
                 const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
-                const unequipButton = (hasItem && !(item instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPart}')">Remove</button></div>` : '';
+                const unequipButton = (hasItem && !(item instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPart.name}', '${item.name}')">Remove</button></div>` : '';
                 return `<div class='${slotClass}'>
-                    <span class='slot-label'>${label}:</span>
+                    <span class='slot-label'>${bodyPart.name}:</span>
                     <span class='${itemClass}'>${itemText}</span>
                     ${unequipButton}
                 </div>`;
             };
 
             // Add all equipment slots
-            lines.push(renderSlot('Weapon', p.body.weapon, 'weapon'));
-            lines.push(renderSlot('Head', p.body.head, 'head'));
-            lines.push(renderSlot('Torso', p.body.torso, 'torso'));
-            lines.push(renderSlot('Arms', p.body.arms, 'arms'));
-            lines.push(renderSlot('Hands', p.body.hands, 'hands'));
-            lines.push(renderSlot('Legs', p.body.legs, 'legs'));
-            lines.push(renderSlot('Feet', p.body.feet, 'feet'));
-            lines.push(renderSlot('Rings', p.body.rings, 'rings'));
+            lines.push(renderSlot(p.body.weapon));
+            lines.push(renderSlot(p.body.head));
+            lines.push(renderSlot(p.body.torso));
+            lines.push(renderSlot(p.body.arms));
+            lines.push(renderSlot(p.body.hands));
+            lines.push(renderSlot(p.body.finger));
+            lines.push(renderSlot(p.body.legs));
+            lines.push(renderSlot(p.body.feet));
 
             lines.push(`</div>`);
             lines.push(`</div>`);
@@ -684,14 +680,14 @@
 
         equipInventoryItem(category, index) {
             if (category === 'weapons') {
-                const w = this.player.inventory.weapons[index];
+                const w = Game.player.inventory.weapons[index];
                 if (!w) return;
-                this.player.equipWeapon(w);
+                Game.player.equipWeapon(w);
                 this.addMessage(`You equip ${w.name}.`);
             } else if (category === 'armor') {
-                const a = this.player.inventory.armor[index];
+                const a = Game.player.inventory.armor[index];
                 if (!a) return;
-                this.player.equipArmor(a);
+                Game.player.equipArmor(a);
                 this.addMessage(`You don ${a.name}.`);
             }
             this.buildInventoryModal();
@@ -699,29 +695,29 @@
         }
 
         unequipInventoryItem(category) {
-            if (category === 'weapons' && this.player.equippedWeapon()) {
-                this.addMessage(`You stow ${this.player.equippedWeapon().name}.`);
-                this.player.unEquipWeapon();
+            if (category === 'weapons' && Game.player.equippedWeapon()) {
+                this.addMessage(`You stow ${Game.player.equippedWeapon().name}.`);
+                Game.player.unEquipWeapon();
             }
-            if (category === 'armor' && this.player.equippedArmor()) {
-                this.addMessage(`You remove ${this.player.equippedArmor().name}.`);
-                const bodyPart = this.player.equippedArmor().bodyLocation;
-                this.player.unEquipArmor(bodyPart);
+            if (category === 'armor' && Game.player.equippedArmor()) {
+                this.addMessage(`You remove ${Game.player.equippedArmor().name}.`);
+                const bodyPart = Game.player.equippedArmor().bodyLocation;
+                Game.player.unEquipArmor(bodyPart);
             }
             this.buildInventoryModal();
             this.updateUI();
         }
 
-        unequipSlot(bodyPart) {
-            const p = this.player;
+        unequipSlot(bodyPart, item) {
+            const p = Game.player;
             if (bodyPart === 'weapon') {
-                const weapon = p.body.weapon;
-                if (weapon && !(weapon instanceof EmptyItem)) {
+                const weapon = p.body.weapon.equipped;
+                if (weapon && !(weapon instanceof EmptyItem) && !(weapon instanceof Fists)) {
                     this.addMessage(`You stow ${weapon.name}.`);
                     p.unEquipWeapon();
                 }
             } else {
-                const item = p.body[bodyPart];
+                const item = p.body[bodyPart].equipped;
                 if (item && !(item instanceof EmptyItem)) {
                     this.addMessage(`You remove ${item.name}.`);
                     p.unEquipArmor(bodyPart);
@@ -732,7 +728,7 @@
         }
 
         useInventoryItem(category, index) {
-            const p = this.player;
+            const p = Game.player;
             const arr = p.inventory[category];
             if (!arr || !arr[index]) {
                 this.addMessage('Nothing to use.');
@@ -802,49 +798,9 @@
             this.render();
         }
 
-        dropInventoryItem(category, index) {
-            const p = this.player;
-            const arrays = p.inventory;
-            const arr = arrays[category];
-            if (!arr || !arr[index]) {
-                this.addMessage('Nothing to drop.');
-                return;
-            }
-            if (!this.canDropHere()) {
-                this.addMessage('Cannot drop here.');
-                return;
-            }
-            if (category === 'potions' || category === 'scrolls') {
-                const stack = arr[index];
-                const single = this.instantiateDroppedItem(stack, this.player.x, this.player.y);
-                if (!single) {
-                    this.addMessage('Failed to drop item.');
-                    return;
-                }
-                this.itemManager.items.push(single);
-                stack.count -= 1;
-                if (stack.count <= 0) arr.splice(index, 1);
-                this.addMessage(`You drop one ${stack.name}.`);
-            } else {
-                const item = arr.splice(index, 1)[0];
-                if (p.equippedWeapon() === item) p.unEquipWeapon();
-                if (p.equippedArmor() === item) p.unEquipArmor(p.equippedArmor().bodyLocation);
-                const dropped = this.instantiateDroppedItem(item, this.player.x, this.player.y);
-                if (!dropped) {
-                    this.addMessage('Failed to drop item.');
-                    return;
-                }
-                this.itemManager.items.push(dropped);
-                this.addMessage(`You drop ${item.name}.`);
-            }
-            this.buildInventoryModal();
-            this.updateUI();
-            this.consumeTurn(10);
-        }
-
         // Restored movement, interaction, and rendering methods
         handleMove(dx, dy) {
-            const nx = this.player.x + dx, ny = this.player.y + dy;
+            const nx = Game.player.x + dx, ny = Game.player.y + dy;
             if (nx < 0 || ny < 0 || nx >= this.width || ny >= this.height) return;
             if (this.dungeon[ny][nx] === '+') {
                 this.dungeon[ny][nx] = '/';
@@ -854,7 +810,7 @@
             }
             const monster = this.monsterManager.monsters.find(m => m.x === nx && m.y === ny);
             if (monster) {
-                const result = this.player.attemptAttack(monster)
+                const result = Game.player.attemptAttack(monster)
                 if (result.hit) {
                     this.monsterManager.attackMonster(monster);
                 } else {
@@ -863,10 +819,10 @@
                 return;
             }
             if (this.isValidMove(nx, ny)) {
-                this.player.x = nx;
-                this.player.y = ny;
+                Game.player.x = nx;
+                Game.player.y = ny;
                 this.itemManager.checkForItems();
-                this.consumeTurn(this.player.speed);
+                this.consumeTurn(Game.player.speed);
             }
         }
 
@@ -884,7 +840,7 @@
                 [1, 1], [1, -1], [-1, 1], [-1, -1] // Diagonal directions
             ];
             for (const [dx, dy] of dirs) {
-                const x = this.player.x + dx, y = this.player.y + dy;
+                const x = Game.player.x + dx, y = Game.player.y + dy;
                 if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
                 if (this.dungeon[y][x] === '+') {
                     this.dungeon[y][x] = '/';
@@ -899,11 +855,11 @@
 
         useStairs() {
             if (this.gameOver) return;
-            if (this.upStair && this.player.x === this.upStair.x && this.player.y === this.upStair.y) {
+            if (this.upStair && Game.player.x === this.upStair.x && Game.player.y === this.upStair.y) {
                 this.ascend();
                 return;
             }
-            if (this.downStair && this.player.x === this.downStair.x && this.player.y === this.downStair.y) {
+            if (this.downStair && Game.player.x === this.downStair.x && Game.player.y === this.downStair.y) {
                 this.descend();
                 return;
             }
@@ -996,7 +952,7 @@
                 this.ctx.fillStyle = m.getColor();
                 this.ctx.fillText(m.getSymbol(), px + ts / 2, py + ts / 2);
             }
-            const ppx = this.player.x * ts, ppy = this.player.y * ts;
+            const ppx = Game.player.x * ts, ppy = Game.player.y * ts;
             this.ctx.font = '16px monospace';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
@@ -1005,7 +961,7 @@
         }
 
         canDropHere() {
-            const x = this.player.x, y = this.player.y;
+            const x = Game.player.x, y = Game.player.y;
             if (!this.inBounds(x, y)) return false;
             const t = this.dungeon[y][x];
             if (!(t === '.' || t === '/' || t === '<' || t === '>')) return false;
@@ -1026,10 +982,6 @@
                         return new PsionicScroll(x, y, item.name, item.damage);
                     case 'Scroll':
                         return new Scroll(x, y, item.name, item.damage);
-                    case 'Weapon':
-                        return new Weapon(x, y, item.name, item.attackBonus);
-                    case 'Armor':
-                        return new Armor(x, y, item.name, item.defenseBonus);
                     default:
                         return null;
                 }
@@ -1040,9 +992,9 @@
         }
 
         updateUI() {
-            document.getElementById('level').textContent = this.player.level;
-            document.getElementById('health').textContent = this.player.health;
-            document.getElementById('gold').textContent = this.player.inventory.gold;
+            document.getElementById('level').textContent = Game.player.level;
+            document.getElementById('health').textContent = Game.player.health;
+            document.getElementById('gold').textContent = Game.player.inventory.gold;
             if (this.inventoryOpen) this.buildInventoryModal();
         }
 
@@ -1053,6 +1005,10 @@
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
             while (box.children.length > 20) box.removeChild(box.firstChild);
+        }
+
+        sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
     }
 

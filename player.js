@@ -1,27 +1,172 @@
+class BodyPart {
+    constructor(name, size, attachedTo) {
+        this.name = name;
+        this.size = size; // Size affects hit chance
+        this.maxHp = size; // Max HP based on size
+        this.currentHp = this.maxHp;
+        this.attachedTo = attachedTo; // e.g., 'torso' for arms, legs, head
+        this.equipped = new EmptyItem(); // Armor worn on this part
+    }
+
+    isUsable() {
+        let usable = true;
+        let bp = this;
+        while (bp) {
+            if (bp.currentHp <= 0) {
+                usable = false;
+                break;
+            }
+            bp = bp.attachedTo;
+        }
+        return usable;
+    }
+
+    takeDamage(damage) {
+        this.currentHp -= damage;
+        if (this.currentHp <= 0) {
+            this.currentHp = 0;
+            // If a body part is destroyed, all parts attached to it are also destroyed
+            for (const part of Object.values(this)) {
+                if (part instanceof BodyPart && part.attachedTo === this) {
+                    part.takeDamage(part.currentHp); // Destroy attached parts
+                }
+            }
+            // drop equipped weapons
+            if (this.equipped instanceof Weapon) {
+                Game.player.dropInventoryItem(this.equipped, this);
+            }
+        }
+    }
+
+    getDefense() {
+        if (this.equipped && typeof this.equipped.getDefense === 'function') {
+            return this.equipped.getDefense();
+        }
+        return {
+            base: 0,
+            bonus: 0,
+            fromBonus: 0,
+            fromEnchantment: 0
+        }
+    }
+}
+
 class PlayerBody {
-    constructor() {
-        this.weapon = new Fists();
-        this.head = new EmptyItem();
-        this.torso = new EmptyItem();
-        this.legs = new EmptyItem();
-        this.feet = new EmptyItem();
-        this.hands = new EmptyItem();
-        this.arms = new EmptyItem();
-        this.rings = new EmptyItem();
+    constructor(player) {
+        this.player = player;
+
+        // Define body parts
+        this.torso = new BodyPart("torso", 30, null);
+        this.head = new BodyPart("head", 10, this.torso);
+        this.arms = new BodyPart("arms", 15, this.torso);
+        this.hands = new BodyPart("hands", 10, this.arms);
+        this.weapon = new BodyPart("weapon", 1, this.hands); // Placeholder for weapon
+        this.finger = new BodyPart("finger", 2, this.hands);
+        this.legs = new BodyPart("legs", 20, this.torso);
+        this.feet = new BodyPart("feet", 5, this.legs);
+
+        this.weapon.equipped = new Fists();
+    }
+
+    randomPartFromWeightedList(parts) {
+        const totalWeight = parts.reduce((sum, part) => sum + part.size, 0);
+        let roll = Math.random() * totalWeight;
+        for (const part of parts) {
+            if (roll < part.size) {
+                return part;
+            }
+            roll -= part.size;
+        }
+        return parts[parts.length - 1]; // Fallback
+    }
+
+    allBodyParts() {
+        return [
+            this.head, this.arms, this.torso,
+            this.hands,
+            this.legs, this.feet,
+            this.finger
+        ];
+    }
+
+    randomUpperBodyPart() {
+        const parts = [this.head, this.arms, this.torso];
+        return this.randomPartFromWeightedList(parts);
+    }
+
+    randomMiddleBodyPart() {
+        const parts = [this.hands, this.torso, this.arms];
+        return this.randomPartFromWeightedList(parts);
+    }
+
+    randomLowerBodyPart() {
+        const parts = [this.legs, this.feet, this.torso];
+        return this.randomPartFromWeightedList(parts);
+    }
+
+    randomAttackablePart() {
+        const parts = [
+            this.head, this.arms, this.torso,
+            this.hands,
+            this.legs, this.feet
+        ];
+        return this.randomPartFromWeightedList(parts);
+    }
+
+    equippedWeapon() {
+        if (this.weapon.isUsable() && !(this.weapon.equipped instanceof Fists)) {
+            return this.weapon.equipped;
+        }
+        return new Fists();
+    }
+
+    equipWeapon(weapon) {
+        if (this.weapon.isUsable()) {
+            this.weapon.equipped = weapon;
+            return true;
+        }
+        return false;
+    }
+
+    unequipWeapon() {
+        if (!(this.weapon.equipped instanceof Fists)) {
+            const weapon = this.weapon.equipped;
+            this.weapon.equipped = new Fists();
+            return weapon;
+        }
+        return new EmptyItem();
+    }
+
+    equipArmor(armor, bodyLocation) {
+        if (bodyLocation && this[bodyLocation] && armor.bodyLocation === bodyLocation) {
+            this[bodyLocation].equipped = armor;
+            return true;
+        }
+        return false;
+    }
+
+    unequipArmor(bodyLocation) {
+        if (bodyLocation && this[bodyLocation] && !(this[bodyLocation].equipped instanceof EmptyItem)) {
+            const armor = this[bodyLocation].equipped;
+            this[bodyLocation].equipped = new EmptyItem();
+            return armor;
+        }
+        return null;
     }
 }
 
 class Player {
-    constructor(x = 0, y = 0, health = 100, level = 1) {
+    constructor(game, x = 0, y = 0) {
+        this.game = game;
         this.x = x;
         this.y = y;
-        this.health = health;
         // 100 is normal speed; lower is faster
         this.speed = 100;
         this.maxHealth = 20;
-        this.level = level;
+        this.health = this.maxHealth;
+        this.level = 1;
         this.inventory = {gold: 0, potions: [], scrolls: [], weapons: [], armor: []};
-        this.body = new PlayerBody();
+        this.body = new PlayerBody(this);
         this.weight = 0; // Current carried weight
 
         // Attributes (1-100 scale)
@@ -35,45 +180,23 @@ class Player {
     }
 
     equippedWeapon() {
-        return this.body.weapon;
+        return this.body.equippedWeapon();
     }
 
-    defenseBonus() {
-        let def = 0;
-        const armorPieces = this.equippedArmor()
-        for (const armor of armorPieces) {
-            def += armor.getDefenseBonus() || 0;
-        }
-        return def;
-    }
-
-    armorDefense() {
-        let def = this.body.legs.getDamageDefense() * 0.15 || 0;
-        def += this.body.feet.getDamageDefense() * 0.1 || 0;
-        def += this.body.hands.getDamageDefense() * 0.1 || 0;
-        def += this.body.arms.getDamageDefense() * 0.2 || 0;
-        def += this.body.head.getDamageDefense() * 0.15 || 0;
-        def += this.body.torso.getDamageDefense() * 0.3 || 0;
-
-        return def;
+    defenseBonus(bodyPart) {
+        return bodyPart.getDefense();
     }
 
     equippedArmor() {
         return [
-            this.body.head,
-            this.body.torso,
-            this.body.legs,
-            this.body.feet,
-            this.body.hands,
-            this.body.arms,
-            this.body.rings,
+            this.body.head.equipped,
+            this.body.torso.equipped,
+            this.body.legs.equipped,
+            this.body.feet.equipped,
+            this.body.arms.equipped,
+            this.body.hands.equipped,
+            this.body.finger.equipped,
         ].filter((a) => !(a instanceof EmptyItem));
-    }
-
-    // Movement and position methods
-    moveTo(x, y) {
-        this.x = x;
-        this.y = y;
     }
 
     // Combat stats
@@ -86,21 +209,31 @@ class Player {
         };
     }
 
-    getDefense() {
-        return this.armorDefense();
-    }
-
     // Health management
     heal(amount) {
-        const healthBefore = this.health;
-        this.health = Math.min(this.maxHealth, this.health + amount);
-        return this.health - healthBefore; // Return actual amount healed
+        let amountLeft = amount;
+        let didHeal = true;
+        while (amountLeft > 0 && didHeal) {
+            didHeal = false;
+            for (const part of this.body.allBodyParts()) {
+                if (part.currentHp < part.maxHp) {
+                    part.currentHp += 1;
+                    didHeal = true;
+                    amountLeft -= 1;
+                    if (amountLeft <= 0) break;
+                }
+            }
+        }
+
+        return amount - amountLeft; // Return actual amount healed
     }
 
-    takeDamage(damage) {
-        const actualDamage = Math.max(1, damage - this.getDefense());
-        this.health -= actualDamage;
-        if (this.health < 0) this.health = 0;
+    takeDamage(bodyPart, damage) {
+        const defense = bodyPart.getDefense();
+        const actualDefense = Math.floor((Math.random() * defense.base)) + defense.bonus;
+        const actualDamage = Math.max(0, damage - actualDefense);
+
+        bodyPart.takeDamage(actualDamage);
         return actualDamage;
     }
 
@@ -110,42 +243,34 @@ class Player {
 
     // Equipment management
     equipWeapon(weapon) {
-        this.unEquipWeapon();
+        const oldWeapon = this.unEquipWeapon();
         this.inventory.weapons.splice(this.inventory.weapons.indexOf(weapon), 1);
-        this.body.weapon = weapon;
-        return true;
+        this.body.equipWeapon(weapon);
+        return oldWeapon;
     }
 
     unEquipWeapon() {
-        if (this.equippedWeapon() && !(this.equippedWeapon() instanceof Fists)) {
-            if (!(this.equippedWeapon() instanceof EmptyItem)) {
-                this.inventory.weapons.push(this.equippedWeapon());
-            }
-            this.body.weapon = new Fists();
-            return true;
-        }
-        return false;
+        return this.body.unequipWeapon();
     }
 
     equipArmor(armor) {
         const {bodyLocation} = armor;
-        if (!bodyLocation || !['head', 'torso', 'legs', 'feet', 'hands', 'arms', 'rings'].includes(bodyLocation)) {
+        if (!bodyLocation || !['head', 'torso', 'legs', 'feet', 'hands', 'arms', 'finger'].includes(bodyLocation)) {
             return false;
         }
         this.inventory.armor.splice(this.inventory.armor.indexOf(armor), 1);
-        this.unEquipArmor(bodyLocation);
-        this.body[bodyLocation] = armor;
-        return true;
+        const oldArmor = this.unEquipArmor(bodyLocation);
+        this.body.equipArmor(armor, bodyLocation);
+        return oldArmor;
     }
 
     unEquipArmor(bodyLocation) {
         if (!bodyLocation || !['head', 'torso', 'legs', 'feet', 'hands', 'arms', 'rings'].includes(bodyLocation)) {
             return false;
         }
-        const armor = this.body[bodyLocation];
+        const armor = this.body.unequipArmor(bodyLocation);
         if (armor && !(armor instanceof EmptyItem)) {
             this.inventory.armor.push(armor);
-            this.body[bodyLocation] = new EmptyItem();
             return true;
         }
         return false;
@@ -256,5 +381,43 @@ class Player {
             sizeMod,
             speedPenalty
         };
+    }
+
+    dropInventoryItem(category, index) {
+        const p = this;
+        const arrays = p.inventory;
+        const arr = arrays[category];
+        if (!arr || !arr[index]) {
+            this.game.addMessage('Nothing to drop.');
+            return;
+        }
+        if (!this.game.canDropHere()) {
+            this.game.addMessage('Cannot drop here.');
+            return;
+        }
+        if (category === 'potions' || category === 'scrolls') {
+            const stack = arr[index];
+            const single = this.game.instantiateDroppedItem(stack, this.x, this.y);
+            if (!single) {
+                this.game.addMessage('Failed to drop item.');
+                return;
+            }
+            this.game.itemManager.items.push(single);
+            stack.count -= 1;
+            if (stack.count <= 0) arr.splice(index, 1);
+            this.game.addMessage(`You drop one ${stack.name}.`);
+        } else {
+            const item = arr.splice(index, 1)[0];
+            if (p.equippedWeapon() === item) p.unEquipWeapon();
+            if (p.equippedArmor() === item) p.unEquipArmor(p.equippedArmor().bodyLocation);
+            item.x = this.x;
+            item.y = this.y;
+            // Place the item on the ground
+            this.game.itemManager.items.push(item);
+            this.game.addMessage(`You drop ${item.name}.`);
+        }
+        this.game.buildInventoryModal();
+        this.game.updateUI();
+        this.game.consumeTurn(10);
     }
 }

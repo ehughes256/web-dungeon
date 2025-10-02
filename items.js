@@ -79,6 +79,10 @@ class EmptyItem extends Item {
         return 0;
     }
 
+    getDamageBonus() {
+        return 0;
+    }
+
     getDamage() {
         return 0;
     }
@@ -109,7 +113,7 @@ class Gold extends Item {
     }
 
     onCollect(game) {
-        game.player.addGold(this.amount);
+        Game.player.addGold(this.amount);
         game.addMessage(`Found ${this.amount} gold!`);
     }
 }
@@ -129,7 +133,7 @@ class Potion extends Item {
     }
 
     onCollect(game) {
-        game.player.addPotion(this.createInventoryCopy());
+        Game.player.addPotion(this.createInventoryCopy());
     }
 }
 
@@ -150,7 +154,7 @@ class HealthPotion extends Potion {
 
     use(game) {
         game.addMessage(`You drink the health potion!`);
-        const healedAmount = game.player.heal(this.healAmount);
+        const healedAmount = Game.player.heal(this.healAmount);
         return {
             success: true,
             message: `You drink ${this.name} (+${healedAmount} HP).`,
@@ -159,7 +163,7 @@ class HealthPotion extends Potion {
     }
 
     onCollect(game) {
-        game.player.addPotion(this.createInventoryCopy());
+        Game.player.addPotion(this.createInventoryCopy());
         game.addMessage(`Found a powerful ${this.name}!`);
     }
 }
@@ -171,7 +175,7 @@ class SpeedPotion extends Potion {
 
     constructor(x, y, name, speedBoost) {
         super(x, y, name || 'Speed Potion');
-        this.speedBoost = speedBoost || 20; // Example speed boost value
+        this.speedBoost = speedBoost || 50; // Example speed boost value
     }
 
     getColor() {
@@ -179,15 +183,15 @@ class SpeedPotion extends Potion {
     }
 
     onCollect(game) {
-        game.player.addPotion(this.createInventoryCopy());
+        Game.player.addPotion(this.createInventoryCopy());
         game.addMessage(`Found a Potion that boosts speed!`);
     }
 
     use(game) {
         game.addMessage(`You drink the speed potion!`);
-        game.player.speed -= this.speedBoost;
+        Game.player.speed -= this.speedBoost;
         game.timeManager.scheduleEvent(1000, this, () => {
-            game.player.speed += this.speedBoost;
+            Game.player.speed += this.speedBoost;
             game.addMessage('The effect of the speed potion wears off.');
         });
         return {
@@ -213,7 +217,7 @@ class Scroll extends Item {
     }
 
     onCollect(game) {
-        game.player.addScroll(this.createInventoryCopy());
+        Game.player.addScroll(this.createInventoryCopy());
     }
 }
 
@@ -232,7 +236,7 @@ class PsionicScroll extends Scroll {
     }
 
     onCollect(game) {
-        game.player.addScroll(this.createInventoryCopy());
+        Game.player.addScroll(this.createInventoryCopy());
         game.addMessage(`Found a powerful scroll!`);
     }
 
@@ -258,7 +262,7 @@ class PsionicScroll extends Scroll {
 class Weapon extends Item {
     static baseDamage = 5;
 
-    static baseSpeed = 10;
+    static baseSpeed = 50; // Base time cost to swing. 2 attacks per 'turn'
 
     constructor(x, y, name, weight, size, bonuses, enchantments) {
         super(x, y, name, Weapon.baseSpeed, weight || 3, size, bonuses, enchantments);
@@ -287,17 +291,16 @@ class Weapon extends Item {
 
     onCollect(game) {
         const weaponCopy = this.createInventoryCopy();
-        game.player.addWeapon(weaponCopy);
+        Game.player.addWeapon(weaponCopy);
         game.addMessage(`Found a ${this.name}!`);
     }
 }
 
 class Fists extends Weapon {
     constructor() {
-        super(-1, -1, 'Fists', 0, 0);
-        this.speed = 10;
+        super(-1, -1, 'Fists', 30, 0);
+        this.speed = 30;
         this.damage = 2;
-        this.attackBonus = 0;
     }
 
     getSymbol() {
@@ -319,7 +322,7 @@ class SmallDagger extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Small Dagger', 5, 5);
-        this.speed = 10;
+        this.speed = 30;
         this.damage = 5;
     }
 }
@@ -331,7 +334,7 @@ class Shortsword extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Shortsword', 7, 7);
-        this.speed = 14; // Slightly slower than dagger
+        this.speed = 40; // Slightly slower than dagger
         this.damage = 7;
     }
 }
@@ -342,7 +345,7 @@ class Rapier extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Rapier', 6, 6);
-        this.speed = 8; // Very fast weapon
+        this.speed = 35; // Very fast weapon
         this.damage = 6;
     }
 
@@ -358,7 +361,7 @@ class Longsword extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Longsword', 20, 20);
-        this.speed = 15; // Slower but more damage
+        this.speed = 50; // Slower but more damage
         this.damage = 15;
     }
 }
@@ -369,7 +372,7 @@ class Battleaxe extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Battleaxe', 30, 20);
-        this.speed = 18; // Heavy and slow but powerful
+        this.speed = 50; // Heavy and slow but powerful
         this.damage = 20;
     }
 
@@ -388,7 +391,7 @@ class Warhammer extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Warhammer', 50, 30);
-        this.speed = 40; // Very slow but devastating
+        this.speed = 75; // Very slow but devastating
         this.damage = 30;
     }
 
@@ -408,7 +411,7 @@ class Greatsword extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Greatsword', 40, 40);
-        this.speed = 30; // Very slow but massive damage
+        this.speed = 75; // Very slow but massive damage
         this.damage = 30;
     }
 
@@ -427,7 +430,7 @@ class Halberd extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Halberd', 35, 40);
-        this.speed = 22; // Polearm with reach advantage
+        this.speed = 60; // Polearm with reach advantage
         this.damage = 25;
     }
 
@@ -447,7 +450,7 @@ class Spear extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Spear', 20, 20);
-        this.speed = 14; // Medium speed, good reach
+        this.speed = 50; // Medium speed, good reach
         this.damage = 12;
     }
 
@@ -467,7 +470,7 @@ class EnchantedBlade extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Enchanted Blade', 20, 20);
-        this.speed = 10; // Magical efficiency
+        this.speed = 45; // Magical efficiency
         this.damage = 20;
     }
 
@@ -482,7 +485,7 @@ class DragonSlayer extends Weapon {
 
     constructor(x, y, name) {
         super(x, y, name || 'Dragonslayer Sword', attackBonus || 20, {}, 25);
-        this.speed = 30; // Legendary weapon, slow but devastating
+        this.speed = 55; // Legendary weapon, slow but devastating
         this.damage = 50;
     }
 
@@ -507,6 +510,15 @@ class Armor extends Item {
         return this.bodyLocation;
     }
 
+    getDefense() {
+        return {
+            base: this.defense,
+            bonus: this.getDefenseBonus(),
+            fromBonus: this.bonuses.defense || 0,
+            fromEnchantment: this.enchantments.defense || 0,
+        }
+    }
+
     getDefenseBonus() {
         return (this.bonuses.defense || 0) + (this.enchantments.defense || 0);
     }
@@ -529,7 +541,7 @@ class Armor extends Item {
 
     onCollect(game) {
         const armorCopy = this.createInventoryCopy();
-        game.player.addArmor(armorCopy);
+        Game.player.addArmor(armorCopy);
         game.addMessage(`Found a ${this.name}!`);
     }
 }
@@ -749,6 +761,41 @@ class ItemFactory {
         // Fallback to gold if no other item is selected
         return new Gold(x, y);
     }
+
+    static createLevelAppropriateItem(x, y, currentLevel, playerLuck = 50) {
+        // Calculate luck modifier (-2 to +2 level range)
+        // Luck 0 = -2 levels, Luck 50 = 0 levels, Luck 100 = +2 levels
+        const luckModifier = Math.floor((playerLuck - 50) / 25);
+        const effectiveLevel = Math.max(1, currentLevel + luckModifier);
+
+        // Filter items that are appropriate for this level (with luck modifier)
+        const validItems = ItemFactory.itemTypes.filter(itemType => {
+            const levelRange = itemType.class.levelRange;
+            if (!levelRange) return true; // Items without level range are always valid
+
+            // Item is valid if the effective level overlaps with its level range
+            return effectiveLevel >= levelRange[0] && effectiveLevel <= levelRange[1];
+        });
+
+        // If no valid items found (shouldn't happen), fall back to all items
+        if (validItems.length === 0) {
+            return ItemFactory.createRandomItem(x, y);
+        }
+
+        // Calculate total chance for valid items
+        const totalChance = validItems.reduce((sum, it) => sum + it.chance, 0);
+        let rand = Math.random() * totalChance;
+
+        for (const itemType of validItems) {
+            if (rand < itemType.chance) {
+                return new itemType.class(x, y);
+            }
+            rand -= itemType.chance;
+        }
+
+        // Fallback to first valid item
+        return new validItems[0].class(x, y);
+    }
 }
 
 class ItemManager {
@@ -763,7 +810,7 @@ class ItemManager {
         this.itemMemory = new Map();
 
         this.game.rooms.forEach((room) => {
-            const numItems = Math.floor(Math.random() * 3) + 1;
+            const numItems = Math.floor(Math.random() * 3);
             for (let i = 0; i < numItems; i++) {
                 if (Math.random() < 0.7) {
                     const x = room.x + Math.floor(Math.random() * room.width);
@@ -773,13 +820,16 @@ class ItemManager {
                     if (
                         (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
                         (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) ||
-                        (x === this.game.player.x && y === this.game.player.y) ||
+                        (x === Game.player.x && y === Game.player.y) ||
                         this.game.dungeon[y][x] === '+'
                     ) {
                         continue;
                     }
 
-                    const item = ItemFactory.createRandomItem(x, y);
+                    // Use level-appropriate item generation with player's luck
+                    const currentLevel = Game.player.level;
+                    const playerLuck = Game.player.luck;
+                    const item = ItemFactory.createLevelAppropriateItem(x, y, currentLevel, playerLuck);
                     this.items.push(item);
                 }
             }
@@ -787,7 +837,7 @@ class ItemManager {
     }
 
     checkForItems() {
-        const {player} = this.game;
+        const player = Game.player;
         const idx = this.items.findIndex((it) => it.x === player.x && it.y === player.y);
         if (idx !== -1) {
             const item = this.items[idx];

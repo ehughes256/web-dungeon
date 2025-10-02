@@ -10,6 +10,7 @@ class Monster {
     this.maxHp = this.hp;
     this.dmg = 1;
     this.speed = 100;
+    this.attackSpeed = 50;
     this.size = 100;
     this.armor = 0;
     this.nextActionTime = 0; // Time when the monster can next act
@@ -21,7 +22,7 @@ class Monster {
   }
 
   getDamage() {
-    return this.dmg;
+    return Math.floor(Math.random() * this.dmg) + 1;
   }
 
   // Abstract methods to be implemented by subclasses
@@ -43,7 +44,7 @@ class Monster {
 
   // AI behavior - can be overridden by subclasses for specific behavior
   performAction(monsterManager) {
-    const dist = this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y);
+    const dist = this.distanceTo(Game.player.x, Game.player.y);
 
     if (dist === 1) {
       monsterManager.monsterAttackPlayer(this);
@@ -53,15 +54,15 @@ class Monster {
     // Default behavior: move toward player if visible
     if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x] && dist <= 10) {
       const step =
-        monsterManager.aStarNextStep(this.x, this.y, monsterManager.game.player.x, monsterManager.game.player.y) ||
-        monsterManager.pathStepToward(this.x, this.y, monsterManager.game.player.x, monsterManager.game.player.y);
+        monsterManager.aStarNextStep(this.x, this.y, Game.player.x, Game.player.y) ||
+        monsterManager.pathStepToward(this.x, this.y, Game.player.x, Game.player.y);
       if (step) {
         const [tx, ty] = step;
         if (
-          !(tx === monsterManager.game.player.x && ty === monsterManager.game.player.y) &&
+          !(tx === Game.player.x && ty === Game.player.y) &&
           monsterManager.isWalkableForMonster(tx, ty)
         ) {
-          this.moveTo(tx, ty);
+          this.moveToWithDelay(tx, ty, monsterManager.game, 50).then();
         }
       }
     } else if (Math.random() < 0.2) {
@@ -77,11 +78,7 @@ class Monster {
         this.moveTo(wx, wy);
       }
     }
-
-    // Check for adjacent attack after movement (now includes diagonal adjacency)
-    if (this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y) === 1) {
-      monsterManager.monsterAttackPlayer(this);
-    }
+    this.scheduleNextAction(monsterManager.game.currentTick);
   }
 
   // Common methods for all monsters
@@ -98,6 +95,13 @@ class Monster {
     return Math.abs(this.x - x) + Math.abs(this.y - y);
   }
 
+  async moveToWithDelay(x, y, game, delay) {
+    this.x = x;
+    this.y = y;
+    await game.sleep(delay);
+    game.render();
+  }
+
   moveTo(x, y) {
     this.x = x;
     this.y = y;
@@ -107,8 +111,8 @@ class Monster {
     return currentTick >= this.nextActionTime;
   }
 
-  scheduleNextAction(currentTick) {
-    this.nextActionTime = currentTick + this.speed;
+  scheduleNextAction(currentTick, delay = this.speed) {
+    this.nextActionTime = currentTick + delay;
   }
 
   getDisplayName() {
@@ -209,7 +213,7 @@ class Spider extends Monster {
 
   performAction(monsterManager) {
     // Spiders prefer to stay at range and dart in for quick attacks
-    const dist = this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y);
+    const dist = this.distanceTo(Game.player.x, Game.player.y);
 
     if (dist === 1) {
       monsterManager.monsterAttackPlayer(this);
@@ -218,9 +222,9 @@ class Spider extends Monster {
       for (const [dx, dy] of retreatDirs) {
         const newX = this.x + dx;
         const newY = this.y + dy;
-        const newDist = Math.abs(newX - monsterManager.game.player.x) + Math.abs(newY - monsterManager.game.player.y);
+        const newDist = Math.abs(newX - Game.player.x) + Math.abs(newY - Game.player.y);
         if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY)) {
-          this.moveTo(newX, newY);
+          this.moveToWithDelay(newX, newY, monsterManager.game, 50).then();
           break;
         }
       }
@@ -296,7 +300,7 @@ class Bat extends Monster {
   }
 
   performAction(monsterManager) {
-    const dist = this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y);
+    const dist = this.distanceTo(Game.player.x, Game.player.y);
 
     if (dist === 1) {
       monsterManager.monsterAttackPlayer(this);
@@ -314,7 +318,7 @@ class Bat extends Monster {
       const wx = this.x + d[0];
       const wy = this.y + d[1];
       if (monsterManager.isWalkableForMonster(wx, wy)) {
-        this.moveTo(wx, wy);
+          this.moveToWithDelay(wx, wy, monsterManager.game, 50).then();
       }
     } else {
       // Sometimes chase player normally
@@ -351,14 +355,14 @@ class Wizard extends Monster {
   }
 
   performAction(monsterManager) {
-    const dist = this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y);
+    const dist = this.distanceTo(Game.player.x, Game.player.y);
 
     // Wizards prefer to attack from range
     if (dist >= 2 && dist <= 5 && monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
-      if (monsterManager.game.currentTick - this.lastSpellTick > 200) {
+      if (monsterManager.game.currentTick - this.lastSpellTick > 600) {
         // Cast magic missile
         const damage = this.dmg;
-        monsterManager.game.player.takeDamage(damage);
+        Game.player.takeDamage(damage);
         monsterManager.game.addMessage(`The ${this.getDisplayName()} casts magic missile for ${damage} damage!`);
         this.lastSpellTick = monsterManager.game.currentTick;
         return;
@@ -371,9 +375,10 @@ class Wizard extends Monster {
       for (const [dx, dy] of retreatDirs) {
         const newX = this.x + dx;
         const newY = this.y + dy;
-        const newDist = Math.abs(newX - monsterManager.game.player.x) + Math.abs(newY - monsterManager.game.player.y);
+        const newDist = Math.abs(newX - Game.player.x) + Math.abs(newY - Game.player.y);
         if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY)) {
-          this.moveTo(newX, newY);
+          this.moveToWithDelay(newX, newY, monsterManager.game, 50).then(() => {});
+          monsterManager.game.render();
           return;
         }
       }
@@ -399,7 +404,7 @@ class Minotaur extends Monster {
     this.hp = 30 + Math.floor(Math.random() * 15); // 30-44 HP (boss-like)
     this.maxHp = this.hp;
     this.dmg = 8;
-    this.speed = 180; // Medium-slow normally
+    this.speed = 130; // Medium-slow normally
     this.experience = 50; // Experience given to player on death
   }
 
@@ -412,17 +417,17 @@ class Minotaur extends Monster {
   }
 
   performAction(monsterManager) {
-    const dist = this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y);
+    const dist = this.distanceTo(Game.player.x, Game.player.y);
 
     // Start charging if player is in line of sight and at medium distance
     if (!this.charging && dist >= 3 && dist <= 6) {
-      const dx = monsterManager.game.player.x - this.x;
-      const dy = monsterManager.game.player.y - this.y;
+      const dx = Game.player.x - this.x;
+      const dy = Game.player.y - this.y;
 
       // Check if player is in a straight line (horizontal, vertical, or diagonal)
       if (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) {
         this.charging = true;
-        this.speed = 60; // Much faster when charging
+        this.speed = 50; // Much faster when charging
         monsterManager.game.addMessage(`The ${this.getDisplayName()} begins charging!`);
       }
     }
@@ -430,7 +435,7 @@ class Minotaur extends Monster {
     // Stop charging when adjacent or after a few moves
     if (this.charging && (dist <= 1 || Math.random() < 0.3)) {
       this.charging = false;
-      this.speed = 180; // Back to normal speed
+      this.speed = 130; // Back to normal speed
     }
 
     super.performAction(monsterManager);
@@ -460,7 +465,7 @@ class Ghost extends Monster {
   }
 
   performAction(monsterManager) {
-    const dist = this.distanceTo(monsterManager.game.player.x, monsterManager.game.player.y);
+    const dist = this.distanceTo(Game.player.x, Game.player.y);
 
     if (dist === 1) {
       monsterManager.monsterAttackPlayer(this);
@@ -469,8 +474,8 @@ class Ghost extends Monster {
 
     // Ghosts can move through walls - direct path to player
     if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x] && dist <= 8) {
-      const dx = monsterManager.game.player.x - this.x;
-      const dy = monsterManager.game.player.y - this.y;
+      const dx = Game.player.x - this.x;
+      const dy = Game.player.y - this.y;
 
       let moveX = 0;
       let moveY = 0;
@@ -483,7 +488,7 @@ class Ghost extends Monster {
       const newY = this.y + moveY;
 
       if (monsterManager.game.inBounds(newX, newY)) {
-        this.moveTo(newX, newY);
+        this.moveToWithDelay(newX, newY, monsterManager.game, 50).then();
       }
     } else {
       // Random movement when not chasing
@@ -588,7 +593,7 @@ class MonsterManager {
         ];
 
     for (const [nx, ny] of options) {
-      if (this.isWalkableForMonster(nx, ny) || (nx === this.game.player.x && ny === this.game.player.y)) {
+      if (this.isWalkableForMonster(nx, ny) || (nx === Game.player.x && ny === Game.player.y)) {
         return [nx, ny];
       }
     }
@@ -685,7 +690,6 @@ class MonsterManager {
       const oldX = monster.x;
       const oldY = monster.y;
       monster.performAction(this);
-      monster.scheduleNextAction(this.game.currentTick);
 
       // Track if any monster moved for rendering purposes
       if (monster.x !== oldX || monster.y !== oldY) {
@@ -708,18 +712,20 @@ class MonsterManager {
 
   // Combat methods
   monsterAttackPlayer(monster) {
-    const dmg = Math.max(1, monster.dmg - this.game.player.getDefense());
-    this.game.player.takeDamage(dmg);
-    this.game.addMessage(`${monster.getDisplayName()} attacks you for ${dmg} damage! (HP ${this.game.player.health})`);
+    const dmg = Math.max(1, monster.getDamage());
+    const targetBodyPart = Game.player.body.randomAttackablePart();
+    Game.player.takeDamage(targetBodyPart, dmg);
+    this.game.addMessage(`${monster.getDisplayName()} attacks your ${targetBodyPart.name} for ${dmg} damage! (HP ${Game.player.health})`);
 
-    if (this.game.player.isDead()) {
+    if (Game.player.isDead()) {
       this.game.gameOver = true;
       this.game.addMessage('You die. Game over.');
     }
+    monster.scheduleNextAction(this.game.currentTick, monster.attackSpeed);
   }
 
   attackMonster(monster) {
-    const attack = this.game.player.getAttack();
+    const attack = Game.player.getAttack();
     const damage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus);
 
     const died = monster.takeDamage(damage);
@@ -731,7 +737,7 @@ class MonsterManager {
       this.game.render();
     }
 
-    this.game.consumeTurn(this.game.player.equippedWeapon().speed || 50);
+    this.game.consumeTurn(Game.player.equippedWeapon().speed || 50);
   }
 }
 
