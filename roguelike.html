@@ -51,21 +51,6 @@
             background: #555;
         }
 
-        .controls {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #333;
-            border-radius: 5px;
-        }
-
-        .inventory {
-            margin-top: 10px;
-        }
-
-        .inventory-item {
-            padding: 2px 0;
-        }
-
         h2 {
             margin-top: 0;
             color: #ffaa00;
@@ -79,10 +64,6 @@
             margin: 5px 0;
         }
 
-        #inventoryModal {
-            display: none !important;
-        }
-
         #inventorySection {
             margin-bottom: 20px;
         }
@@ -91,6 +72,25 @@
             margin-top: 0;
             margin-bottom: 10px;
             color: #ffaa00;
+        }
+
+        #statsSection {
+            margin-bottom: 20px;
+        }
+
+        #statsSection h2 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #ffaa00;
+        }
+
+        .sidebar-toggle-hint {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 10px;
+            text-align: center;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
         }
 
         .inv-section {
@@ -152,7 +152,7 @@
 
         .equipped-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 4px;
             font-size: 13px;
         }
@@ -216,15 +216,18 @@
 <div id="gameContainer">
     <canvas id="dungeon" width="800" height="600"></canvas>
     <div id="sidebar">
+        <div class="sidebar-toggle-hint">Press / to toggle view</div>
         <div id="inventorySection">
             <h2>Inventory</h2>
             <div id="inventoryContents"></div>
         </div>
-        <h2>Player Stats</h2>
-        <div class="stats">
-            <div class="stat">Level: <span id="level">1</span></div>
-            <div class="stat">Health: <span id="health">100</span></div>
-            <div class="stat">Gold: <span id="gold">0</span></div>
+        <div id="statsSection" style="display: none;">
+            <h2>Player Stats</h2>
+            <div class="stats">
+                <div class="stat">Level: <span id="level">1</span></div>
+                <div class="stat">Health: <span id="health">100</span></div>
+                <div class="stat">Gold: <span id="gold">0</span></div>
+            </div>
         </div>
         <div id="messages"
              style="margin-top: 15px; height: 160px; overflow-y: auto; background: #111; padding: 5px; border-radius: 3px;">
@@ -249,6 +252,10 @@
         advanceTime() {
             this.game.currentTick++;
             this.game.monsterManager.processTimeIncrement();
+            if(Game.player.nextFreeHealTime <= this.game.currentTick) {
+                Game.player.nextFreeHealTime = this.game.currentTick + 3000;
+                Game.player.heal(5);
+            }
             if (this.futureEvents[this.game.currentTick]) {
                 const events = this.futureEvents[this.game.currentTick];
                 delete this.futureEvents[this.game.currentTick];
@@ -274,9 +281,14 @@
             this.levelCache = {};
             this.gameOver = false;
             this.currentTick = 0;
+            this.dungeonLevel = 1;
             this.timeManager = new TimeManager(this);
             this.monsterManager = new MonsterManager(this);
             this.itemManager = new ItemManager(this);
+            this.sidebarShowingInventory = true; // Track which view is active
+            // Examine / Inspect mode state
+            this.examineMode = false;
+            this.examineCursor = null; // {x,y}
             this.generateDungeon();
             this.monsterManager.spawnMonsters();
             this.itemManager.generateItems();
@@ -379,9 +391,9 @@
 
         descend() {
             if (this.gameOver) return;
-            Game.player.level += 1;
-            if (this.levelCache[Game.player.level]) {
-                this.addMessage(`You return to level ${Game.player.level}.`);
+            this.dungeonLevel += 1;
+            if (this.levelCache[this.dungeonLevel]) {
+                this.addMessage(`You return to level ${this.dungeonLevel}.`);
             } else {
                 this.generateDungeon();
                 this.monsterManager.spawnMonsters();
@@ -391,7 +403,7 @@
                     Game.player.y = this.upStair.y;
                 }
                 this.computeFOV();
-                this.addMessage(`You discover new level ${Game.player.level}.`);
+                this.addMessage(`You discover new level ${this.dungeonLevel}.`);
             }
             this.computeFOV();
             this.render();
@@ -400,11 +412,11 @@
 
         ascend() {
             if (this.gameOver) return;
-            if (Game.player.level === 1) {
+            if (this.dungeonLevel === 1) {
                 this.addMessage('You are already at the top.');
                 return;
             }
-            Game.player.level -= 1;
+            this.dungeonLevel -= 1;
             if (this.downStair) {
                 Game.player.x = this.downStair.x;
                 Game.player.y = this.downStair.y;
@@ -412,7 +424,7 @@
             this.computeFOV();
             this.render();
             this.updateUI();
-            this.addMessage(`You return to level ${Game.player.level}.`);
+            this.addMessage(`You return to level ${this.dungeonLevel}.`);
         }
 
         generateDungeon() {
@@ -429,7 +441,7 @@
             this.upStair = result.upStair;
             this.downStair = result.downStair;
 
-            if (this.rooms.length && !this.levelCache[Game.player.level]) {
+            if (this.rooms.length && !this.levelCache[this.dungeonLevel]) {
                 const r = this.rooms[0];
                 Game.player.x = r.x + Math.floor(r.width / 2);
                 Game.player.y = r.y + Math.floor(r.height / 2);
@@ -444,68 +456,62 @@
             document.addEventListener('keydown', (e) => {
                 if (this.gameOver) return;
                 const k = e.key.toLowerCase();
+
+                // Examine mode key handling (non-turn consuming)
+                if (this.examineMode) {
+                    let dx = 0, dy = 0;
+                    switch (k) {
+                        case 'arrowup': case 'w': case 'k': dy = -1; break;
+                        case 'arrowdown': case 's': case 'j': dy = 1; break;
+                        case 'arrowleft': case 'a': case 'h': dx = -1; break;
+                        case 'arrowright': case 'd': case 'l': dx = 1; break;
+                        case 'y': dx = -1; dy = -1; break;
+                        case 'u': dx = 1; dy = -1; break;
+                        case 'b': dx = -1; dy = 1; break;
+                        case 'n': dx = 1; dy = 1; break;
+                        case 'enter':
+                            this.describeAt(this.examineCursor.x, this.examineCursor.y, true);
+                            return;
+                        case 'x': // toggle exit
+                        case 'escape':
+                            this.exitExamineMode();
+                            return;
+                        default:
+                            return;
+                    }
+                    if (dx || dy) {
+                        this.moveExamineCursor(dx, dy);
+                        e.preventDefault();
+                    }
+                    return; // Prevent normal mode handling while examining
+                }
+
                 let dx = 0, dy = 0;
                 switch (k) {
-                    // Arrow keys and WASD (original 4-directional movement)
+                    // Movement and actions
                     case 'arrowup':
-                    case 'w':
-                        dy = -1;
-                        break;
+                    case 'w': dy = -1; break;
                     case 'arrowdown':
-                    case 's':
-                        dy = 1;
-                        break;
+                    case 's': dy = 1; break;
                     case 'arrowleft':
-                    case 'a':
-                        dx = -1;
-                        break;
+                    case 'a': dx = -1; break;
                     case 'arrowright':
-                    case 'd':
-                        dx = 1;
-                        break;
-                    // Vi-style movement keys (hjklyubn) for 8-directional movement
-                    case 'h': // left
-                        dx = -1;
-                        break;
-                    case 'j': // down
-                        dy = 1;
-                        break;
-                    case 'k': // up
-                        dy = -1;
-                        break;
-                    case 'l': // right
-                        dx = 1;
-                        break;
-                    case 'y': // up-left (diagonal)
-                        dx = -1;
-                        dy = -1;
-                        break;
-                    case 'u': // up-right (diagonal)
-                        dx = 1;
-                        dy = -1;
-                        break;
-                    case 'b': // down-left (diagonal)
-                        dx = -1;
-                        dy = 1;
-                        break;
-                    case 'n': // down-right (diagonal)
-                        dx = 1;
-                        dy = 1;
-                        break;
-                    case ' ':
-                        this.useStairs();
-                        return;
-                    case 'o':
-                        this.openAdjacentDoors();
-                        return;
-                    case 'p':
-                        Game.player.drinkPotion(this);
-                        return;
-                    case 'r':
-                        Game.player.castScroll(this);
-                        return;
-                    default:
-                        return;
+                    case 'd': dx = 1; break;
+                    case 'h': dx = -1; break;
+                    case 'j': dy = 1; break;
+                    case 'k': dy = -1; break;
+                    case 'l': dx = 1; break;
+                    case 'y': dx = -1; dy = -1; break;
+                    case 'u': dx = 1; dy = -1; break;
+                    case 'b': dx = -1; dy = 1; break;
+                    case 'n': dx = 1; dy = 1; break;
+                    case ' ': this.useStairs(); return;
+                    case 'o': this.openAdjacentDoors(); return;
+                    case 'p': Game.player.drinkPotion(this); return;
+                    case 'r': Game.player.castScroll(this); return;
+                    case '/': this.toggleSidebarView(); return;
+                    case 'x': this.startExamineMode(); return; // Enter examine mode
+                    default: return;
                 }
                 if (dx || dy) {
                     this.handleMove(dx, dy);
@@ -514,22 +520,100 @@
             });
         }
 
+        startExamineMode() {
+            this.examineMode = true;
+            this.examineCursor = {x: Game.player.x, y: Game.player.y};
+            this.addMessage('Examine: move cursor with movement keys, Enter to inspect, Esc/X to exit.');
+            this.render();
+        }
+
+        exitExamineMode() {
+            this.examineMode = false;
+            this.examineCursor = null;
+            this.addMessage('Examine mode ended.');
+            this.render();
+        }
+
+        moveExamineCursor(dx, dy) {
+            if (!this.examineCursor) return;
+            const nx = this.examineCursor.x + dx;
+            const ny = this.examineCursor.y + dy;
+            if (!this.inBounds(nx, ny)) return;
+            if (!this.explored[ny][nx]) return; // keep cursor within explored
+            this.examineCursor.x = nx;
+            this.examineCursor.y = ny;
+            // Auto-describe on move (lightweight)
+            this.describeAt(nx, ny, false);
+            this.render();
+        }
+
+        describeAt(x, y, verbose = false) {
+            if (!this.inBounds(x, y)) {
+                this.addMessage('Out of bounds.');
+                return;
+            }
+            if (!this.explored[y][x]) {
+                this.addMessage('Unexplored darkness.');
+                return;
+            }
+            // Monster first (if visible)
+            const monster = this.monsterManager.monsters.find(m => m.x === x && m.y === y && this.visible[m.y] && this.visible[m.y][m.x]);
+            if (monster) {
+                this.addMessage(`${monster.getDisplayName()}: ${monster.description}`);
+                return;
+            }
+            // Item if visible
+            const item = this.itemManager.items.find(it => it.x === x && it.y === y && this.visible[it.y][it.x]);
+            if (item) {
+                this.addMessage(`${item.name}: ${item.description || 'An indescribable object.'}`);
+                return;
+            }
+            // Tile description
+            const tile = this.dungeon[y][x];
+            let tilDesc = '';
+            switch (tile) {
+                case '#': tilDesc = 'A rough-hewn stone wall—unyielding.'; break;
+                case '.': tilDesc = 'Open dungeon floor, strewn with dust and echoes.'; break;
+                case '+': tilDesc = 'A closed wooden door; hinges creak with potential.'; break;
+                case '/': tilDesc = 'An open doorway leading into shadow.'; break;
+                case '<': tilDesc = 'A stairwell spiraling upward.'; break;
+                case '>': tilDesc = 'Steps descending into deeper peril.'; break;
+                default: tilDesc = 'Featureless dark.'; break;
+            }
+            if (verbose) this.addMessage(tilDesc);
+            else this.addMessage(tilDesc);
+        }
+
+        // Toggle between inventory and stats sidebar views
+        toggleSidebarView() {
+            this.sidebarShowingInventory = !this.sidebarShowingInventory;
+            const inventorySection = document.getElementById('inventorySection');
+            const statsSection = document.getElementById('statsSection');
+            if (!inventorySection || !statsSection) return;
+            if (this.sidebarShowingInventory) {
+                inventorySection.style.display = 'block';
+                statsSection.style.display = 'none';
+                // Rebuild inventory when switching back
+                this.buildInventory();
+            } else {
+                inventorySection.style.display = 'none';
+                statsSection.style.display = 'block';
+            }
+        }
+
+        // Restored inventory UI construction
         buildInventory() {
             const container = document.getElementById('inventoryContents');
+            if (!container) return;
             const p = Game.player;
             const lines = [];
 
-            // Add equipped items section at the top
+            // Equipped section
             lines.push(`<div class='equipped-section'>`);
             lines.push(`<h4>Currently Equipped</h4>`);
             lines.push(`<div class='equipped-grid'>`);
-
-            // Helper function to render equipment slot
             const renderSlot = (bodyPart) => {
-                let item = bodyPart.equipped;
-                if (!(bodyPart.equipped instanceof EmptyItem)) {
-                    item = bodyPart.equipped;
-                }
+                const item = bodyPart.equipped;
                 const hasItem = item && !(item instanceof EmptyItem);
                 const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
                 const itemText = hasItem ? item.name : 'None';
@@ -541,8 +625,6 @@
                     ${unequipButton}
                 </div>`;
             };
-
-            // Add all equipment slots
             lines.push(renderSlot(p.body.weapon));
             lines.push(renderSlot(p.body.head));
             lines.push(renderSlot(p.body.torso));
@@ -551,17 +633,12 @@
             lines.push(renderSlot(p.body.finger));
             lines.push(renderSlot(p.body.legs));
             lines.push(renderSlot(p.body.feet));
+            lines.push('</div></div>');
 
-            lines.push(`</div>`);
-            lines.push(`</div>`);
-
-            // Add existing inventory sections
             const section = (title, arr, renderFn) => {
                 if (!arr || !arr.length) return;
                 lines.push(`<div class='inv-section'><h4>${title}</h4>`);
-                arr.forEach((item, idx) => {
-                    lines.push(renderFn(item, idx));
-                });
+                arr.forEach((item, idx) => lines.push(renderFn(item, idx)));
                 lines.push('</div>');
             };
             lines.push(`<div class='inv-section'><div>Gold: ${p.inventory.gold}</div></div>`);
@@ -569,7 +646,6 @@
             section('Scrolls', p.inventory.scrolls, (it, i) => this.renderInvRow('scrolls', it, i));
             section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
             section('Armor', p.inventory.armor, (it, i) => this.renderInvRow('armor', it, i, p.equippedArmor().includes(it)));
-            if (lines.length === 1) lines.push('<div class="inv-section">(Empty)</div>');
             container.innerHTML = lines.join('');
         }
 
@@ -592,12 +668,8 @@
             if (category === 'armor') {
                 actionButtons += equipped ? `<button onclick="game.unequipInventoryItem('armor')">Unequip</button>` : `<button onclick="game.equipInventoryItem('armor',${index})">Equip</button>`;
             }
-            if (category === 'potions') {
-                actionButtons += `<button onclick="game.useInventoryItem('potions',${index})">Drink</button>`;
-            }
-            if (category === 'scrolls') {
-                actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
-            }
+            if (category === 'potions') actionButtons += `<button onclick="game.useInventoryItem('potions',${index})">Drink</button>`;
+            if (category === 'scrolls') actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
             actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
             return `<div class='inv-item-row'><div style='flex:1 1 auto;'>${item.name || 'Unknown'} ${tags.join(' ')}</div><div class='inv-actions'>${actionButtons}</div></div>`;
         }
@@ -623,28 +695,30 @@
                 this.addMessage(`You stow ${Game.player.equippedWeapon().name}.`);
                 Game.player.unEquipWeapon();
             }
-            if (category === 'armor' && Game.player.equippedArmor()) {
-                this.addMessage(`You remove ${Game.player.equippedArmor().name}.`);
-                const bodyPart = Game.player.equippedArmor().bodyLocation;
-                Game.player.unEquipArmor(bodyPart);
+            if (category === 'armor') {
+                const equipped = Game.player.equippedArmor();
+                equipped.forEach(a => {
+                    this.addMessage(`You remove ${a.name}.`);
+                    Game.player.unEquipArmor(a.bodyLocation);
+                });
             }
             this.buildInventory();
             this.updateUI();
         }
 
-        unequipSlot(bodyPart, item) {
+        unequipSlot(bodyPartName) {
             const p = Game.player;
-            if (bodyPart === 'weapon') {
+            if (bodyPartName === 'weapon') {
                 const weapon = p.body.weapon.equipped;
                 if (weapon && !(weapon instanceof EmptyItem) && !(weapon instanceof Fists)) {
                     this.addMessage(`You stow ${weapon.name}.`);
                     p.unEquipWeapon();
                 }
-            } else {
-                const item = p.body[bodyPart].equipped;
+            } else if (p.body[bodyPartName]) {
+                const item = p.body[bodyPartName].equipped;
                 if (item && !(item instanceof EmptyItem)) {
                     this.addMessage(`You remove ${item.name}.`);
-                    p.unEquipArmor(bodyPart);
+                    p.unEquipArmor(bodyPartName);
                 }
             }
             this.buildInventory();
@@ -654,75 +728,43 @@
         useInventoryItem(category, index) {
             const p = Game.player;
             const arr = p.inventory[category];
-            if (!arr || !arr[index]) {
-                this.addMessage('Nothing to use.');
-                return;
-            }
-
+            if (!arr || !arr[index]) { this.addMessage('Nothing to use.'); return; }
             const item = arr[index];
-
             if (category === 'potions') {
-                // Use the potion's use method if available
                 if (typeof item.use === 'function') {
                     const result = item.use(this);
-                    if (result && result.message) {
-                        this.addMessage(result.message);
-                    }
+                    if (result && result.message) this.addMessage(result.message);
                 } else {
-                    // Fallback for basic healing
                     const healAmount = item.healAmount || 20;
                     const actualHeal = p.heal(healAmount);
                     this.addMessage(`You drink ${item.name} (+${actualHeal} HP).`);
                 }
-
-                // Reduce count and remove if empty
                 item.count -= 1;
-                if (item.count <= 0) {
-                    arr.splice(index, 1);
-                }
+                if (item.count <= 0) arr.splice(index, 1);
                 this.consumeTurn(20);
-
             } else if (category === 'scrolls') {
-                // Use the scroll's use method if available
                 if (typeof item.use === 'function') {
                     this.addMessage(`You read the ${item.name}.`);
                     item.use(this);
                 } else {
-                    // Fallback behavior - damage all visible monsters
-                    const targets = this.monsterManager.monsters.filter((m) =>
-                        this.visible[m.y] && this.visible[m.y][m.x]
-                    );
-                    if (targets.length > 0) {
+                    const targets = this.monsterManager.monsters.filter(m => this.visible[m.y] && this.visible[m.y][m.x]);
+                    if (targets.length) {
                         const damage = item.damage || 10;
                         let killed = 0;
-                        targets.forEach((m) => {
-                            m.hp -= damage;
-                            if (m.hp <= 0) killed++;
-                        });
-                        if (killed) {
-                            this.monsterManager.monsters = this.monsterManager.monsters.filter((m) => m.hp > 0);
-                        }
+                        targets.forEach(m => { m.hp -= damage; if (m.hp <= 0) killed++; });
+                        if (killed) this.monsterManager.monsters = this.monsterManager.monsters.filter(m => m.hp > 0);
                         this.addMessage(`You cast ${item.name}. ${targets.length} hit, ${killed} slain.`);
-                    } else {
-                        this.addMessage(`You cast ${item.name}, but there are no targets in sight.`);
-                    }
+                    } else this.addMessage(`You cast ${item.name}, but there are no targets in sight.`);
                 }
-
-                // Reduce count and remove if empty
                 item.count -= 1;
-                if (item.count <= 0) {
-                    arr.splice(index, 1);
-                }
+                if (item.count <= 0) arr.splice(index, 1);
                 this.consumeTurn(30);
             }
-
-            // Update the UI and inventory display
             this.buildInventory();
             this.updateUI();
             this.render();
         }
 
-        // Restored movement, interaction, and rendering methods
         handleMove(dx, dy) {
             const nx = Game.player.x + dx, ny = Game.player.y + dy;
             if (nx < 0 || ny < 0 || nx >= this.width || ny >= this.height) return;
@@ -734,12 +776,8 @@
             }
             const monster = this.monsterManager.monsters.find(m => m.x === nx && m.y === ny);
             if (monster) {
-                const result = Game.player.attemptAttack(monster)
-                if (result.hit) {
-                    this.monsterManager.attackMonster(monster);
-                } else {
-                    this.addMessage('You miss!');
-                }
+                const result = Game.player.attemptAttack(monster);
+                if (result.hit) this.monsterManager.attackMonster(monster); else this.addMessage('You miss!');
                 return;
             }
             if (this.isValidMove(nx, ny)) {
@@ -758,35 +796,23 @@
 
         openAdjacentDoors() {
             let opened = 0;
-            // Include diagonal directions for door opening
-            const dirs = [
-                [1, 0], [-1, 0], [0, 1], [0, -1], // Cardinal directions
-                [1, 1], [1, -1], [-1, 1], [-1, -1] // Diagonal directions
-            ];
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
             for (const [dx, dy] of dirs) {
                 const x = Game.player.x + dx, y = Game.player.y + dy;
-                if (x < 0 || y < 0 || x >= this.width || y >= this.height) continue;
+                if (!this.inBounds(x, y)) continue;
                 if (this.dungeon[y][x] === '+') {
                     this.dungeon[y][x] = '/';
                     opened++;
                 }
             }
-            if (opened) {
-                this.addMessage(`You open ${opened} door${opened > 1 ? 's' : ''}.`);
-                this.consumeTurn(20);
-            } else this.addMessage('No closed door adjacent.');
+            if (opened) { this.addMessage(`You open ${opened} door${opened>1?'s':''}.`); this.consumeTurn(20); }
+            else this.addMessage('No closed door adjacent.');
         }
 
         useStairs() {
             if (this.gameOver) return;
-            if (this.upStair && Game.player.x === this.upStair.x && Game.player.y === this.upStair.y) {
-                this.ascend();
-                return;
-            }
-            if (this.downStair && Game.player.x === this.downStair.x && Game.player.y === this.downStair.y) {
-                this.descend();
-                return;
-            }
+            if (this.upStair && Game.player.x === this.upStair.x && Game.player.y === this.upStair.y) { this.ascend(); return; }
+            if (this.downStair && Game.player.x === this.downStair.x && Game.player.y === this.downStair.y) { this.descend(); return; }
             this.addMessage('There are no stairs here.');
         }
 
@@ -882,6 +908,14 @@
             this.ctx.textBaseline = 'middle';
             this.ctx.fillStyle = this.gameOver ? '#ff0000' : '#00ff00';
             this.ctx.fillText('@', ppx + ts / 2, ppy + ts / 2);
+            // Examine cursor highlight
+            if (this.examineMode && this.examineCursor) {
+                const cx = this.examineCursor.x * ts;
+                const cy = this.examineCursor.y * ts;
+                this.ctx.strokeStyle = '#ffff00';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(cx + 1, cy + 1, ts - 2, ts - 2);
+            }
         }
 
         canDropHere() {

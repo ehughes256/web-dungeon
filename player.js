@@ -61,9 +61,9 @@ class PlayerBody {
         this.arms = new BodyPart("arms", 15, this.torso);
         this.hands = new BodyPart("hands", 10, this.arms);
         this.weapon = new BodyPart("weapon", 1, this.hands); // Placeholder for weapon
-        this.finger = new BodyPart("finger", 2, this.hands);
         this.legs = new BodyPart("legs", 20, this.torso);
         this.feet = new BodyPart("feet", 5, this.legs);
+        this.finger = new BodyPart("finger", 2, this.hands);
 
         this.weapon.equipped = new Fists();
     }
@@ -153,6 +153,13 @@ class PlayerBody {
         }
         return null;
     }
+
+    grow() {
+        for (const part of this.allBodyParts()) {
+            part.size = Math.max(Math.floor(part.size * 1.1), 1);
+            part.maxHp = part.size;
+        }
+    }
 }
 
 class Player {
@@ -177,6 +184,9 @@ class Player {
         this.charisma = 50; // Charisma attribute
         this.luck = 50; // Luck attribute
         this.experience = 0; // Experience points
+        this.name = 'Hero Protagonist';
+        this.class = 'Adventurer'; // Player class
+        this.nextFreeHealTime = 3000; // Next time the player can heal
     }
 
     equippedWeapon() {
@@ -215,7 +225,12 @@ class Player {
         let didHeal = true;
         while (amountLeft > 0 && didHeal) {
             didHeal = false;
-            for (const part of this.body.allBodyParts()) {
+            const array = this.body.allBodyParts();
+            const random = array.map(() => Math.random());
+            const randomOrder = array.sort((a,b) => {
+                return random[a] - random[b];
+            });
+            for (const part of randomOrder) {
                 if (part.currentHp < part.maxHp) {
                     part.currentHp += 1;
                     didHeal = true;
@@ -421,8 +436,18 @@ class Player {
             this.game.itemManager.items.push(item);
             this.game.addMessage(`You drop ${item.name}.`);
         }
-        this.game.buildInventoryModal();
         this.game.updateUI();
         this.game.consumeTurn(10);
+    }
+
+    gainExperience(amount) {
+        this.experience += amount;
+        const expToLevel = this.level * 100;
+        if (this.experience >= expToLevel) {
+            this.level += 1;
+            this.experience -= expToLevel;
+            this.body.grow();
+            this.game.addMessage(`You leveled up to level ${this.level}!`);
+        }
     }
 }

@@ -17,6 +17,7 @@ class Item {
         this.size = size;
         this.identified = false;
         this.cursed = false;
+        this.description = 'This is a plain old item.';
     }
 
     // Abstract methods to be implemented by subclasses
@@ -61,7 +62,8 @@ class Item {
 
 class EmptyItem extends Item {
     constructor() {
-        super(-1, -1, 'Empty', 0, {}, 0);
+        super(-1, -1, 'Empty', 0, 0, 0);
+        this.description = 'An empty slot, awaiting plunder hard-won in the depths.';
     }
 
     getSymbol() {
@@ -96,8 +98,9 @@ class Gold extends Item {
 
     constructor(x, y, amount) {
         const altNames = ['Gold Coins', 'Gold Nugget', 'Treasure', 'Pile of Gold', 'Coin Purse'];
-        super(x, y, altNames[Math.floor(Math.random() * altNames.length)], 0, {}, 0);
+        super(x, y, altNames[Math.floor(Math.random() * altNames.length)], 0, 0, 0);
         this.amount = amount || Math.floor(Math.random() * 50) + 10;
+        this.description = 'A glittering promise of tavern songs, arcane reagents, and sharpened steel.';
     }
 
     getWeight() {
@@ -122,6 +125,7 @@ class Gold extends Item {
 class Potion extends Item {
     constructor(x, y, name, enchantments) {
         super(x, y, name, 10, 1, 2, {}, enchantments);
+        this.description = 'A glass vial of alchemical mystery—its contents swirl with latent promise.';
     }
 
     getSymbol() {
@@ -146,6 +150,7 @@ class HealthPotion extends Potion {
     constructor(x, y, name, healAmount) {
         super(x, y, name || 'Health Potion');
         this.healAmount = healAmount || 20;
+        this.description = 'A ruby-red draught that knits torn flesh and steadies the warrior\'s breath.';
     }
 
     getColor() {
@@ -176,6 +181,7 @@ class SpeedPotion extends Potion {
     constructor(x, y, name, speedBoost) {
         super(x, y, name || 'Speed Potion');
         this.speedBoost = speedBoost || 50; // Example speed boost value
+        this.description = 'An emerald tonic that sharpens reflexes—time itself seems to lean in your favor.';
     }
 
     getColor() {
@@ -206,6 +212,7 @@ class SpeedPotion extends Potion {
 class Scroll extends Item {
     constructor(x, y, name) {
         super(x, y, name, 30, 1, 1);
+        this.description = 'A crackling parchment covered in sigils that shimmer and rearrange when not directly watched.';
     }
 
     getSymbol() {
@@ -229,6 +236,7 @@ class PsionicScroll extends Scroll {
     constructor(x, y, name, damage) {
         super(x, y, 'Psionic Scroll');
         this.damage = damage || 25;
+        this.description = 'A vellum scroll humming with latent mental force—its release is a silent scream that shatters thought.';
     }
 
     getColor() {
@@ -301,6 +309,7 @@ class Fists extends Weapon {
         super(-1, -1, 'Fists', 30, 0);
         this.speed = 30;
         this.damage = 2;
+        this.description = 'Your own two hands—last resort of the desperate and the disciplined.';
     }
 
     getSymbol() {
@@ -324,6 +333,7 @@ class SmallDagger extends Weapon {
         super(x, y, name || 'Small Dagger', 5, 5);
         this.speed = 30;
         this.damage = 5;
+        this.description = 'A slender blade balanced for quick thrusts—beloved of rogues and alley shadows.';
     }
 }
 
@@ -336,6 +346,7 @@ class Shortsword extends Weapon {
         super(x, y, name || 'Shortsword', 7, 7);
         this.speed = 40; // Slightly slower than dagger
         this.damage = 7;
+        this.description = 'A versatile soldier\'s blade—equally suited to parry, riposte, or decisive thrust.';
     }
 }
 
@@ -347,6 +358,7 @@ class Rapier extends Weapon {
         super(x, y, name || 'Rapier', 6, 6);
         this.speed = 35; // Very fast weapon
         this.damage = 6;
+        this.description = 'A needle-fine blade tuned for elegance and lethal precision.';
     }
 
     getColor() {
@@ -363,6 +375,7 @@ class Longsword extends Weapon {
         super(x, y, name || 'Longsword', 20, 20);
         this.speed = 50; // Slower but more damage
         this.damage = 15;
+        this.description = 'A knightly blade of balanced heft and reach—reliable in any melee.';
     }
 }
 
@@ -374,6 +387,7 @@ class Battleaxe extends Weapon {
         super(x, y, name || 'Battleaxe', 30, 20);
         this.speed = 50; // Heavy and slow but powerful
         this.damage = 20;
+        this.description = 'A brutal, bearded axe meant to hew through timber, mail, and bone alike.';
     }
 
     getSymbol() {
@@ -393,6 +407,7 @@ class Warhammer extends Weapon {
         super(x, y, name || 'Warhammer', 50, 30);
         this.speed = 75; // Very slow but devastating
         this.damage = 30;
+        this.description = 'A mass of forged iron on a haft—designed to crumple plate and pulp shields.';
     }
 
     getSymbol() {
@@ -413,6 +428,7 @@ class Greatsword extends Weapon {
         super(x, y, name || 'Greatsword', 40, 40);
         this.speed = 75; // Very slow but massive damage
         this.damage = 30;
+        this.description = 'An immense two-handed blade—each swing a cleaving arc of ruin.';
     }
 
     getSymbol() {
@@ -432,6 +448,7 @@ class Halberd extends Weapon {
         super(x, y, name || 'Halberd', 35, 40);
         this.speed = 60; // Polearm with reach advantage
         this.damage = 25;
+        this.description = 'A polearm marrying axe blade, spear point, and hook—control and carnage in equal measure.';
     }
 
     getSymbol() {
@@ -452,6 +469,7 @@ class Spear extends Weapon {
         super(x, y, name || 'Spear', 20, 20);
         this.speed = 50; // Medium speed, good reach
         this.damage = 12;
+        this.description = 'A stout haft ending in a leaf-shaped head—reach keeps foes an arm\'s length away.';
     }
 
     getSymbol() {
@@ -472,6 +490,7 @@ class EnchantedBlade extends Weapon {
         super(x, y, name || 'Enchanted Blade', 20, 20);
         this.speed = 45; // Magical efficiency
         this.damage = 20;
+        this.description = 'Runes shimmer along its fuller—the metal hums with restrained arcana.';
     }
 
     getColor() {
@@ -484,9 +503,11 @@ class DragonSlayer extends Weapon {
     static levelRange = [10, 20];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Dragonslayer Sword', attackBonus || 20, {}, 25);
+        // Fixed invalid reference to attackBonus; provide heavy legendary stats
+        super(x, y, name || 'Dragonslayer Sword', 45, 40, {attack: 5, damage: 10});
         this.speed = 55; // Legendary weapon, slow but devastating
         this.damage = 50;
+        this.description = 'A legendary blade wreathed in ancient heat—said to drink the heartfire of slain wyrms.';
     }
 
     getSymbol() {
@@ -553,6 +574,7 @@ class ClothRobe extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Cloth Robe', 'torso', 20, 5, 5, 2);
+        this.description = 'Simple woven garments—little protection, but movement comes easily.';
     }
 }
 
@@ -563,6 +585,7 @@ class LeatherHelm extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Leather Helm', 'head', 10, 10, 10, 5);
+        this.description = 'Cured leather shaped to turn aside glancing cuts and falling grit.';
     }
 }
 
@@ -572,6 +595,7 @@ class IronHelmet extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Iron Helmet', 'head', 15, 25, 10, 10);
+        this.description = 'A riveted iron dome—heavy, but reassuring when arrows whisper past.';
     }
 }
 
@@ -582,6 +606,7 @@ class LeatherVest extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Leather Vest', 'torso', 10, 20, 20, 10);
+        this.description = 'Supple layers of boiled leather—light, flexible, and modestly protective.';
     }
 }
 
@@ -591,6 +616,7 @@ class ChainMail extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Chain Mail', 'torso', 20, 50, 25, 20);
+        this.description = 'Interlocked iron rings that chime softly—a stalwart defense against slashing blows.';
     }
 }
 
@@ -600,6 +626,7 @@ class PlateMail extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Plate Mail', 'torso', 30, 80, 30, 30);
+        this.description = 'A walking fortress of tempered plates—few blows land true against such craft.';
     }
 }
 
@@ -610,6 +637,7 @@ class LeatherPants extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Leather Pants', 'legs', 15, 15, 15, 8);
+        this.description = 'Reinforced leggings of oiled hide—keeps briars and blades at bay.';
     }
 }
 
@@ -619,6 +647,7 @@ class IronGreaves extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Iron Greaves', 'legs', 25, 40, 20, 15);
+        this.description = 'Weighty plates that guard shin and knee—each step a promise of endurance.';
     }
 }
 
@@ -629,6 +658,7 @@ class LeatherBoots extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Leather Boots', 'feet', 12, 10, 10, 5);
+        this.description = 'Well-oiled boots that hug the foot—tread soft, tread sure.';
     }
 }
 
@@ -638,6 +668,7 @@ class IronBoots extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Iron Boots', 'feet', 20, 30, 15, 12);
+        this.description = 'Clanking sabatons—subtlety traded for steadfast protection.';
     }
 }
 
@@ -648,6 +679,7 @@ class LeatherGloves extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Leather Gloves', 'hands', 10, 8, 8, 4);
+        this.description = 'Supple gloves improving grip and shielding knuckles from cruel stone.';
     }
 }
 
@@ -657,6 +689,7 @@ class IronGauntlets extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Iron Gauntlets', 'hands', 18, 20, 12, 10);
+        this.description = 'Segmented gauntlets of overlapping plates—turning blades with practiced ease.';
     }
 }
 
@@ -667,6 +700,7 @@ class LeatherBracers extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Leather Bracers', 'arms', 10, 12, 12, 6);
+        this.description = 'Hardened leather cinched at the forearms—deflects stray cuts and bowstring burn.';
     }
 }
 
@@ -676,6 +710,7 @@ class SteelVambraces extends Armor {
 
     constructor(x, y, name) {
         super(x, y, name || 'Steel Vambraces', 'arms', 20, 30, 15, 12);
+        this.description = 'Polished steel guards that flash in torchlight and foil seeking blades.';
     }
 }
 
@@ -683,6 +718,7 @@ class SteelVambraces extends Armor {
 class Ring extends Armor {
     constructor(x, y, name, bonuses, enchantments) {
         super(x, y, name, 'rings', 5, 1, 1, 0, bonuses, enchantments);
+        this.description = 'A small band of worked metal—cool to the touch, heavy with subtle intent.';
     }
 
     getSymbol() {
@@ -695,7 +731,9 @@ class ProtectionRing extends Ring {
     static levelRange = [2, 8];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Ring of Protection', 'rings', 5, 1, 1, 0, {defense: 5});
+        // Ring constructor expects (x, y, name, bonuses, enchantments)
+        super(x, y, name || 'Ring of Protection', {defense: 5});
+        this.description = 'A faint, translucent shimmer halos this band—an unseen bulwark against harm.';
     }
 
     getColor() {
@@ -798,16 +836,20 @@ class ItemFactory {
     }
 }
 
+// Restored ItemManager class (handles item placement, guaranteed weapon spawn, pickup, and memory)
 class ItemManager {
     constructor(game) {
         this.game = game;
         this.items = [];
-        this.itemMemory = new Map();
+        this.itemMemory = new Map(); // key: "x,y" -> {symbol, type}
     }
 
     generateItems() {
         this.items = [];
         this.itemMemory = new Map();
+
+        // Ensure at least one level-appropriate weapon spawns
+        this.guaranteeWeapon();
 
         this.game.rooms.forEach((room) => {
             const numItems = Math.floor(Math.random() * 3);
@@ -816,17 +858,17 @@ class ItemManager {
                     const x = room.x + Math.floor(Math.random() * room.width);
                     const y = room.y + Math.floor(Math.random() * room.height);
 
-                    // Skip if position conflicts with stairs, player, or doors
+                    // Avoid stairs, player start, doors, or occupied item tiles
                     if (
                         (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
                         (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) ||
                         (x === Game.player.x && y === Game.player.y) ||
-                        this.game.dungeon[y][x] === '+'
+                        this.game.dungeon[y][x] === '+' ||
+                        this.items.some(it => it.x === x && it.y === y)
                     ) {
                         continue;
                     }
 
-                    // Use level-appropriate item generation with player's luck
                     const currentLevel = Game.player.level;
                     const playerLuck = Game.player.luck;
                     const item = ItemFactory.createLevelAppropriateItem(x, y, currentLevel, playerLuck);
@@ -834,11 +876,46 @@ class ItemManager {
                 }
             }
         });
+        this.updateItemMemory();
+    }
+
+    guaranteeWeapon() {
+        const weaponClasses = [
+            SmallDagger, Shortsword, Rapier, Longsword, Spear,
+            Battleaxe, Warhammer, Greatsword, Halberd,
+            EnchantedBlade, DragonSlayer
+        ];
+        const currentLevel = Game.player.level;
+        const playerLuck = Game.player.luck || 50;
+        const luckModifier = Math.floor((playerLuck - 50) / 25);
+        const effectiveLevel = Math.max(1, currentLevel + luckModifier);
+        const validWeapons = weaponClasses.filter(wc => {
+            const lr = wc.levelRange;
+            if (!lr) return true;
+            return effectiveLevel >= lr[0] && effectiveLevel <= lr[1];
+        });
+        if (validWeapons.length === 0) validWeapons.push(SmallDagger, Shortsword);
+        const weaponClass = validWeapons[Math.floor(Math.random() * validWeapons.length)];
+
+        let attempts = 0;
+        while (attempts < 60) {
+            attempts++;
+            const room = this.game.rooms[Math.floor(Math.random() * this.game.rooms.length)];
+            const x = room.x + Math.floor(Math.random() * room.width);
+            const y = room.y + Math.floor(Math.random() * room.height);
+            if (!this.game.dungeon[y] || this.game.dungeon[y][x] !== '.') continue;
+            if (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) continue;
+            if (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) continue;
+            if (x === Game.player.x && y === Game.player.y) continue;
+            if (this.items.some(it => it.x === x && it.y === y)) continue;
+            this.items.push(new weaponClass(x, y));
+            break;
+        }
     }
 
     checkForItems() {
-        const player = Game.player;
-        const idx = this.items.findIndex((it) => it.x === player.x && it.y === player.y);
+        const p = Game.player;
+        const idx = this.items.findIndex(it => it.x === p.x && it.y === p.y);
         if (idx !== -1) {
             const item = this.items[idx];
             item.onCollect(this.game);
@@ -850,8 +927,7 @@ class ItemManager {
 
     updateItemMemory() {
         if (!this.itemMemory) this.itemMemory = new Map();
-
-        this.items.forEach((item) => {
+        this.items.forEach(item => {
             if (this.game.visible[item.y] && this.game.visible[item.y][item.x]) {
                 this.itemMemory.set(`${item.x},${item.y}`, {
                     symbol: item.getSymbol(),
