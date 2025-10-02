@@ -362,7 +362,8 @@ class Wizard extends Monster {
       if (monsterManager.game.currentTick - this.lastSpellTick > 600) {
         // Cast magic missile
         const damage = this.dmg;
-        Game.player.takeDamage(damage);
+        const targetBodyPart = Game.player.body.randomAttackablePart();
+        Game.player.takeDamage(targetBodyPart, damage);
         monsterManager.game.addMessage(`The ${this.getDisplayName()} casts magic missile for ${damage} damage!`);
         this.lastSpellTick = monsterManager.game.currentTick;
         return;

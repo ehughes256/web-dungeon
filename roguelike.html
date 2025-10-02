@@ -18,6 +18,7 @@
         #gameContainer {
             display: flex;
             gap: 20px;
+            position: relative;
         }
 
         #dungeon {
@@ -32,6 +33,9 @@
             border: 2px solid #444;
             padding: 15px;
             border-radius: 5px;
+            height: 600px;
+            overflow-y: auto;
+            box-sizing: border-box;
         }
 
         button {
@@ -76,28 +80,16 @@
         }
 
         #inventoryModal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            display: none;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 40px;
-            z-index: 1000;
+            display: none !important;
         }
 
-        #inventoryPanel {
-            background: #222;
-            border: 2px solid #555;
-            padding: 15px 20px;
-            width: 480px;
-            max-height: 80vh;
-            overflow-y: auto;
-            border-radius: 6px;
+        #inventorySection {
+            margin-bottom: 20px;
         }
 
-        #inventoryPanel h3 {
-            margin: 0 0 10px;
+        #inventorySection h2 {
+            margin-top: 0;
+            margin-bottom: 10px;
             color: #ffaa00;
         }
 
@@ -224,6 +216,10 @@
 <div id="gameContainer">
     <canvas id="dungeon" width="800" height="600"></canvas>
     <div id="sidebar">
+        <div id="inventorySection">
+            <h2>Inventory</h2>
+            <div id="inventoryContents"></div>
+        </div>
         <h2>Player Stats</h2>
         <div class="stats">
             <div class="stat">Level: <span id="level">1</span></div>
@@ -234,13 +230,6 @@
              style="margin-top: 15px; height: 160px; overflow-y: auto; background: #111; padding: 5px; border-radius: 3px;">
             <div>Welcome to the dungeon!</div>
         </div>
-    </div>
-</div>
-<div id="inventoryModal">
-    <div id="inventoryPanel">
-        <h3>Inventory</h3>
-        <div id="inventoryContents"></div>
-        <div class="close-hint">Press I or Esc to close</div>
     </div>
 </div>
 <script>
@@ -288,7 +277,6 @@
             this.timeManager = new TimeManager(this);
             this.monsterManager = new MonsterManager(this);
             this.itemManager = new ItemManager(this);
-            this.inventoryOpen = false;
             this.generateDungeon();
             this.monsterManager.spawnMonsters();
             this.itemManager.generateItems();
@@ -296,12 +284,8 @@
             this.setupEventListeners();
             this.render();
             this.updateUI();
+            this.buildInventory();
             this.addMessage('Enhanced FOV and projectile physics added.');
-        }
-
-        // -------- Level Persistence Helpers --------
-        deepCopy2D(arr) {
-            return arr.map(r => r.slice());
         }
 
         // --- Shadow Casting FOV (more efficient) ---
@@ -393,30 +377,6 @@
             return tile === '#' || tile === '+';
         }
 
-        bresenhamLine(x0, y0, x1, y1) {
-            const points = [];
-            let dx = Math.abs(x1 - x0);
-            let dy = Math.abs(y1 - y0);
-            let sx = x0 < x1 ? 1 : -1;
-            let sy = y0 < y1 ? 1 : -1;
-            let err = dx - dy;
-            let x = x0, y = y0;
-            while (true) {
-                points.push([x, y]);
-                if (x === x1 && y === y1) break;
-                let e2 = 2 * err;
-                if (e2 > -dy) {
-                    err -= dy;
-                    x += sx;
-                }
-                if (e2 < dx) {
-                    err += dx;
-                    y += sy;
-                }
-            }
-            return points;
-        }
-
         descend() {
             if (this.gameOver) return;
             Game.player.level += 1;
@@ -455,17 +415,6 @@
             this.addMessage(`You return to level ${Game.player.level}.`);
         }
 
-        regenerateCurrentLevel() {
-            if (this.gameOver) return;
-            this.addMessage('Regenerating current level (debug).');
-            this.generateDungeon();
-            this.monsterManager.spawnMonsters();
-            this.itemManager.generateItems();
-            this.computeFOV();
-            this.render();
-            this.updateUI();
-        }
-
         generateDungeon() {
             this.itemManager = new ItemManager(this);
             this.monsterManager = new MonsterManager(this);
@@ -495,13 +444,6 @@
             document.addEventListener('keydown', (e) => {
                 if (this.gameOver) return;
                 const k = e.key.toLowerCase();
-                if (this.inventoryOpen) {
-                    if (k === 'i' || k === 'escape') {
-                        this.closeInventory();
-                        e.preventDefault();
-                    }
-                    return;
-                }
                 let dx = 0, dy = 0;
                 switch (k) {
                     // Arrow keys and WASD (original 4-directional movement)
@@ -562,9 +504,6 @@
                     case 'r':
                         Game.player.castScroll(this);
                         return;
-                    case 'i':
-                        this.toggleInventory();
-                        return;
                     default:
                         return;
                 }
@@ -575,22 +514,7 @@
             });
         }
 
-        toggleInventory() {
-            if (this.inventoryOpen) this.closeInventory(); else this.openInventory();
-        }
-
-        openInventory() {
-            this.inventoryOpen = true;
-            document.getElementById('inventoryModal').style.display = 'flex';
-            this.buildInventoryModal();
-        }
-
-        closeInventory() {
-            this.inventoryOpen = false;
-            document.getElementById('inventoryModal').style.display = 'none';
-        }
-
-        buildInventoryModal() {
+        buildInventory() {
             const container = document.getElementById('inventoryContents');
             const p = Game.player;
             const lines = [];
@@ -674,7 +598,7 @@
             if (category === 'scrolls') {
                 actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
             }
-            actionButtons += `<button onclick="game.dropInventoryItem('${category}',${index})">Drop</button>`;
+            actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
             return `<div class='inv-item-row'><div style='flex:1 1 auto;'>${item.name || 'Unknown'} ${tags.join(' ')}</div><div class='inv-actions'>${actionButtons}</div></div>`;
         }
 
@@ -690,7 +614,7 @@
                 Game.player.equipArmor(a);
                 this.addMessage(`You don ${a.name}.`);
             }
-            this.buildInventoryModal();
+            this.buildInventory();
             this.updateUI();
         }
 
@@ -704,7 +628,7 @@
                 const bodyPart = Game.player.equippedArmor().bodyLocation;
                 Game.player.unEquipArmor(bodyPart);
             }
-            this.buildInventoryModal();
+            this.buildInventory();
             this.updateUI();
         }
 
@@ -723,7 +647,7 @@
                     p.unEquipArmor(bodyPart);
                 }
             }
-            this.buildInventoryModal();
+            this.buildInventory();
             this.updateUI();
         }
 
@@ -793,7 +717,7 @@
             }
 
             // Update the UI and inventory display
-            this.buildInventoryModal();
+            this.buildInventory();
             this.updateUI();
             this.render();
         }
@@ -995,7 +919,7 @@
             document.getElementById('level').textContent = Game.player.level;
             document.getElementById('health').textContent = Game.player.health;
             document.getElementById('gold').textContent = Game.player.inventory.gold;
-            if (this.inventoryOpen) this.buildInventoryModal();
+            this.buildInventory();
         }
 
         addMessage(msg) {

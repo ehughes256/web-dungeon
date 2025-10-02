@@ -250,7 +250,12 @@ class Player {
     }
 
     unEquipWeapon() {
-        return this.body.unequipWeapon();
+        const weapon = this.body.unequipWeapon();
+        if (weapon && !(weapon instanceof EmptyItem)) {
+            this.inventory.weapons.push(weapon);
+            return weapon;
+        }
+        return null;
     }
 
     equipArmor(armor) {
@@ -409,7 +414,7 @@ class Player {
         } else {
             const item = arr.splice(index, 1)[0];
             if (p.equippedWeapon() === item) p.unEquipWeapon();
-            if (p.equippedArmor() === item) p.unEquipArmor(p.equippedArmor().bodyLocation);
+            if (p.equippedArmor() === item) p.unEquipArmor(item.bodyLocation);
             item.x = this.x;
             item.y = this.y;
             // Place the item on the ground
