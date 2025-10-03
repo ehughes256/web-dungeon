@@ -1308,7 +1308,9 @@ class ItemManager {
             this.items.splice(idx, 1);
             this.itemMemory.delete(`${item.x},${item.y}`);
             this.game.updateUI();
+            return true;
         }
+        return false;
     }
 
     updateItemMemory() {

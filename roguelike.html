@@ -252,7 +252,7 @@
         advanceTime() {
             this.game.currentTick++;
             this.game.monsterManager.processTimeIncrement();
-            if(Game.player.nextFreeHealTime <= this.game.currentTick) {
+            if (Game.player.nextFreeHealTime <= this.game.currentTick) {
                 Game.player.nextFreeHealTime = this.game.currentTick + 3000;
                 Game.player.heal(5);
             }
@@ -289,6 +289,9 @@
             // Examine / Inspect mode state
             this.examineMode = false;
             this.examineCursor = null; // {x,y}
+            // Running state
+            this.running = false;
+            this.runDirection = null;
             this.generateDungeon();
             this.monsterManager.spawnMonsters();
             this.itemManager.generateItems();
@@ -297,7 +300,6 @@
             this.render();
             this.updateUI();
             this.buildInventory();
-            this.addMessage('Enhanced FOV and projectile physics added.');
         }
 
         // --- Shadow Casting FOV (more efficient) ---
@@ -452,23 +454,152 @@
             return x >= 0 && y >= 0 && x < this.width && y < this.height;
         }
 
+        getWalkableDirections(x, y) {
+            const directions = [
+                {dx: 0, dy: -1}, // Up
+                {dx: 0, dy: 1},  // Down
+                {dx: -1, dy: 0}, // Left
+                {dx: 1, dy: 0},  // Right
+            ];
+
+            return directions.filter(dir => {
+                const newX = x + dir.dx;
+                const newY = y + dir.dy;
+                return this.inBounds(newX, newY) &&
+                    this.dungeon[newY][newX] !== '#' &&
+                    this.dungeon[newY][newX] !== '+';
+            });
+        }
+
+        async runInDirection(dx, dy) {
+            if (this.gameOver) return;
+
+            this.running = true;
+            this.runDirection = {dx, dy};
+
+            while (this.running) {
+                const newX = Game.player.x + dx;
+                const newY = Game.player.y + dy;
+
+                // Stop if we hit a wall or go out of bounds
+                if (!this.inBounds(newX, newY) || this.dungeon[newY][newX] === '#') {
+                    this.running = false;
+                    break;
+                }
+
+                // Stop if there's a monster in the next position
+                if (this.monsterManager.monsters.some(m => m.x === newX && m.y === newY)) {
+                    this.running = false;
+                    break;
+                }
+
+                // Stop at doors or stairs
+                const tile = this.dungeon[newY][newX];
+                if (tile === '+' || tile === '/' || tile === '<' || tile === '>') {
+                    this.running = false;
+                    break;
+                }
+
+                if (this.isValidMove(newX, newY)) {
+                    Game.player.x = newX;
+                    Game.player.y = newY;
+                    const foundItem = this.itemManager.checkForItems();
+                    if (foundItem) this.running = false;
+                }
+                this.render();
+
+                // Small delay to make running visible but fast
+                await this.sleep(100);
+
+                // Consume a turn for each step
+                this.consumeTurn(Game.player.speed);
+
+                // In open rooms, continue running in the same direction
+                // Only stop if we can't continue in the current direction
+                const nextX = Game.player.x + dx;
+                const nextY = Game.player.y + dy;
+
+                // Stop if the next tile in our direction is blocked
+                if (!this.inBounds(nextX, nextY) ||
+                    this.dungeon[nextY][nextX] === '#' ||
+                    this.dungeon[nextY][nextX] === '+') {
+                    this.running = false;
+                    break;
+                }
+
+                // Check if we're in a narrow corridor and need to handle turns
+                const walkableDirections = this.getWalkableDirections(Game.player.x, Game.player.y);
+
+                // If we're in a corridor (2 or fewer walkable directions), handle corridor logic
+                if (walkableDirections.length <= 2) {
+                    if (walkableDirections.length === 2) {
+                        // Find the direction that's not backwards
+                        const backwards = {dx: -dx, dy: -dy};
+                        const forward = walkableDirections.find(dir =>
+                            !(dir.dx === backwards.dx && dir.dy === backwards.dy)
+                        );
+
+                        if (forward) {
+                            dx = forward.dx;
+                            dy = forward.dy;
+                        } else {
+                            // Dead end
+                            this.running = false;
+                            break;
+                        }
+                    } else if (walkableDirections.length === 1) {
+                        // Dead end
+                        this.running = false;
+                        break;
+                    }
+                }
+                // If walkableDirections.length > 2, we're in an open room
+                // Just continue in the same direction (dx, dy remain unchanged)
+            }
+        }
+
         setupEventListeners() {
             document.addEventListener('keydown', (e) => {
                 if (this.gameOver) return;
                 const k = e.key.toLowerCase();
+                const shiftHeld = e.shiftKey;
 
                 // Examine mode key handling (non-turn consuming)
                 if (this.examineMode) {
                     let dx = 0, dy = 0;
                     switch (k) {
-                        case 'arrowup': case 'w': case 'k': dy = -1; break;
-                        case 'arrowdown': case 's': case 'j': dy = 1; break;
-                        case 'arrowleft': case 'a': case 'h': dx = -1; break;
-                        case 'arrowright': case 'd': case 'l': dx = 1; break;
-                        case 'y': dx = -1; dy = -1; break;
-                        case 'u': dx = 1; dy = -1; break;
-                        case 'b': dx = -1; dy = 1; break;
-                        case 'n': dx = 1; dy = 1; break;
+                        case 'arrowup':
+                        case 'k':
+                            dy = -1;
+                            break;
+                        case 'arrowdown':
+                        case 'j':
+                            dy = 1;
+                            break;
+                        case 'arrowleft':
+                        case 'h':
+                            dx = -1;
+                            break;
+                        case 'arrowright':
+                        case 'l':
+                            dx = 1;
+                            break;
+                        case 'y':
+                            dx = -1;
+                            dy = -1;
+                            break;
+                        case 'u':
+                            dx = 1;
+                            dy = -1;
+                            break;
+                        case 'b':
+                            dx = -1;
+                            dy = 1;
+                            break;
+                        case 'n':
+                            dx = 1;
+                            dy = 1;
+                            break;
                         case 'enter':
                             this.describeAt(this.examineCursor.x, this.examineCursor.y, true);
                             return;
@@ -490,31 +621,79 @@
                 switch (k) {
                     // Movement and actions
                     case 'arrowup':
-                    case 'w': dy = -1; break;
+                        dy = -1;
+                        break;
                     case 'arrowdown':
-                    case 's': dy = 1; break;
+                        dy = 1;
+                        break;
                     case 'arrowleft':
-                    case 'a': dx = -1; break;
+                        dx = -1;
+                        break;
                     case 'arrowright':
-                    case 'd': dx = 1; break;
-                    case 'h': dx = -1; break;
-                    case 'j': dy = 1; break;
-                    case 'k': dy = -1; break;
-                    case 'l': dx = 1; break;
-                    case 'y': dx = -1; dy = -1; break;
-                    case 'u': dx = 1; dy = -1; break;
-                    case 'b': dx = -1; dy = 1; break;
-                    case 'n': dx = 1; dy = 1; break;
-                    case ' ': this.useStairs(); return;
-                    case 'o': this.openAdjacentDoors(); return;
-                    case 'p': Game.player.drinkPotion(this); return;
-                    case 'r': Game.player.castScroll(this); return;
-                    case '/': this.toggleSidebarView(); return;
-                    case 'x': this.startExamineMode(); return; // Enter examine mode
-                    default: return;
+                        dx = 1;
+                        break;
+                    case 'h':
+                        dx = -1;
+                        break;
+                    case 'j':
+                        dy = 1;
+                        break;
+                    case 'k':
+                        dy = -1;
+                        break;
+                    case 'l':
+                        dx = 1;
+                        break;
+                    case 'y':
+                        dx = -1;
+                        dy = -1;
+                        break;
+                    case 'u':
+                        dx = 1;
+                        dy = -1;
+                        break;
+                    case 'b':
+                        dx = -1;
+                        dy = 1;
+                        break;
+                    case 'n':
+                        dx = 1;
+                        dy = 1;
+                        break;
+                    case '>':
+                        this.useDownStairs();
+                        return;
+                    case '<':
+                        this.useUpStairs();
+                        return;
+                    case 'o':
+                        this.openAdjacentDoors();
+                        return;
+                    case 'c':
+                        this.closeAdjacentDoors();
+                        return;
+
+                    case 'p':
+                        Game.player.drinkPotion(this);
+                        return;
+                    case 'r':
+                        Game.player.castScroll(this);
+                        return;
+                    case '/':
+                        this.toggleSidebarView();
+                        return;
+                    case 'x':
+                        this.startExamineMode();
+                        return; // Enter examine mode
+                    default:
+                        return;
                 }
                 if (dx || dy) {
-                    this.handleMove(dx, dy);
+                    if (shiftHeld) {
+                        this.runInDirection(dx, dy);
+                    } else {
+                        this.handleMove(dx, dy);
+                    }
                     e.preventDefault();
                 }
             });
@@ -572,13 +751,27 @@
             const tile = this.dungeon[y][x];
             let tilDesc = '';
             switch (tile) {
-                case '#': tilDesc = 'A rough-hewn stone wall—unyielding.'; break;
-                case '.': tilDesc = 'Open dungeon floor, strewn with dust and echoes.'; break;
-                case '+': tilDesc = 'A closed wooden door; hinges creak with potential.'; break;
-                case '/': tilDesc = 'An open doorway leading into shadow.'; break;
-                case '<': tilDesc = 'A stairwell spiraling upward.'; break;
-                case '>': tilDesc = 'Steps descending into deeper peril.'; break;
-                default: tilDesc = 'Featureless dark.'; break;
+                case '#':
+                    tilDesc = 'A rough-hewn stone wall—unyielding.';
+                    break;
+                case '.':
+                    tilDesc = 'Open dungeon floor, strewn with dust and echoes.';
+                    break;
+                case '+':
+                    tilDesc = 'A closed wooden door; hinges creak with potential.';
+                    break;
+                case '/':
+                    tilDesc = 'An open doorway leading into shadow.';
+                    break;
+                case '<':
+                    tilDesc = 'A stairwell spiraling upward.';
+                    break;
+                case '>':
+                    tilDesc = 'Steps descending into deeper peril.';
+                    break;
+                default:
+                    tilDesc = 'Featureless dark.';
+                    break;
             }
             if (verbose) this.addMessage(tilDesc);
             else this.addMessage(tilDesc);
@@ -728,7 +921,10 @@
         useInventoryItem(category, index) {
             const p = Game.player;
             const arr = p.inventory[category];
-            if (!arr || !arr[index]) { this.addMessage('Nothing to use.'); return; }
+            if (!arr || !arr[index]) {
+                this.addMessage('Nothing to use.');
+                return;
+            }
             const item = arr[index];
             if (category === 'potions') {
                 if (typeof item.use === 'function') {
@@ -751,7 +947,10 @@
                     if (targets.length) {
                         const damage = item.damage || 10;
                         let killed = 0;
-                        targets.forEach(m => { m.hp -= damage; if (m.hp <= 0) killed++; });
+                        targets.forEach(m => {
+                            m.hp -= damage;
+                            if (m.hp <= 0) killed++;
+                        });
                         if (killed) this.monsterManager.monsters = this.monsterManager.monsters.filter(m => m.hp > 0);
                         this.addMessage(`You cast ${item.name}. ${targets.length} hit, ${killed} slain.`);
                     } else this.addMessage(`You cast ${item.name}, but there are no targets in sight.`);
@@ -796,7 +995,7 @@
 
         openAdjacentDoors() {
             let opened = 0;
-            const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
             for (const [dx, dy] of dirs) {
                 const x = Game.player.x + dx, y = Game.player.y + dy;
                 if (!this.inBounds(x, y)) continue;
@@ -805,14 +1004,44 @@
                     opened++;
                 }
             }
-            if (opened) { this.addMessage(`You open ${opened} door${opened>1?'s':''}.`); this.consumeTurn(20); }
-            else this.addMessage('No closed door adjacent.');
+            if (opened) {
+                this.addMessage(`You open ${opened} door${opened > 1 ? 's' : ''}.`);
+                this.consumeTurn(20);
+            } else this.addMessage('No closed door adjacent.');
         }
 
-        useStairs() {
+        closeAdjacentDoors() {
+            let closed = 0;
+            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+            for (const [dx, dy] of dirs) {
+                const x = Game.player.x + dx, y = Game.player.y + dy;
+                if (!this.inBounds(x, y)) continue;
+                if (this.dungeon[y][x] === '/') {
+                    this.dungeon[y][x] = '+';
+                    closed++;
+                }
+            }
+            if (closed) {
+                this.addMessage(`You close ${closed} door${closed > 1 ? 's' : ''}.`);
+                this.consumeTurn(20);
+            } else this.addMessage('No closed door adjacent.');
+        }
+
+        useDownStairs() {
             if (this.gameOver) return;
-            if (this.upStair && Game.player.x === this.upStair.x && Game.player.y === this.upStair.y) { this.ascend(); return; }
-            if (this.downStair && Game.player.x === this.downStair.x && Game.player.y === this.downStair.y) { this.descend(); return; }
+            if (this.downStair && Game.player.x === this.downStair.x && Game.player.y === this.downStair.y) {
+                this.descend();
+                return;
+            }
+            this.addMessage('There are no stairs here.');
+        }
+
+        useUpStairs() {
+            if (this.gameOver) return;
+            if (this.upStair && Game.player.x === this.upStair.x && Game.player.y === this.upStair.y) {
+                this.ascend();
+                return;
+            }
             this.addMessage('There are no stairs here.');
         }
 

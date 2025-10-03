@@ -74,7 +74,7 @@ class Monster {
             }
         } else if (this.lastKnownPlayerLocation) {
             // Move toward last known player location
-            if(this.lastSawPlayerMoves < 15) { // remember for 15 moves
+            if (this.lastSawPlayerMoves < 15) { // remember for 15 moves
                 const [lx, ly] = this.lastKnownPlayerLocation;
                 const step =
                     monsterManager.aStarNextStep(this.x, this.y, lx, ly) ||
@@ -812,10 +812,11 @@ class MonsterManager {
 
     // Combat methods
     monsterAttackPlayer(monster) {
+        this.game.running = false;
         const dmg = Math.max(1, monster.getDamage());
         const targetBodyPart = Game.player.body.randomAttackablePart();
         Game.player.takeDamage(targetBodyPart, dmg);
-        this.game.addMessage(`${monster.getDisplayName()} attacks your ${targetBodyPart.name} for ${dmg} damage! (HP ${Game.player.health})`);
+        this.game.addMessage(`${monster.getDisplayName()} attacks your ${targetBodyPart.name} for ${dmg} damage! (HP ${targetBodyPart.currentHp})`);
 
         if (Game.player.isDead()) {
             this.game.gameOver = true;

@@ -26,14 +26,15 @@ class BodyPart {
         if (this.currentHp <= 0) {
             this.currentHp = 0;
             // If a body part is destroyed, all parts attached to it are also destroyed
-            for (const part of Object.values(this)) {
+            for (const part of Game.player.body.allBodyParts()) {
                 if (part instanceof BodyPart && part.attachedTo === this) {
                     part.takeDamage(part.currentHp); // Destroy attached parts
                 }
             }
             // drop equipped weapons
-            if (this.equipped instanceof Weapon) {
-                Game.player.dropInventoryItem(this.equipped, this);
+            if (this.equipped instanceof Weapon && !(this.equipped instanceof Fists)) {
+                Game.player.game.addMessage(`Your ${this.attachedTo.name} is mangled, dropping your ${this.equipped.name}!`);
+                Game.player.dropWeapon();
             }
         }
     }
@@ -85,7 +86,7 @@ class PlayerBody {
             this.head, this.arms, this.torso,
             this.hands,
             this.legs, this.feet,
-            this.finger
+            this.finger, this.weapon
         ];
     }
 
@@ -227,7 +228,7 @@ class Player {
             didHeal = false;
             const array = this.body.allBodyParts();
             const random = array.map(() => Math.random());
-            const randomOrder = array.sort((a,b) => {
+            const randomOrder = array.sort((a, b) => {
                 return random[a] - random[b];
             });
             for (const part of randomOrder) {
@@ -438,6 +439,21 @@ class Player {
         }
         this.game.updateUI();
         this.game.consumeTurn(10);
+    }
+
+    dropWeapon() {
+        const weapon = this.body.unequipWeapon();
+        if (weapon && !(weapon instanceof EmptyItem)) {
+            if (!this.game.canDropHere()) {
+                this.body.equipWeapon(weapon); // Re-equip if can't drop
+                this.game.addMessage('Cannot drop here.');
+                return;
+            }
+            weapon.x = this.x;
+            weapon.y = this.y;
+            this.game.itemManager.items.push(weapon);
+            this.game.updateUI();
+        }
     }
 
     gainExperience(amount) {
