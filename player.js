@@ -1,165 +1,79 @@
-class BodyPart {
-    constructor(name, size, attachedTo) {
-        this.name = name;
-        this.size = size; // Size affects hit chance
-        this.maxHp = size; // Max HP based on size
-        this.currentHp = this.maxHp;
-        this.attachedTo = attachedTo; // e.g., 'torso' for arms, legs, head
-        this.equipped = new EmptyItem(); // Armor worn on this part
-    }
-
-    isUsable() {
-        let usable = true;
-        let bp = this;
-        while (bp) {
-            if (bp.currentHp <= 0) {
-                usable = false;
-                break;
-            }
-            bp = bp.attachedTo;
-        }
-        return usable;
-    }
-
-    takeDamage(damage) {
-        this.currentHp -= damage;
-        if (this.currentHp <= 0) {
-            this.currentHp = 0;
-            // If a body part is destroyed, all parts attached to it are also destroyed
-            for (const part of Game.player.body.allBodyParts()) {
-                if (part instanceof BodyPart && part.attachedTo === this) {
-                    part.takeDamage(part.currentHp); // Destroy attached parts
-                }
-            }
-            // drop equipped weapons
-            if (this.equipped instanceof Weapon && !(this.equipped instanceof Fists)) {
-                Game.player.game.addMessage(`Your ${this.attachedTo.name} is mangled, dropping your ${this.equipped.name}!`);
-                Game.player.dropWeapon();
-            }
-        }
-    }
-
-    getDefense() {
-        if (this.equipped && typeof this.equipped.getDefense === 'function') {
-            return this.equipped.getDefense();
-        }
-        return {
-            base: 0,
-            bonus: 0,
-            fromBonus: 0,
-            fromEnchantment: 0
-        }
-    }
-}
-
 class PlayerBody {
     constructor(player) {
         this.player = player;
 
-        // Define body parts
-        this.torso = new BodyPart("torso", 30, null);
-        this.head = new BodyPart("head", 10, this.torso);
-        this.arms = new BodyPart("arms", 15, this.torso);
-        this.hands = new BodyPart("hands", 10, this.arms);
-        this.weapon = new BodyPart("weapon", 1, this.hands); // Placeholder for weapon
-        this.legs = new BodyPart("legs", 20, this.torso);
-        this.feet = new BodyPart("feet", 5, this.legs);
-        this.finger = new BodyPart("finger", 2, this.hands);
-
-        this.weapon.equipped = new Fists();
+        // Define inventory slots
+        this.weapon = new Fists();
+        this.armor = null;
+        this.helmet = null;
+        this.gloves = null;
+        this.boots = null;
+        this.ring = null;
     }
 
-    randomPartFromWeightedList(parts) {
-        const totalWeight = parts.reduce((sum, part) => sum + part.size, 0);
-        let roll = Math.random() * totalWeight;
-        for (const part of parts) {
-            if (roll < part.size) {
-                return part;
-            }
-            roll -= part.size;
-        }
-        return parts[parts.length - 1]; // Fallback
+    equip(location, item) {
+        const oldItem = this[location];
+        this[location] = item;
+        return oldItem;
     }
 
-    allBodyParts() {
-        return [
-            this.head, this.arms, this.torso,
-            this.hands,
-            this.legs, this.feet,
-            this.finger, this.weapon
-        ];
-    }
-
-    randomUpperBodyPart() {
-        const parts = [this.head, this.arms, this.torso];
-        return this.randomPartFromWeightedList(parts);
-    }
-
-    randomMiddleBodyPart() {
-        const parts = [this.hands, this.torso, this.arms];
-        return this.randomPartFromWeightedList(parts);
-    }
-
-    randomLowerBodyPart() {
-        const parts = [this.legs, this.feet, this.torso];
-        return this.randomPartFromWeightedList(parts);
-    }
-
-    randomAttackablePart() {
-        const parts = [
-            this.head, this.arms, this.torso,
-            this.hands,
-            this.legs, this.feet
-        ];
-        return this.randomPartFromWeightedList(parts);
-    }
-
-    equippedWeapon() {
-        if (this.weapon.isUsable() && !(this.weapon.equipped instanceof Fists)) {
-            return this.weapon.equipped;
-        }
-        return new Fists();
+    unequip(location) {
+        const oldItem = this[location];
+        this[location] = null;
+        return oldItem;
     }
 
     equipWeapon(weapon) {
-        if (this.weapon.isUsable()) {
-            this.weapon.equipped = weapon;
-            return true;
-        }
-        return false;
+        return this.equip("weapon", weapon);
     }
 
     unequipWeapon() {
-        if (!(this.weapon.equipped instanceof Fists)) {
-            const weapon = this.weapon.equipped;
-            this.weapon.equipped = new Fists();
+        if (!(this.weapon instanceof Fists)) {
+            const weapon = this.weapon;
+            this.weapon = new Fists();
             return weapon;
         }
         return new EmptyItem();
     }
 
-    equipArmor(armor, bodyLocation) {
-        if (bodyLocation && this[bodyLocation] && armor.bodyLocation === bodyLocation) {
-            this[bodyLocation].equipped = armor;
-            return true;
-        }
-        return false;
+    equipArmor(armor) {
+        return this.equip("armor", armor);
     }
 
-    unequipArmor(bodyLocation) {
-        if (bodyLocation && this[bodyLocation] && !(this[bodyLocation].equipped instanceof EmptyItem)) {
-            const armor = this[bodyLocation].equipped;
-            this[bodyLocation].equipped = new EmptyItem();
-            return armor;
-        }
-        return null;
+    unequipArmor() {
+        return this.unequip("armor");
     }
 
-    grow() {
-        for (const part of this.allBodyParts()) {
-            part.size = Math.max(Math.floor(part.size * 1.1), 1);
-            part.maxHp = part.size;
-        }
+    equipRing(ring) {
+        return this.equip("ring", ring);
+    }
+
+    unequipRing() {
+        return this.unequip("ring");
+    }
+
+    equiphelmet(helmet) {
+        return this.equip("helmet", helmet);
+    }
+
+    unequipHelmet() {
+        return this.unequip("helmet");
+    }
+
+    equipGloves(gloves) {
+        return this.equip("gloves", gloves);
+    }
+
+    unequipGloves() {
+        return this.unequip("gloves");
+    }
+
+    equipBoots(boots) {
+        return this.equip("boots", boots);
+    }
+
+    unequipBoots() {
+        return this.unequip("boots");
     }
 }
 
@@ -175,7 +89,6 @@ class Player {
         this.level = 1;
         this.inventory = {gold: 0, potions: [], scrolls: [], weapons: [], armor: []};
         this.body = new PlayerBody(this);
-        this.weight = 0; // Current carried weight
 
         // Attributes (1-100 scale)
         this.strength = 50; // Strength attribute
@@ -191,23 +104,34 @@ class Player {
     }
 
     equippedWeapon() {
-        return this.body.equippedWeapon();
-    }
-
-    defenseBonus(bodyPart) {
-        return bodyPart.getDefense();
+        return this.body.weapon;
     }
 
     equippedArmor() {
         return [
-            this.body.head.equipped,
-            this.body.torso.equipped,
-            this.body.legs.equipped,
-            this.body.feet.equipped,
-            this.body.arms.equipped,
-            this.body.hands.equipped,
-            this.body.finger.equipped,
-        ].filter((a) => !(a instanceof EmptyItem));
+            this.body.helmet,
+            this.body.armor,
+            this.body.boots,
+            this.body.gloves,
+            this.body.ring,
+        ].filter((a) => !(a instanceof EmptyItem) && a !== null);
+    }
+
+    carriedWeight() {
+        let total = 0;
+        for (const category in this.inventory) {
+            if (Array.isArray(this.inventory[category])) {
+                for (const item of this.inventory[category]) {
+                    if (item.weight) total += item.weight;
+                }
+            }
+        }
+        for (const armor of this.equippedArmor()) {
+            if (armor.weight) total += armor.weight;
+        }
+        const weapon = this.equippedWeapon();
+        if (weapon && weapon.weight) total += weapon.weight;
+        return total;
     }
 
     // Combat stats
@@ -220,36 +144,40 @@ class Player {
         };
     }
 
+    getDefense() {
+        const armor = this.equippedArmor();
+        let baseDefense = 0;
+        let bonusDefense = 0;
+        for (const piece of armor) {
+            const def = piece.getDefense();
+            baseDefense += def.base;
+            bonusDefense += def.bonus;
+        }
+        // Dexterity bonus
+        const dexBonus = Math.floor((this.dexterity - 50) / 10);
+        return {
+            base: baseDefense,
+            bonus: bonusDefense + dexBonus,
+        };
+    }
+
     // Health management
     heal(amount) {
-        let amountLeft = amount;
-        let didHeal = true;
-        while (amountLeft > 0 && didHeal) {
-            didHeal = false;
-            const array = this.body.allBodyParts();
-            const random = array.map(() => Math.random());
-            const randomOrder = array.sort((a, b) => {
-                return random[a] - random[b];
-            });
-            for (const part of randomOrder) {
-                if (part.currentHp < part.maxHp) {
-                    part.currentHp += 1;
-                    didHeal = true;
-                    amountLeft -= 1;
-                    if (amountLeft <= 0) break;
-                }
-            }
-        }
+        const missingHealth = this.maxHealth - this.health;
+        if (missingHealth <= 0) return 0; // Already at max health
+
+        const amountLeft = Math.max(0, missingHealth - amount);
+        this.health += amountLeft;
 
         return amount - amountLeft; // Return actual amount healed
     }
 
-    takeDamage(bodyPart, damage) {
-        const defense = bodyPart.getDefense();
+    hitPlayer(possibleDamage) {
+        const defense = this.getDefense();
         const actualDefense = Math.floor((Math.random() * defense.base)) + defense.bonus;
-        const actualDamage = Math.max(0, damage - actualDefense);
+        const actualDamage = Math.max(0, possibleDamage - actualDefense);
 
-        bodyPart.takeDamage(actualDamage);
+        this.health -= actualDamage;
         return actualDamage;
     }
 
@@ -259,8 +187,8 @@ class Player {
 
     // Equipment management
     equipWeapon(weapon) {
-        const oldWeapon = this.unEquipWeapon();
         this.inventory.weapons.splice(this.inventory.weapons.indexOf(weapon), 1);
+        const oldWeapon = this.unEquipWeapon();
         this.body.equipWeapon(weapon);
         return oldWeapon;
     }
@@ -276,25 +204,26 @@ class Player {
 
     equipArmor(armor) {
         const {bodyLocation} = armor;
-        if (!bodyLocation || !['head', 'torso', 'legs', 'feet', 'hands', 'arms', 'finger'].includes(bodyLocation)) {
+        if (!bodyLocation || !['helmet', 'armor', 'gloves', 'boots', 'ring'].includes(bodyLocation)) {
             return false;
         }
         this.inventory.armor.splice(this.inventory.armor.indexOf(armor), 1);
-        const oldArmor = this.unEquipArmor(bodyLocation);
-        this.body.equipArmor(armor, bodyLocation);
+        const oldArmor = this.unEquipArmor(armor);
+        this.body.equip(bodyLocation, armor);
         return oldArmor;
     }
 
-    unEquipArmor(bodyLocation) {
-        if (!bodyLocation || !['head', 'torso', 'legs', 'feet', 'hands', 'arms', 'rings'].includes(bodyLocation)) {
-            return false;
+    unEquipArmor(armor) {
+        const {bodyLocation} = armor;
+        if (!bodyLocation || !['helmet', 'armor', 'gloves', 'boots', 'ring'].includes(bodyLocation)) {
+            return null;
         }
-        const armor = this.body.unequipArmor(bodyLocation);
-        if (armor && !(armor instanceof EmptyItem)) {
+        const oldArmor = this.body.unequip(bodyLocation);
+        if (oldArmor && !(oldArmor instanceof EmptyItem)) {
             this.inventory.armor.push(armor);
-            return true;
+            return oldArmor;
         }
-        return false;
+        return null;
     }
 
     // Inventory management
@@ -466,4 +395,24 @@ class Player {
             this.game.addMessage(`You leveled up to level ${this.level}!`);
         }
     }
+
+    chanceToEvade() {
+        // Base 5% chance to evade
+        let chance = 5;
+        // Increase chance based on dexterity (up to +10%)
+        chance += Math.floor((this.dexterity - 50) / 5);
+        // Cap at 20%
+        if (chance > 20) chance = 20;
+        // if you're carrying a heavy load compared to your strength, reduce chance
+        const carried = this.carriedWeight();
+        const strengthCapacity = this.strength * 2; // arbitrary capacity
+        if (carried > strengthCapacity) {
+            const overload = carried - strengthCapacity;
+            chance -= Math.floor(overload / 10); // lose 1% per 10 units overloaded
+            if (chance < 0) chance = 0;
+        }
+
+        return chance;
+    }
+
 }

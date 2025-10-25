@@ -685,6 +685,10 @@
                     case 'x':
                         this.startExamineMode();
                         return; // Enter examine mode
+                    case '.':
+                        this.addMessage('You wait a moment...');
+                        this.consumeTurn(100);
+                        return;
                     default:
                         return;
                 }
@@ -805,27 +809,25 @@
             lines.push(`<div class='equipped-section'>`);
             lines.push(`<h4>Currently Equipped</h4>`);
             lines.push(`<div class='equipped-grid'>`);
-            const renderSlot = (bodyPart) => {
-                const item = bodyPart.equipped;
-                const hasItem = item && !(item instanceof EmptyItem);
+            const renderSlot = (bodyPartName) => {
+                const itemObject = p.body[bodyPartName];
+                const hasItem = itemObject && !(itemObject instanceof EmptyItem);
                 const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
-                const itemText = hasItem ? item.name : 'None';
+                const itemText = hasItem ? itemObject.name : 'None';
                 const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
-                const unequipButton = (hasItem && !(item instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPart.name}', '${item.name}')">Remove</button></div>` : '';
+                const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}', '${itemObject.name}')">Remove</button></div>` : '';
                 return `<div class='${slotClass}'>
-                    <span class='slot-label'>${bodyPart.name}:</span>
+                    <span class='slot-label'>${bodyPartName}:</span>
                     <span class='${itemClass}'>${itemText}</span>
                     ${unequipButton}
                 </div>`;
             };
-            lines.push(renderSlot(p.body.weapon));
-            lines.push(renderSlot(p.body.head));
-            lines.push(renderSlot(p.body.torso));
-            lines.push(renderSlot(p.body.arms));
-            lines.push(renderSlot(p.body.hands));
-            lines.push(renderSlot(p.body.finger));
-            lines.push(renderSlot(p.body.legs));
-            lines.push(renderSlot(p.body.feet));
+            lines.push(renderSlot("weapon"));
+            lines.push(renderSlot("armor"));
+            lines.push(renderSlot("helmet"));
+            lines.push(renderSlot("ring"));
+            lines.push(renderSlot("gloves"));
+            lines.push(renderSlot("boots"));
             lines.push('</div></div>');
 
             const section = (title, arr, renderFn) => {
@@ -899,19 +901,19 @@
             this.updateUI();
         }
 
-        unequipSlot(bodyPartName) {
+        unequipSlot(bodyPartName, itemName) {
             const p = Game.player;
             if (bodyPartName === 'weapon') {
-                const weapon = p.body.weapon.equipped;
+                const weapon = p.body.weapon;
                 if (weapon && !(weapon instanceof EmptyItem) && !(weapon instanceof Fists)) {
                     this.addMessage(`You stow ${weapon.name}.`);
                     p.unEquipWeapon();
                 }
             } else if (p.body[bodyPartName]) {
-                const item = p.body[bodyPartName].equipped;
+                const item = p.body[bodyPartName];
                 if (item && !(item instanceof EmptyItem)) {
                     this.addMessage(`You remove ${item.name}.`);
-                    p.unEquipArmor(bodyPartName);
+                    p.unEquipArmor(item);
                 }
             }
             this.buildInventory();
@@ -1047,7 +1049,6 @@
 
         consumeTurn(ticksToConsume = 100) {
             for (let i = 0; i < ticksToConsume; i++) {
-                this.computeFOV();
                 this.timeManager.advanceTime();
                 this.computeFOV();
                 this.render();

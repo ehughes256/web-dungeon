@@ -162,7 +162,7 @@ class Goblin extends Monster {
     setStats() {
         this.hp = 6 + Math.floor(Math.random() * 3); // 6-8 HP
         this.maxHp = this.hp;
-        this.dmg = 2;
+        this.dmg = 5;
         this.speed = 50; // Acts every 0.5 time units (fast)
         this.experience = 5; // Experience given to player on death
     }
@@ -192,7 +192,7 @@ class Orc extends Monster {
     setStats() {
         this.hp = 14 + Math.floor(Math.random() * 5); // 14-18 HP
         this.maxHp = this.hp;
-        this.dmg = 5;
+        this.dmg = 7;
         this.speed = 200; // Acts every 2.0 time units (slow)
         this.experience = 15; // Experience given to player on death
     }
@@ -222,7 +222,7 @@ class Skeleton extends Monster {
     setStats() {
         this.hp = 8 + Math.floor(Math.random() * 4); // 8-11 HP
         this.maxHp = this.hp;
-        this.dmg = 3;
+        this.dmg = 4;
         this.speed = 120; // Medium speed
         this.experience = 10; // Experience given to player on death
     }
@@ -252,7 +252,7 @@ class Spider extends Monster {
     setStats() {
         this.hp = 3 + Math.floor(Math.random() * 2); // 3-4 HP (fragile)
         this.maxHp = this.hp;
-        this.dmg = 1;
+        this.dmg = 3;
         this.speed = 30; // Very fast
         this.experience = 7; // Experience given to player on death
     }
@@ -307,7 +307,7 @@ class Troll extends Monster {
     setStats() {
         this.hp = 25 + Math.floor(Math.random() * 10); // 25-34 HP (very tanky)
         this.maxHp = this.hp;
-        this.dmg = 7;
+        this.dmg = 12;
         this.speed = 300; // Very slow
         this.experience = 25; // Experience given to player on death
     }
@@ -350,7 +350,7 @@ class Bat extends Monster {
     setStats() {
         this.hp = 2 + Math.floor(Math.random() * 2); // 2-3 HP
         this.maxHp = this.hp;
-        this.dmg = 1;
+        this.dmg = 2;
         this.speed = 40; // Fast and erratic
         this.experience = 4; // Experience given to player on death
     }
@@ -408,7 +408,7 @@ class Wizard extends Monster {
     setStats() {
         this.hp = 8 + Math.floor(Math.random() * 3); // 8-10 HP
         this.maxHp = this.hp;
-        this.dmg = 4;
+        this.dmg = 8;
         this.speed = 150; // Medium-slow
         this.experience = 20; // Experience given to player on death
     }
@@ -429,8 +429,7 @@ class Wizard extends Monster {
             if (monsterManager.game.currentTick - this.lastSpellTick > 600) {
                 // Cast magic missile
                 const damage = this.dmg;
-                const targetBodyPart = Game.player.body.randomAttackablePart();
-                Game.player.takeDamage(targetBodyPart, damage);
+                Game.player.hitPlayer(damage);
                 monsterManager.game.addMessage(`The ${this.getDisplayName()} casts magic missile for ${damage} damage!`);
                 this.lastSpellTick = monsterManager.game.currentTick;
                 return;
@@ -475,7 +474,7 @@ class Minotaur extends Monster {
     setStats() {
         this.hp = 30 + Math.floor(Math.random() * 15); // 30-44 HP (boss-like)
         this.maxHp = this.hp;
-        this.dmg = 8;
+        this.dmg = 16;
         this.speed = 130; // Medium-slow normally
         this.experience = 50; // Experience given to player on death
     }
@@ -530,7 +529,7 @@ class Ghost extends Monster {
     setStats() {
         this.hp = 6 + Math.floor(Math.random() * 4); // 6-9 HP
         this.maxHp = this.hp;
-        this.dmg = 3;
+        this.dmg = 6;
         this.speed = 80; // Medium-fast
         this.experience = 12; // Experience given to player on death
     }
@@ -813,10 +812,17 @@ class MonsterManager {
     // Combat methods
     monsterAttackPlayer(monster) {
         this.game.running = false;
+
+        const chanceToEvade = Game.player.chanceToEvade();
+        if ((Math.random() * 100) < chanceToEvade) {
+            this.game.addMessage(`You evade the ${monster.getDisplayName()}'s attack!`);
+            monster.scheduleNextAction(this.game.currentTick, monster.attackSpeed);
+            return;
+        }
         const dmg = Math.max(1, monster.getDamage());
-        const targetBodyPart = Game.player.body.randomAttackablePart();
-        Game.player.takeDamage(targetBodyPart, dmg);
-        this.game.addMessage(`${monster.getDisplayName()} attacks your ${targetBodyPart.name} for ${dmg} damage! (HP ${targetBodyPart.currentHp})`);
+        const actualDamage = Game.player.hitPlayer(dmg);
+
+        this.game.addMessage(`The ${monster.getDisplayName()} hits you for ${actualDamage} damage.`);
 
         if (Game.player.isDead()) {
             this.game.gameOver = true;
