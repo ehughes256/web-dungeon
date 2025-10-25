@@ -52,7 +52,7 @@ class PlayerBody {
         return this.unequip("ring");
     }
 
-    equiphelmet(helmet) {
+    equipHelmet(helmet) {
         return this.equip("helmet", helmet);
     }
 

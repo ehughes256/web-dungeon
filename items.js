@@ -4,17 +4,15 @@ class Item {
 
     static levelRange = [1, 5];
 
-    static baseWeight = 0;
-
-    constructor(x, y, name, speed = 1, weight = 0, size = 0, bonuses = {}, enchantments = {}) {
+    constructor(x, y, name) {
         this.x = x;
         this.y = y;
         this.name = name;
-        this.speed = speed; // Time cost to pick up or use
-        this.enchantments = enchantments;
-        this.bonuses = bonuses;
-        this.weight = weight;
-        this.size = size;
+        this.speed = 1; // Time cost to pick up or use
+        this.enchantments = {};
+        this.bonuses = {};
+        this.weight = 0;
+        this.size = 0;
         this.identified = false;
         this.cursed = false;
         this.description = 'This is a plain old item.';
@@ -62,7 +60,10 @@ class Item {
 
 class EmptyItem extends Item {
     constructor() {
-        super(-1, -1, 'Empty', 0, 0, 0);
+        super(-1, -1, 'Empty');
+        this.speed = 0;
+        this.weight = 0;
+        this.size = 0;
         this.description = 'An empty slot, awaiting plunder hard-won in the depths.';
     }
 
@@ -94,7 +95,10 @@ class Gold extends Item {
 
     constructor(x, y, amount) {
         const altNames = ['Gold Coins', 'Gold Nugget', 'Treasure', 'Pile of Gold', 'Coin Purse'];
-        super(x, y, altNames[Math.floor(Math.random() * altNames.length)], 0, 0, 0);
+        super(x, y, altNames[Math.floor(Math.random() * altNames.length)]);
+        this.speed = 0;
+        this.weight = 0;
+        this.size = 0;
         this.amount = amount || Math.floor(Math.random() * 50) + 10;
         this.description = 'A glittering promise of tavern songs, arcane reagents, and sharpened steel.';
     }
@@ -119,8 +123,12 @@ class Gold extends Item {
 
 // Potion item class
 class Potion extends Item {
-    constructor(x, y, name, enchantments) {
-        super(x, y, name, 10, 1, 2, {}, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name);
+        this.speed = 10;
+        this.weight = 1;
+        this.size = 2;
+        this.enchantments = {};
         this.description = 'A glass vial of alchemical mystery—its contents swirl with latent promise.';
     }
 
@@ -207,7 +215,10 @@ class SpeedPotion extends Potion {
 // Scroll item class
 class Scroll extends Item {
     constructor(x, y, name) {
-        super(x, y, name, 30, 1, 1);
+        super(x, y, name);
+        this.speed = 30;
+        this.weight = 1;
+        this.size = 1;
         this.description = 'A crackling parchment covered in sigils that shimmer and rearrange when not directly watched.';
     }
 
@@ -338,10 +349,10 @@ class FireballScroll extends Scroll {
     static dropChance = 0.06;
     static levelRange = [2, 15];
 
-    constructor(x, y, damage = 18, radius = 3) {
+    constructor(x, y, damage, radius) {
         super(x, y, 'Fireball Scroll');
-        this.damage = damage;
-        this.radius = radius;
+        this.damage = damage || 18;
+        this.radius = radius || 3;
         this.description = 'Crimson sigils pulse with heat—unleash it to bathe nearby foes in roaring flame.';
     }
 
@@ -377,11 +388,11 @@ class RegenerationScroll extends Scroll {
     static dropChance = 0.03;
     static levelRange = [3, 18];
 
-    constructor(x, y, totalHeals = 5, healPerTick = 4, interval = 400) {
+    constructor(x, y, totalHeals, healPerTick, interval) {
         super(x, y, 'Regeneration Scroll');
-        this.totalHeals = totalHeals;
-        this.healPerTick = healPerTick;
-        this.interval = interval; // ticks between heals
+        this.totalHeals = totalHeals || 5;
+        this.healPerTick = healPerTick || 4;
+        this.interval = interval || 400; // ticks between heals
         this.description = 'Verdant runes shed tiny motes—life reknits at their whispered urging.';
     }
 
@@ -402,14 +413,26 @@ class RegenerationScroll extends Scroll {
     }
 }
 
+class EquippableItem extends Item {
+    constructor(x, y, name, bodyLocation = null) {
+        super(x, y, name);
+        this.bodyLocation = bodyLocation;
+    }
+}
+
 // Weapon item class
-class Weapon extends Item {
+class Weapon extends EquippableItem {
     static baseDamage = 5;
 
     static baseSpeed = 50; // Base time cost to swing. 2 attacks per 'turn'
 
-    constructor(x, y, name, weight, size, bonuses, enchantments) {
-        super(x, y, name, Weapon.baseSpeed, weight || 3, size, bonuses, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name, 'weapon');
+        this.speed = Weapon.baseSpeed;
+        this.weight = 3;
+        this.size = 0;
+        this.bonuses = {};
+        this.enchantments = {};
         this.damage = Weapon.baseDamage;
     }
 
@@ -446,8 +469,10 @@ class Weapon extends Item {
 
 class Fists extends Weapon {
     constructor() {
-        super(-1, -1, 'Fists', 30, 0);
+        super(-1, -1, 'Fists');
         this.speed = 30;
+        this.weight = 0;
+        this.size = 0;
         this.damage = 2;
         this.description = 'Your own two hands—last resort of the desperate and the disciplined.';
     }
@@ -470,8 +495,10 @@ class Stick extends Weapon {
     static levelRange = [1, 2];
 
     constructor(x, y) {
-        super(x, y, 'Stick', 3, 3);
+        super(x, y, 'Stick');
         this.speed = 40; // Fast but weak
+        this.weight = 3;
+        this.size = 3;
         this.damage = 2;
         this.description = 'A simple length of wood—better than bare hands, barely.';
     }
@@ -486,8 +513,10 @@ class RustyKnife extends Weapon {
     static levelRange = [1, 3];
 
     constructor(x, y) {
-        super(x, y, 'Rusty Knife', 4, 4);
+        super(x, y, 'Rusty Knife');
         this.speed = 32;
+        this.weight = 4;
+        this.size = 4;
         this.damage = 4;
         this.description = 'Pitted and dull, yet still capable of drawing blood.';
     }
@@ -502,8 +531,10 @@ class Club extends Weapon {
     static levelRange = [1, 3];
 
     constructor(x, y) {
-        super(x, y, 'Club', 8, 8);
+        super(x, y, 'Club');
         this.speed = 55; // Slower, a bit heavier hit
+        this.weight = 8;
+        this.size = 8;
         this.damage = 6;
         this.description = 'A crude bludgeon hewn from a knot of hardwood.';
     }
@@ -518,8 +549,10 @@ class BoneShard extends Weapon {
     static levelRange = [1, 2];
 
     constructor(x, y) {
-        super(x, y, 'Bone Shard', 2, 2);
+        super(x, y, 'Bone Shard');
         this.speed = 38;
+        this.weight = 2;
+        this.size = 2;
         this.damage = 3;
         this.description = 'A jagged splinter of bone—unpleasant to meet at speed.';
     }
@@ -535,8 +568,10 @@ class SmallDagger extends Weapon {
     static levelRange = [1, 5];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Small Dagger', 5, 5);
+        super(x, y, name || 'Small Dagger');
         this.speed = 30;
+        this.weight = 5;
+        this.size = 5;
         this.damage = 5;
         this.description = 'A slender blade balanced for quick thrusts—beloved of rogues and alley shadows.';
     }
@@ -547,8 +582,10 @@ class Shortsword extends Weapon {
     static levelRange = [2, 6];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Shortsword', 7, 7);
+        super(x, y, name || 'Shortsword');
         this.speed = 40;
+        this.weight = 7;
+        this.size = 7;
         this.damage = 7;
         this.description = 'A versatile soldier\'s blade—equally suited to parry, riposte, or decisive thrust.';
     }
@@ -559,8 +596,10 @@ class Rapier extends Weapon {
     static levelRange = [3, 7];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Rapier', 6, 6);
+        super(x, y, name || 'Rapier');
         this.speed = 35;
+        this.weight = 6;
+        this.size = 6;
         this.damage = 6;
         this.description = 'A needle-fine blade tuned for elegance and lethal precision.';
     }
@@ -575,8 +614,10 @@ class Longsword extends Weapon {
     static levelRange = [3, 8];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Longsword', 20, 20);
+        super(x, y, name || 'Longsword');
         this.speed = 50;
+        this.weight = 20;
+        this.size = 20;
         this.damage = 15;
         this.description = 'A knightly blade of balanced heft and reach—reliable in any melee.';
     }
@@ -587,8 +628,10 @@ class Spear extends Weapon {
     static levelRange = [2, 7];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Spear', 20, 20);
+        super(x, y, name || 'Spear');
         this.speed = 50;
+        this.weight = 20;
+        this.size = 20;
         this.damage = 12;
         this.description = 'A stout haft ending in a leaf-shaped head—reach keeps foes an arm\'s length away.';
     }
@@ -607,8 +650,10 @@ class Battleaxe extends Weapon {
     static levelRange = [4, 9];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Battleaxe', 30, 20);
+        super(x, y, name || 'Battleaxe');
         this.speed = 50;
+        this.weight = 30;
+        this.size = 20;
         this.damage = 20;
         this.description = 'A brutal, bearded axe meant to hew through timber, mail, and bone alike.';
     }
@@ -627,8 +672,10 @@ class Warhammer extends Weapon {
     static levelRange = [4, 9];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Warhammer', 50, 30);
+        super(x, y, name || 'Warhammer');
         this.speed = 75;
+        this.weight = 50;
+        this.size = 30;
         this.damage = 30;
         this.description = 'A mass of forged iron on a haft—designed to crumple plate and pulp shields.';
     }
@@ -647,8 +694,10 @@ class Greatsword extends Weapon {
     static levelRange = [5, 10];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Greatsword', 40, 40);
+        super(x, y, name || 'Greatsword');
         this.speed = 75;
+        this.weight = 40;
+        this.size = 40;
         this.damage = 30;
         this.description = 'An immense two-handed blade—each swing a cleaving arc of ruin.';
     }
@@ -667,8 +716,10 @@ class Halberd extends Weapon {
     static levelRange = [6, 12];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Halberd', 35, 40);
+        super(x, y, name || 'Halberd');
         this.speed = 60;
+        this.weight = 35;
+        this.size = 40;
         this.damage = 25;
         this.description = 'A polearm marrying axe blade, spear point, and hook—control and carnage in equal measure.';
     }
@@ -687,8 +738,10 @@ class EnchantedBlade extends Weapon {
     static levelRange = [7, 15];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Enchanted Blade', 20, 20);
+        super(x, y, name || 'Enchanted Blade');
         this.speed = 45;
+        this.weight = 20;
+        this.size = 20;
         this.damage = 20;
         this.description = 'Runes shimmer along its fuller—the metal hums with restrained arcana.';
     }
@@ -703,8 +756,11 @@ class DragonSlayer extends Weapon {
     static levelRange = [10, 20];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Dragonslayer Sword', 45, 40, {attack: 5, damage: 10});
+        super(x, y, name || 'Dragonslayer Sword');
         this.speed = 55;
+        this.weight = 45;
+        this.size = 40;
+        this.bonuses = {attack: 5, damage: 10};
         this.damage = 50;
         this.description = 'A legendary blade wreathed in ancient heat—said to drink the heartfire of slain wyrms.';
     }
@@ -719,11 +775,15 @@ class DragonSlayer extends Weapon {
 }
 
 // ==== Armor System (restored) ====
-class Armor extends Item {
-    constructor(x, y, name, bodyLocation, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, speed, weight, size, bonuses, enchantments);
-        this.bodyLocation = bodyLocation || 'torso';
-        this.defense = defense;
+class Armor extends EquippableItem {
+    constructor(x, y, name, bodyLocation) {
+        super(x, y, name, bodyLocation);
+        this.speed = 0;
+        this.weight = 0;
+        this.size = 0;
+        this.bonuses = {};
+        this.enchantments = {};
+        this.defense = 0;
     }
 
     getDefense() {
@@ -763,8 +823,8 @@ class Armor extends Item {
 }
 
 class BodyArmor extends Armor {
-    constructor(x, y, name, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'torso', speed, weight, size, defense, bonuses, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name, 'armor');
     }
 
     getSymbol() {
@@ -772,19 +832,9 @@ class BodyArmor extends Armor {
     }
 }
 
-class Sleeves extends Armor {
-    constructor(x, y, name, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'arms', speed, weight, size, defense, bonuses, enchantments);
-    }
-
-    getSymbol() {
-        return '{';
-    }
-}
-
 class Gloves extends Armor {
-    constructor(x, y, name, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'hands', speed, weight, size, defense, bonuses, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name, 'gloves');
     }
 
     getSymbol() {
@@ -793,22 +843,12 @@ class Gloves extends Armor {
 }
 
 class Shoes extends Armor {
-    constructor(x, y, name, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'feet', speed, weight, size, defense, bonuses, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name, 'boots');
     }
 
     getSymbol() {
         return 'v';
-    }
-}
-
-class Pants extends Armor {
-    constructor(x, y, name, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'legs', speed, weight, size, defense, bonuses, enchantments);
-    }
-
-    getSymbol() {
-        return ']';
     }
 }
 
@@ -818,7 +858,11 @@ class TatteredCloak extends BodyArmor {
     static levelRange = [1, 2];
 
     constructor(x, y) {
-        super(x, y, 'Tattered Cloak', 18, 3, 5, 1);
+        super(x, y, 'Tattered Cloak');
+        this.speed = 18;
+        this.weight = 3;
+        this.size = 5;
+        this.defense = 1;
         this.description = 'Shredded fabric offering the barest whisper of protection.';
     }
 
@@ -831,8 +875,8 @@ class Helmet extends Armor {
     static dropChance = 0.07;
     static levelRange = [1, 2];
 
-    constructor(x, y, name, speed, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'head', speed, weight, size, defense, bonuses, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name, 'helmet');
     }
 
     getSymbol() {
@@ -845,7 +889,11 @@ class PaddedCap extends Helmet {
     static levelRange = [1, 2];
 
     constructor(x, y) {
-        super(x, y, 'Padded Cap', 8, 6, 6, 2);
+        super(x, y, 'Padded Cap');
+        this.speed = 8;
+        this.weight = 6;
+        this.size = 6;
+        this.defense = 2;
         this.description = 'Layers of cloth and batting absorb a little of the world\'s cruelty.';
     }
 
@@ -854,22 +902,16 @@ class PaddedCap extends Helmet {
     }
 }
 
-class PatchworkTrousers extends Pants {
-    static dropChance = 0.07;
-    static levelRange = [1, 3];
-
-    constructor(x, y) {
-        super(x, y, 'Patchwork Trousers', 14, 8, 10, 2);
-        this.description = 'Stitched from scraps—flexible, drafty, minimally protective.';
-    }
-}
-
 class WornSandals extends Shoes {
     static dropChance = 0.08;
     static levelRange = [1, 2];
 
     constructor(x, y) {
-        super(x, y, 'Worn Sandals', 10, 4, 5, 1);
+        super(x, y, 'Worn Sandals');
+        this.speed = 10;
+        this.weight = 4;
+        this.size = 5;
+        this.defense = 1;
         this.description = 'Leather thongs and tired soles—better than bare stone beneath you.';
     }
 
@@ -883,18 +925,12 @@ class RaggedGloves extends Gloves {
     static levelRange = [1, 2];
 
     constructor(x, y) {
-        super(x, y, 'Ragged Gloves', 9, 3, 4, 1);
+        super(x, y, 'Ragged Gloves');
+        this.speed = 9;
+        this.weight = 3;
+        this.size = 4;
+        this.defense = 1;
         this.description = 'Frayed finger coverings that keep grime out more than blades.';
-    }
-}
-
-class FrayedBracers extends Sleeves {
-    static dropChance = 0.06;
-    static levelRange = [1, 2];
-
-    constructor(x, y) {
-        super(x, y, 'Frayed Bracers', 9, 4, 6, 1);
-        this.description = 'Loose wraps offering token forearm padding.';
     }
 }
 
@@ -904,7 +940,11 @@ class ClothRobe extends BodyArmor {
     static levelRange = [1, 5];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Cloth Robe', 20, 5, 5, 2);
+        super(x, y, name || 'Cloth Robe');
+        this.speed = 20;
+        this.weight = 5;
+        this.size = 5;
+        this.defense = 2;
         this.description = 'Simple woven garments—little protection, but movement comes easily.';
     }
 }
@@ -916,7 +956,11 @@ class LeatherHelm extends Helmet {
     static levelRange = [1, 3];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Helm', 10, 10, 10, 5);
+        super(x, y, name || 'Leather Helm');
+        this.speed = 10;
+        this.weight = 10;
+        this.size = 10;
+        this.defense = 5;
         this.description = 'Cured leather shaped to turn aside glancing cuts and falling grit.';
     }
 
@@ -931,7 +975,11 @@ class IronHelmet extends Helmet {
     static levelRange = [2, 6];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Iron Helmet', 15, 25, 10, 10);
+        super(x, y, name || 'Iron Helmet');
+        this.speed = 15;
+        this.weight = 25;
+        this.size = 10;
+        this.defense = 10;
         this.description = 'A riveted iron dome—heavy, but reassuring when arrows whisper past.';
     }
 
@@ -946,7 +994,11 @@ class LeatherVest extends BodyArmor {
     static levelRange = [1, 4];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Vest', 10, 20, 20, 10);
+        super(x, y, name || 'Leather Vest');
+        this.speed = 10;
+        this.weight = 20;
+        this.size = 20;
+        this.defense = 10;
         this.description = 'Supple layers of boiled leather—light, flexible, and modestly protective.';
     }
 
@@ -961,7 +1013,11 @@ class ChainMail extends BodyArmor {
     static levelRange = [2, 6];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Chain Mail', 20, 50, 25, 20);
+        super(x, y, name || 'Chain Mail');
+        this.speed = 20;
+        this.weight = 50;
+        this.size = 25;
+        this.defense = 20;
         this.description = 'Interlocked iron rings that chime softly—a stalwart defense against slashing blows.';
     }
 
@@ -976,34 +1032,16 @@ class PlateMail extends BodyArmor {
     static levelRange = [4, 8];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Plate Mail', 30, 80, 30, 30);
+        super(x, y, name || 'Plate Mail');
+        this.speed = 30;
+        this.weight = 80;
+        this.size = 30;
+        this.defense = 30;
         this.description = 'A walking fortress of tempered plates—few blows land true against such craft.';
     }
 
     getColor() {
         return '#4444ff';
-    }
-}
-
-class LeatherPants extends Pants {
-    static dropChance = 0.07;
-
-    static levelRange = [1, 4];
-
-    constructor(x, y, name) {
-        super(x, y, name || 'Leather Pants', 15, 15, 15, 8);
-        this.description = 'Reinforced leggings of oiled hide—keeps briars and blades at bay.';
-    }
-}
-
-class IronGreaves extends Pants {
-    static dropChance = 0.05;
-
-    static levelRange = [3, 7];
-
-    constructor(x, y, name) {
-        super(x, y, name || 'Iron Greaves', 25, 40, 20, 15);
-        this.description = 'Weighty plates that guard shin and knee—each step a promise of endurance.';
     }
 }
 
@@ -1013,7 +1051,11 @@ class LeatherBoots extends Shoes {
     static levelRange = [1, 3];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Boots', 12, 10, 10, 5);
+        super(x, y, name || 'Leather Boots');
+        this.speed = 12;
+        this.weight = 10;
+        this.size = 10;
+        this.defense = 5;
         this.description = 'Well-oiled boots that hug the foot—tread soft, tread sure.';
     }
 
@@ -1028,7 +1070,11 @@ class IronBoots extends Shoes {
     static levelRange = [2, 5];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Iron Boots', 20, 30, 15, 12);
+        super(x, y, name || 'Iron Boots');
+        this.speed = 20;
+        this.weight = 30;
+        this.size = 15;
+        this.defense = 12;
         this.description = 'Clanking sabatons—subtlety traded for steadfast protection.';
     }
 
@@ -1043,7 +1089,11 @@ class LeatherGloves extends Gloves {
     static levelRange = [1, 3];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Gloves', 10, 8, 8, 4);
+        super(x, y, name || 'Leather Gloves');
+        this.speed = 10;
+        this.weight = 8;
+        this.size = 8;
+        this.defense = 4;
         this.description = 'Supple gloves improving grip and shielding knuckles from cruel stone.';
     }
 }
@@ -1054,36 +1104,22 @@ class IronGauntlets extends Gloves {
     static levelRange = [3, 6];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Iron Gauntlets', 18, 20, 12, 10);
+        super(x, y, name || 'Iron Gauntlets');
+        this.speed = 18;
+        this.weight = 20;
+        this.size = 12;
+        this.defense = 10;
         this.description = 'Segmented gauntlets of overlapping plates—turning blades with practiced ease.';
     }
 }
 
-class LeatherBracers extends Sleeves {
-    static dropChance = 0.07;
-
-    static levelRange = [1, 4];
-
-    constructor(x, y, name) {
-        super(x, y, name || 'Leather Bracers', 10, 12, 12, 6);
-        this.description = 'Hardened leather cinched at the forearms—deflects stray cuts and bowstring burn.';
-    }
-}
-
-class SteelVambraces extends Sleeves {
-    static dropChance = 0.04;
-
-    static levelRange = [3, 7];
-
-    constructor(x, y, name) {
-        super(x, y, name || 'Steel Vambraces', 20, 30, 15, 12);
-        this.description = 'Polished steel guards that flash in torchlight and foil seeking blades.';
-    }
-}
-
 class Ring extends Armor {
-    constructor(x, y, name, weight, size, defense, bonuses = {}, enchantments = {}) {
-        super(x, y, name, 'finger', 5, weight || 1, size || 1, defense || 0, bonuses, enchantments);
+    constructor(x, y, name) {
+        super(x, y, name, 'ring');
+        this.speed = 5;
+        this.weight = 1;
+        this.size = 1;
+        this.defense = 0;
     }
 
     getSymbol() {
@@ -1097,7 +1133,12 @@ class ProtectionRing extends Ring {
     static levelRange = [2, 8];
 
     constructor(x, y, name) {
-        super(x, y, name || 'Ring of Protection', 5, 1, 1, 0, {defense: 5});
+        super(x, y, name || 'Ring of Protection');
+        this.speed = 5;
+        this.weight = 1;
+        this.size = 1;
+        this.defense = 0;
+        this.bonuses = {defense: 5};
         this.description = 'A faint, translucent shimmer halos this band—an unseen bulwark against harm.';
     }
 
@@ -1140,10 +1181,8 @@ class ItemFactory {
         // Armor (low-level first)
         {class: TatteredCloak, chance: TatteredCloak.dropChance},
         {class: PaddedCap, chance: PaddedCap.dropChance},
-        {class: PatchworkTrousers, chance: PatchworkTrousers.dropChance},
         {class: WornSandals, chance: WornSandals.dropChance},
         {class: RaggedGloves, chance: RaggedGloves.dropChance},
-        {class: FrayedBracers, chance: FrayedBracers.dropChance},
         {class: ClothRobe, chance: ClothRobe.dropChance},
         // Head armor
         {class: LeatherHelm, chance: LeatherHelm.dropChance},
@@ -1152,18 +1191,12 @@ class ItemFactory {
         {class: LeatherVest, chance: LeatherVest.dropChance},
         {class: ChainMail, chance: ChainMail.dropChance},
         {class: PlateMail, chance: PlateMail.dropChance},
-        // Leg armor
-        {class: LeatherPants, chance: LeatherPants.dropChance},
-        {class: IronGreaves, chance: IronGreaves.dropChance},
         // Foot armor
         {class: LeatherBoots, chance: LeatherBoots.dropChance},
         {class: IronBoots, chance: IronBoots.dropChance},
         // Hand armor
         {class: LeatherGloves, chance: LeatherGloves.dropChance},
         {class: IronGauntlets, chance: IronGauntlets.dropChance},
-        // Arm armor
-        {class: LeatherBracers, chance: LeatherBracers.dropChance},
-        {class: SteelVambraces, chance: SteelVambraces.dropChance},
         // Ring armor
         {class: ProtectionRing, chance: ProtectionRing.dropChance},
     ];
@@ -1361,14 +1394,10 @@ if (typeof module !== 'undefined') {
         LeatherVest,
         ChainMail,
         PlateMail,
-        LeatherPants,
-        IronGreaves,
         LeatherBoots,
         IronBoots,
         LeatherGloves,
         IronGauntlets,
-        LeatherBracers,
-        SteelVambraces,
         ProtectionRing
     };
 }
