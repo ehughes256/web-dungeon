@@ -574,7 +574,7 @@ class Ghost extends Monster {
             const newX = this.x + moveX;
             const newY = this.y + moveY;
 
-            if (monsterManager.game.inBounds(newX, newY)) {
+            if (monsterManager.game.dungeon.inBounds(newX, newY)) {
                 this.moveToWithDelay(newX, newY, monsterManager.game, 50).then();
             }
         } else {
@@ -583,7 +583,7 @@ class Ghost extends Monster {
             const d = dirs[Math.floor(Math.random() * dirs.length)];
             const wx = this.x + d[0];
             const wy = this.y + d[1];
-            if (monsterManager.game.inBounds(wx, wy)) {
+            if (monsterManager.game.dungeon.inBounds(wx, wy)) {
                 this.moveTo(wx, wy);
             }
         }
@@ -842,7 +842,7 @@ class MonsterManager {
 
     attackMonster(monster) {
         const attack = Game.player.getAttack();
-        const damage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus);
+        const damage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus) + 1;
 
         const died = monster.takeDamage(damage);
         this.game.addMessage(`You hit ${monster.getDisplayName()} for ${damage} damage.`);

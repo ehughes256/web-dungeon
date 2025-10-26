@@ -298,7 +298,7 @@ class TeleportScroll extends Scroll {
         const validPositions = [];
         for (let y = 0; y < game.height; y++) {
             for (let x = 0; x < game.width; x++) {
-                if (!game.inBounds(x, y)) continue;
+                if (!game.dungeon.inBounds(x, y)) continue;
                 const tile = game.dungeon.getTile(x, y);
                 if (!tile) continue;
                 const t = tile.type;

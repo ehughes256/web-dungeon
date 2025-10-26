@@ -1,4 +1,6 @@
 class PlayerBody {
+    static armorLocations = ['helmet', 'armor', 'gloves', 'boots', 'ring'];
+
     constructor(player) {
         this.player = player;
 
@@ -218,7 +220,7 @@ class Player {
 
     equipArmor(armor) {
         const {bodyLocation} = armor;
-        if (!bodyLocation || !['helmet', 'armor', 'gloves', 'boots', 'ring'].includes(bodyLocation)) {
+        if (!bodyLocation || !PlayerBody.armorLocations.includes(bodyLocation)) {
             return false;
         }
         this.inventory.armor.splice(this.inventory.armor.indexOf(armor), 1);
@@ -229,12 +231,12 @@ class Player {
 
     unEquipArmor(armor) {
         const {bodyLocation} = armor;
-        if (!bodyLocation || !['helmet', 'armor', 'gloves', 'boots', 'ring'].includes(bodyLocation)) {
+        if (!bodyLocation || !PlayerBody.armorLocations.includes(bodyLocation)) {
             return null;
         }
         const oldArmor = this.body.unequip(bodyLocation);
         if (oldArmor && !(oldArmor instanceof EmptyItem)) {
-            this.inventory.armor.push(armor);
+            this.inventory.armor.push(oldArmor);
             return oldArmor;
         }
         return null;

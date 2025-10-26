@@ -225,6 +225,7 @@
             <h2>Player Stats</h2>
             <div class="stats">
                 <div class="stat">Level: <span id="level">1</span></div>
+                <div class="stat">Exp: <span id="exp">0</span></div>
                 <div class="stat">Health: <span id="health">100</span></div>
                 <div class="stat">Gold: <span id="gold">0</span></div>
             </div>
@@ -638,13 +639,6 @@
                     case 'c':
                         this.closeAdjacentDoors();
                         return;
-
-                    case 'p':
-                        Game.player.drinkPotion(this);
-                        return;
-                    case 'r':
-                        Game.player.castScroll(this);
-                        return;
                     case '/':
                         this.toggleSidebarView();
                         return;
@@ -756,7 +750,7 @@
                 const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
                 const itemText = hasItem ? itemObject.name : 'None';
                 const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
-                const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}', '${itemObject.name}')">Remove</button></div>` : '';
+                const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}')">Remove</button></div>` : '';
                 return `<div class='${slotClass}'>
                     <span class='slot-label'>${bodyPartName}:</span>
                     <span class='${itemClass}'>${itemText}</span>
@@ -816,7 +810,7 @@
                 if (!w) return;
                 Game.player.equipWeapon(w);
                 this.addMessage(`You equip ${w.name}.`);
-            } else if (category === 'armor') {
+            } else if (PlayerBody.armorLocations.includes(category)) {
                 const a = Game.player.inventory.armor[index];
                 if (!a) return;
                 Game.player.equipArmor(a);
@@ -842,7 +836,7 @@
             this.updateUI();
         }
 
-        unequipSlot(bodyPartName, itemName) {
+        unequipSlot(bodyPartName) {
             const p = Game.player;
             if (bodyPartName === 'weapon') {
                 const weapon = p.body.weapon;
@@ -920,7 +914,13 @@
             const monster = this.monsterManager.monsters.find(m => m.x === nx && m.y === ny);
             if (monster) {
                 const result = Game.player.attemptAttack(monster);
-                if (result.hit) this.monsterManager.attackMonster(monster); else this.addMessage('You miss!');
+                if (result.hit) {
+                    this.monsterManager.attackMonster(monster);
+                }
+                else {
+                    this.addMessage('You miss!');
+                    this.consumeTurn(Game.player.equippedWeapon().speed || 50);
+                }
                 return;
             }
             if (this.dungeon.isValidMove(nx, ny)) {
@@ -1109,6 +1109,7 @@
             document.getElementById('level').textContent = Game.player.level;
             document.getElementById('health').textContent = Game.player.health;
             document.getElementById('gold').textContent = Game.player.inventory.gold;
+            document.getElementById('exp').textContent = Game.player.experience;
             this.buildInventory();
         }
 
