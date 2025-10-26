@@ -272,10 +272,6 @@
             this.tileSize = 20;
             this.width = Math.floor(this.canvas.width / this.tileSize);
             this.height = Math.floor(this.canvas.height / this.tileSize);
-            this.dungeon = [];
-            this.rooms = [];
-            this.upStair = null;
-            this.downStair = null;
             this.explored = [];
             this.visible = [];
             this.levelCache = {};
@@ -291,7 +287,6 @@
             this.examineCursor = null; // {x,y}
             // Running state
             this.running = false;
-            this.runDirection = null;
             this.generateDungeon();
             this.monsterManager.spawnMonsters();
             this.itemManager.generateItems();
@@ -343,14 +338,14 @@
                         this.explored[my][mx] = true;
                     }
                     if (blocked) {
-                        if(this.dungeon)
-                        if (this.dungeon.isOpaque(mx, my)) {
-                            newStart = rightSlope;
-                            continue;
-                        } else {
-                            blocked = false;
-                            start = newStart;
-                        }
+                        if (this.dungeon)
+                            if (this.dungeon.isOpaque(mx, my)) {
+                                newStart = rightSlope;
+                                continue;
+                            } else {
+                                blocked = false;
+                                start = newStart;
+                            }
                     } else {
                         if (this.dungeon.isOpaque(mx, my) && currentRow < radius) {
                             blocked = true;
@@ -396,9 +391,9 @@
                 this.generateDungeon();
                 this.monsterManager.spawnMonsters();
                 this.itemManager.generateItems();
-                if (this.upStair) {
-                    Game.player.x = this.upStair.x;
-                    Game.player.y = this.upStair.y;
+                if (this.dungeon.upStair) {
+                    Game.player.x = this.dungeon.upStair.x;
+                    Game.player.y = this.dungeon.upStair.y;
                 }
                 this.computeFOV();
                 this.addMessage(`You discover new level ${this.dungeonLevel}.`);
@@ -415,9 +410,9 @@
                 return;
             }
             this.dungeonLevel -= 1;
-            if (this.downStair) {
-                Game.player.x = this.downStair.x;
-                Game.player.y = this.downStair.y;
+            if (this.dungeon.downStair) {
+                Game.player.x = this.dungeon.downStair.x;
+                Game.player.y = this.dungeon.downStair.y;
             }
             this.computeFOV();
             this.render();
@@ -434,24 +429,18 @@
             const mazeGenerator = new MazeGenerator(this.width, this.height);
             this.dungeon = mazeGenerator.generateDungeon();
 
-            this.rooms = this.dungeon.rooms;
-            this.upStair = this.dungeon.upStair;
-            this.downStair = this.dungeon.downStair;
-
-            if (this.rooms.length && !this.levelCache[this.dungeonLevel]) {
-                const r = this.rooms[0];
+            if (this.dungeon.rooms.length && !this.levelCache[this.dungeonLevel]) {
+                const r = this.dungeon.rooms[0];
                 Game.player.x = r.x + Math.floor(r.width / 2);
                 Game.player.y = r.y + Math.floor(r.height / 2);
             }
         }
 
 
-
         async runInDirection(dx, dy) {
             if (this.gameOver) return;
 
             this.running = true;
-            this.runDirection = {dx, dy};
 
             while (this.running) {
                 const newX = Game.player.x + dx;
@@ -498,11 +487,11 @@
 
                 // Stop if the next tile in our direction is blocked
                 if (!this.dungeon.inBounds(nextX, nextY) ||
-                    this.dungeon[nextY][nextX] === '#' ||
-                    this.dungeon[nextY][nextX] === '+') {
+                    (!this.dungeon.isValidMove(newX, newY))) {
                     this.running = false;
                     break;
                 }
+
 
                 // Check if we're in a narrow corridor and need to handle turns
                 const walkableDirections = this.dungeon.getWalkableDirections(Game.player.x, Game.player.y);
@@ -965,7 +954,7 @@
 
         useDownStairs() {
             if (this.gameOver) return;
-            if (this.downStair && Game.player.x === this.downStair.x && Game.player.y === this.downStair.y) {
+            if (this.dungeon.downStair && Game.player.x === this.dungeon.downStair.x && Game.player.y === this.dungeon.downStair.y) {
                 this.descend();
                 return;
             }
@@ -974,7 +963,7 @@
 
         useUpStairs() {
             if (this.gameOver) return;
-            if (this.upStair && Game.player.x === this.upStair.x && Game.player.y === this.upStair.y) {
+            if (this.dungeon.upStair && Game.player.x === this.dungeon.upStair.x && Game.player.y === this.dungeon.upStair.y) {
                 this.ascend();
                 return;
             }
@@ -1030,8 +1019,8 @@
                 this.ctx.fillStyle = color;
                 this.ctx.fillText(symbol, px + ts / 2, py + ts / 2);
             };
-            drawStair(this.upStair, '<', '#88ff88');
-            drawStair(this.downStair, '>', '#ff8888');
+            drawStair(this.dungeon.upStair, '<', '#88ff88');
+            drawStair(this.dungeon.downStair, '>', '#ff8888');
             this.itemManager.items.forEach(it => {
                 if (!this.visible[it.y][it.x]) return;
                 const px = it.x * ts, py = it.y * ts;

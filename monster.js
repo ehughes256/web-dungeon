@@ -163,7 +163,8 @@ class Goblin extends Monster {
         this.hp = 6 + Math.floor(Math.random() * 3); // 6-8 HP
         this.maxHp = this.hp;
         this.dmg = 5;
-        this.speed = 50; // Acts every 0.5 time units (fast)
+        this.speed = 75;
+        this.size = 80; // Smaller size
         this.experience = 5; // Experience given to player on death
     }
 
@@ -193,6 +194,7 @@ class Orc extends Monster {
         this.hp = 14 + Math.floor(Math.random() * 5); // 14-18 HP
         this.maxHp = this.hp;
         this.dmg = 7;
+        this.size = 110;
         this.speed = 200; // Acts every 2.0 time units (slow)
         this.experience = 15; // Experience given to player on death
     }
@@ -223,6 +225,7 @@ class Skeleton extends Monster {
         this.hp = 8 + Math.floor(Math.random() * 4); // 8-11 HP
         this.maxHp = this.hp;
         this.dmg = 4;
+        this.size = 90;
         this.speed = 120; // Medium speed
         this.experience = 10; // Experience given to player on death
     }
@@ -253,6 +256,7 @@ class Spider extends Monster {
         this.hp = 3 + Math.floor(Math.random() * 2); // 3-4 HP (fragile)
         this.maxHp = this.hp;
         this.dmg = 3;
+        this.size = 50;
         this.speed = 30; // Very fast
         this.experience = 7; // Experience given to player on death
     }
@@ -308,6 +312,7 @@ class Troll extends Monster {
         this.hp = 25 + Math.floor(Math.random() * 10); // 25-34 HP (very tanky)
         this.maxHp = this.hp;
         this.dmg = 12;
+        this.size = 120;
         this.speed = 300; // Very slow
         this.experience = 25; // Experience given to player on death
     }
@@ -351,6 +356,7 @@ class Bat extends Monster {
         this.hp = 2 + Math.floor(Math.random() * 2); // 2-3 HP
         this.maxHp = this.hp;
         this.dmg = 2;
+        this.size = 50;
         this.speed = 40; // Fast and erratic
         this.experience = 4; // Experience given to player on death
     }
@@ -409,6 +415,7 @@ class Wizard extends Monster {
         this.hp = 8 + Math.floor(Math.random() * 3); // 8-10 HP
         this.maxHp = this.hp;
         this.dmg = 8;
+        this.size = 100;
         this.speed = 150; // Medium-slow
         this.experience = 20; // Experience given to player on death
     }
@@ -475,6 +482,7 @@ class Minotaur extends Monster {
         this.hp = 30 + Math.floor(Math.random() * 15); // 30-44 HP (boss-like)
         this.maxHp = this.hp;
         this.dmg = 16;
+        this.size = 130;
         this.speed = 130; // Medium-slow normally
         this.experience = 50; // Experience given to player on death
     }
@@ -530,6 +538,7 @@ class Ghost extends Monster {
         this.hp = 6 + Math.floor(Math.random() * 4); // 6-9 HP
         this.maxHp = this.hp;
         this.dmg = 6;
+        this.size = 105;
         this.speed = 80; // Medium-fast
         this.experience = 12; // Experience given to player on death
     }
@@ -635,14 +644,14 @@ class MonsterManager {
 
     // Monster spawning logic using factory
     spawnMonsters() {
-        const maxMon = Math.max(1, Math.floor(this.game.rooms.length * 0.7));
-        const startRoom = this.game.rooms[0];
+        const maxMon = Math.max(1, Math.floor(this.game.dungeon.rooms.length * 0.7));
+        const startRoom = this.game.dungeon.rooms[0];
         let attempts = 0;
         this.monsters = [];
 
         while (this.monsters.length < maxMon && attempts < 800) {
             attempts++;
-            const room = this.game.rooms[Math.floor(Math.random() * this.game.rooms.length)];
+            const room = this.game.dungeon.rooms[Math.floor(Math.random() * this.game.dungeon.rooms.length)];
             if (room === startRoom) continue;
 
             const x = room.x + Math.floor(Math.random() * room.width);

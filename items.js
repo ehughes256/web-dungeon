@@ -1267,7 +1267,7 @@ class ItemManager {
         // Ensure at least one level-appropriate weapon spawns
         this.guaranteeWeapon();
 
-        this.game.rooms.forEach((room) => {
+        this.game.dungeon.rooms.forEach((room) => {
             const numItems = Math.floor(Math.random() * 3);
             for (let i = 0; i < numItems; i++) {
                 if (Math.random() < 0.7) {
@@ -1322,7 +1322,7 @@ class ItemManager {
         let attempts = 0;
         while (attempts < 60) {
             attempts++;
-            const room = this.game.rooms[Math.floor(Math.random() * this.game.rooms.length)];
+            const room = this.game.dungeon.rooms[Math.floor(Math.random() * this.game.dungeon.rooms.length)];
             const x = room.x + Math.floor(Math.random() * room.width);
             const y = room.y + Math.floor(Math.random() * room.height);
             const tile = this.game.dungeon.getTile(x, y);
