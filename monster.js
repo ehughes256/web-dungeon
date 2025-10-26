@@ -666,8 +666,8 @@ class MonsterManager {
     // Helper for monster walkability
     isWalkableForMonster(x, y) {
         if (x < 0 || y < 0 || x >= this.game.width || y >= this.game.height) return false;
-        const t = this.game.dungeon[y][x];
-        if (t === '#' || t === '+') return false; // wall or closed door
+        const tile = this.game.dungeon.getTile(x, y);
+        if (!tile || tile.type === '#' || tile.type === '+') return false; // wall or closed door
         return !this.monsters.some((m) => m.x === x && m.y === y);
     }
 
@@ -745,8 +745,8 @@ class MonsterManager {
                 if (nx < 0 || ny < 0 || nx >= this.game.width || ny >= this.game.height) continue;
                 const nk = key(nx, ny);
                 if (closed.has(nk)) continue;
-                const t = this.game.dungeon[ny][nx];
-                if (t === '#' || t === '+') continue;
+                const tile = this.game.dungeon.getTile(nx, ny);
+                if (!tile || tile.type === '#' || tile.type === '+') continue;
                 if (this.monsters.some((m) => m.x === nx && m.y === ny && !(nx === tx && ny === ty))) continue;
 
                 const tentativeG = (gScore.get(currentKey) ?? Infinity) + 1;

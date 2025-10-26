@@ -343,7 +343,8 @@
                         this.explored[my][mx] = true;
                     }
                     if (blocked) {
-                        if (this.isOpaque(mx, my)) {
+                        if(this.dungeon)
+                        if (this.dungeon.isOpaque(mx, my)) {
                             newStart = rightSlope;
                             continue;
                         } else {
@@ -351,7 +352,7 @@
                             start = newStart;
                         }
                     } else {
-                        if (this.isOpaque(mx, my) && currentRow < radius) {
+                        if (this.dungeon.isOpaque(mx, my) && currentRow < radius) {
                             blocked = true;
                             this.castShadow(cx, cy, currentRow + 1, start, leftSlope, radius, octant);
                             newStart = rightSlope;
@@ -385,11 +386,6 @@
             }
         }
 
-        isOpaque(x, y) {
-            if (!this.inBounds(x, y)) return true;
-            const tile = this.dungeon[y][x];
-            return tile === '#' || tile === '+';
-        }
 
         descend() {
             if (this.gameOver) return;
@@ -436,12 +432,11 @@
             this.visible = Array(this.height).fill().map(() => Array(this.width).fill(false));
 
             const mazeGenerator = new MazeGenerator(this.width, this.height);
-            const result = mazeGenerator.generateDungeon();
+            this.dungeon = mazeGenerator.generateDungeon();
 
-            this.dungeon = result.dungeon;
-            this.rooms = result.rooms;
-            this.upStair = result.upStair;
-            this.downStair = result.downStair;
+            this.rooms = this.dungeon.rooms;
+            this.upStair = this.dungeon.upStair;
+            this.downStair = this.dungeon.downStair;
 
             if (this.rooms.length && !this.levelCache[this.dungeonLevel]) {
                 const r = this.rooms[0];
@@ -465,9 +460,8 @@
             return directions.filter(dir => {
                 const newX = x + dir.dx;
                 const newY = y + dir.dy;
-                return this.inBounds(newX, newY) &&
-                    this.dungeon[newY][newX] !== '#' &&
-                    this.dungeon[newY][newX] !== '+';
+                const tile = this.dungeon.getTile(newX, newY);
+                return tile && tile.type !== '#' && tile.type !== '+';
             });
         }
 
@@ -482,7 +476,8 @@
                 const newY = Game.player.y + dy;
 
                 // Stop if we hit a wall or go out of bounds
-                if (!this.inBounds(newX, newY) || this.dungeon[newY][newX] === '#') {
+                const tile = this.dungeon.getTile(newX, newY);
+                if (!tile || tile.type === '#') {
                     this.running = false;
                     break;
                 }
@@ -494,8 +489,8 @@
                 }
 
                 // Stop at doors or stairs
-                const tile = this.dungeon[newY][newX];
-                if (tile === '+' || tile === '/' || tile === '<' || tile === '>') {
+                const tileType = tile.type;
+                if (tileType === '+' || tileType === '/' || tileType === '<' || tileType === '>') {
                     this.running = false;
                     break;
                 }
@@ -752,9 +747,13 @@
                 return;
             }
             // Tile description
-            const tile = this.dungeon[y][x];
+            const tile = this.dungeon.getTile(x, y);
+            if (!tile) {
+                this.addMessage('The void stares back.');
+                return;
+            }
             let tilDesc = '';
-            switch (tile) {
+            switch (tile.type) {
                 case '#':
                     tilDesc = 'A rough-hewn stone wall—unyielding.';
                     break;
@@ -969,8 +968,9 @@
         handleMove(dx, dy) {
             const nx = Game.player.x + dx, ny = Game.player.y + dy;
             if (nx < 0 || ny < 0 || nx >= this.width || ny >= this.height) return;
-            if (this.dungeon[ny][nx] === '+') {
-                this.dungeon[ny][nx] = '/';
+            const tile = this.dungeon.getTile(nx, ny);
+            if (tile && tile.type === '+') {
+                this.dungeon.setTileType(nx, ny, '/');
                 this.addMessage('You open the door.');
                 this.consumeTurn(20);
                 return;
@@ -991,8 +991,8 @@
 
         isValidMove(x, y) {
             if (x < 0 || y < 0 || x >= this.width || y >= this.height) return false;
-            const t = this.dungeon[y][x];
-            return t === '.' || t === '/' || t === '<' || t === '>';
+            const tile = this.dungeon.getTile(x, y);
+            return tile && (tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>');
         }
 
         openAdjacentDoors() {
@@ -1001,8 +1001,9 @@
             for (const [dx, dy] of dirs) {
                 const x = Game.player.x + dx, y = Game.player.y + dy;
                 if (!this.inBounds(x, y)) continue;
-                if (this.dungeon[y][x] === '+') {
-                    this.dungeon[y][x] = '/';
+                const tile = this.dungeon.getTile(x, y);
+                if (tile && tile.type === '+') {
+                    this.dungeon.setTileType(x, y, '/');
                     opened++;
                 }
             }
@@ -1018,8 +1019,9 @@
             for (const [dx, dy] of dirs) {
                 const x = Game.player.x + dx, y = Game.player.y + dy;
                 if (!this.inBounds(x, y)) continue;
-                if (this.dungeon[y][x] === '/') {
-                    this.dungeon[y][x] = '+';
+                const tile = this.dungeon.getTile(x, y);
+                if (tile && tile.type === '/') {
+                    this.dungeon.setTileType(x, y, '+');
                     closed++;
                 }
             }
@@ -1062,18 +1064,20 @@
             for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
                     if (!this.explored[y][x]) continue;
-                    const tile = this.dungeon[y][x];
+                    const tile = this.dungeon.getTile(x, y);
+                    if (!tile) continue;
+                    const tileType = tile.type;
                     const px = x * ts, py = y * ts;
                     this.ctx.fillStyle = '#000';
                     this.ctx.fillRect(px, py, ts, ts);
                     this.ctx.font = '16px monospace';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
-                    let char = tile, color = '#888';
-                    if (tile === '#') color = '#777'; else if (tile === '.') color = '#555'; else if (tile === '+') {
+                    let char = tileType, color = '#888';
+                    if (tileType === '#') color = '#777'; else if (tileType === '.') color = '#555'; else if (tileType === '+') {
                         char = '+';
                         color = '#aa7722';
-                    } else if (tile === '/') {
+                    } else if (tileType === '/') {
                         char = '/';
                         color = '#ddbb77';
                     }

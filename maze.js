@@ -1,3 +1,52 @@
+class FloorTile {
+    constructor(type) {
+        this.type = type; // '#': wall, '.': floor, '+': door, '/': stair
+        this.items = [];
+        this.discovered = false;
+    }
+
+    isWalkable() {
+        return this.type === '.' || this.type === '/' || this.type === '+';
+    }
+}
+
+class Dungeon {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.tiles = Array(height)
+            .fill()
+            .map(() => Array(width).fill(null).map(() => new FloorTile('#')));
+        this.rooms = [];
+        this.upStair = null;
+        this.downStair = null;
+    }
+
+    getTile(x, y) {
+        if (!this.inBounds(x, y)) return null;
+        return this.tiles[y][x];
+    }
+
+    setTileType(x, y, type) {
+        if (!this.inBounds(x, y)) return;
+        this.tiles[y][x].type = type;
+    }
+
+    inBounds(x, y) {
+        return x >= 0 && y >= 0 && x < this.width && y < this.height;
+    }
+
+    isOpaque(x, y) {
+        const tile = this.getTile(x, y);
+        return !tile || tile.type === '#' || tile.type === '+';
+    }
+
+    isWalkable(x, y) {
+        const tile = this.getTile(x, y);
+        return tile && tile.isWalkable();
+    }
+}
+
 class MazeGenerator {
   constructor(width, height) {
     this.width = width;
@@ -5,11 +54,7 @@ class MazeGenerator {
   }
 
   generateDungeon() {
-    const dungeon = Array(this.height)
-      .fill()
-      .map(() => Array(this.width).fill('#'));
-    const rooms = [];
-
+    const dungeon = new Dungeon(this.width, this.height);
     const numRooms = Math.floor(Math.random() * 8) + 6;
     const maxAttempts = 50;
 
@@ -24,28 +69,23 @@ class MazeGenerator {
         const y = Math.floor(Math.random() * (this.height - h - 2)) + 1;
         room = { x, y, width: w, height: h };
         attempts++;
-      } while (this.roomOverlaps(room, rooms) && attempts < maxAttempts);
+      } while (this.roomOverlaps(room, dungeon.rooms) && attempts < maxAttempts);
 
       if (attempts < maxAttempts) {
-        rooms.push(room);
+        dungeon.rooms.push(room);
         this.carveRoom(room, dungeon);
       }
     }
 
     // Connect rooms with corridors
-    for (let i = 0; i < rooms.length - 1; i++) {
-      this.connectRooms(rooms[i], rooms[i + 1], dungeon, rooms);
+    for (let i = 0; i < dungeon.rooms.length - 1; i++) {
+      this.connectRooms(dungeon.rooms[i], dungeon.rooms[i + 1], dungeon);
     }
 
     // Place stairs
-    const stairs = this.placeStairs(rooms);
+    this.placeStairs(dungeon);
 
-    return {
-      dungeon,
-      rooms,
-      upStair: stairs.upStair,
-      downStair: stairs.downStair,
-    };
+    return dungeon;
   }
 
   roomOverlaps(newRoom, rooms) {
@@ -61,7 +101,7 @@ class MazeGenerator {
   carveRoom(room, dungeon) {
     for (let y = room.y; y < room.y + room.height; y++) {
       for (let x = room.x; x < room.x + room.width; x++) {
-        dungeon[y][x] = '.';
+        dungeon.setTileType(x, y, '.');
       }
     }
   }
@@ -70,7 +110,7 @@ class MazeGenerator {
     return x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height;
   }
 
-  connectRooms(r1, r2, dungeon, rooms) {
+  connectRooms(r1, r2, dungeon) {
     const x1 = r1.x + Math.floor(r1.width / 2);
     const y1 = r1.y + Math.floor(r1.height / 2);
     const x2 = r2.x + Math.floor(r2.width / 2);
@@ -116,17 +156,24 @@ class MazeGenerator {
 
     // Carve corridor
     path.forEach((c) => {
-      if (dungeon[c.y][c.x] === '#') {
-        dungeon[c.y][c.x] = '.';
+      const tile = dungeon.getTile(c.x, c.y);
+      if (tile && tile.type === '#') {
+        dungeon.setTileType(c.x, c.y, '.');
       }
     });
 
     // Place doors
-    if (door1 && dungeon[door1.y][door1.x] === '.' && !this.doorAdjacent(door1.x, door1.y, dungeon)) {
-      dungeon[door1.y][door1.x] = '+';
+    if (door1) {
+      const tile1 = dungeon.getTile(door1.x, door1.y);
+      if (tile1 && tile1.type === '.' && !this.doorAdjacent(door1.x, door1.y, dungeon)) {
+        dungeon.setTileType(door1.x, door1.y, '+');
+      }
     }
-    if (door2 && dungeon[door2.y][door2.x] === '.' && !this.doorAdjacent(door2.x, door2.y, dungeon)) {
-      dungeon[door2.y][door2.x] = '+';
+    if (door2) {
+      const tile2 = dungeon.getTile(door2.x, door2.y);
+      if (tile2 && tile2.type === '.' && !this.doorAdjacent(door2.x, door2.y, dungeon)) {
+        dungeon.setTileType(door2.x, door2.y, '+');
+      }
     }
   }
 
@@ -140,21 +187,21 @@ class MazeGenerator {
     for (const [dx, dy] of dirs) {
       const nx = x + dx,
         ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= this.width || ny >= this.height) continue;
-      const t = dungeon[ny][nx];
-      if (t === '+' || t === '/') return true;
+      if (!dungeon.inBounds(nx, ny)) continue;
+      const tile = dungeon.getTile(nx, ny);
+      if (tile && (tile.type === '+' || tile.type === '/')) return true;
     }
     return false;
   }
 
-  placeStairs(rooms) {
-    if (rooms.length < 2) {
-      return { upStair: null, downStair: null };
+  placeStairs(dungeon) {
+    if (dungeon.rooms.length < 2) {
+      return;
     }
 
     // Place up stair
-    const upRoom = rooms[Math.floor(Math.random() * rooms.length)];
-    const upStair = {
+    const upRoom = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
+    dungeon.upStair = {
       x: upRoom.x + Math.floor(Math.random() * upRoom.width),
       y: upRoom.y + Math.floor(Math.random() * upRoom.height),
     };
@@ -162,14 +209,18 @@ class MazeGenerator {
     // Place down stair in different room
     let downRoom;
     do {
-      downRoom = rooms[Math.floor(Math.random() * rooms.length)];
-    } while (downRoom === upRoom && rooms.length > 1);
+      downRoom = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
+    } while (downRoom === upRoom && dungeon.rooms.length > 1);
 
-    const downStair = {
+    dungeon.downStair = {
       x: downRoom.x + Math.floor(Math.random() * downRoom.width),
       y: downRoom.y + Math.floor(Math.random() * downRoom.height),
     };
-
-    return { upStair, downStair };
   }
 }
+
+// Export for Node.js testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { FloorTile, Dungeon, MazeGenerator };
+}
+

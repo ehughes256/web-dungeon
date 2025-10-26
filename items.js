@@ -299,7 +299,9 @@ class TeleportScroll extends Scroll {
         for (let y = 0; y < game.height; y++) {
             for (let x = 0; x < game.width; x++) {
                 if (!game.inBounds(x, y)) continue;
-                const t = game.dungeon[y][x];
+                const tile = game.dungeon.getTile(x, y);
+                if (!tile) continue;
+                const t = tile.type;
                 if (!(t === '.' || t === '/' || t === '<' || t === '>')) continue;
                 if (game.monsterManager.monsters.some(m => m.x === x && m.y === y)) continue;
                 validPositions.push([x, y]);
@@ -335,8 +337,8 @@ class MappingScroll extends Scroll {
     use(game) {
         for (let y = 0; y < game.height; y++) {
             for (let x = 0; x < game.width; x++) {
-                const t = game.dungeon[y][x];
-                if (t !== '#') game.explored[y][x] = true; // reveal all non-walls
+                const tile = game.dungeon.getTile(x, y);
+                if (tile && tile.type !== '#') game.explored[y][x] = true; // reveal all non-walls
             }
         }
         game.addMessage('Your mind expands—paths and chambers blaze in memory.');
@@ -1273,11 +1275,12 @@ class ItemManager {
                     const y = room.y + Math.floor(Math.random() * room.height);
 
                     // Avoid stairs, player start, doors, or occupied item tiles
+                    const tile = this.game.dungeon.getTile(x, y);
                     if (
                         (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
                         (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) ||
                         (x === Game.player.x && y === Game.player.y) ||
-                        this.game.dungeon[y][x] === '+' ||
+                        (tile && tile.type === '+') ||
                         this.items.some(it => it.x === x && it.y === y)
                     ) {
                         continue;
@@ -1322,7 +1325,8 @@ class ItemManager {
             const room = this.game.rooms[Math.floor(Math.random() * this.game.rooms.length)];
             const x = room.x + Math.floor(Math.random() * room.width);
             const y = room.y + Math.floor(Math.random() * room.height);
-            if (!this.game.dungeon[y] || this.game.dungeon[y][x] !== '.') continue;
+            const tile = this.game.dungeon.getTile(x, y);
+            if (!tile || tile.type !== '.') continue;
             if (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) continue;
             if (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) continue;
             if (x === Game.player.x && y === Game.player.y) continue;

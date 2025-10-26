@@ -1,4 +1,5 @@
 const { MonsterManager, Goblin } = require('./monster.js');
+const { Dungeon, FloorTile } = require('./maze.js');
 
 // Minimal mock Game with a simple open dungeon
 class MockGame {
@@ -6,7 +7,13 @@ class MockGame {
     this.width = width;
     this.height = height;
     this.player = { x: playerX, y: playerY };
-    this.dungeon = Array.from({ length: height }, () => Array.from({ length: width }, () => '.'));
+    // Create a Dungeon instance with all floor tiles
+    this.dungeon = new Dungeon(width, height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        this.dungeon.setTileType(x, y, '.');
+      }
+    }
     this.visible = Array.from({ length: height }, () => Array.from({ length: width }, () => true));
     this.currentTick = 0;
     this.render = () => {};
