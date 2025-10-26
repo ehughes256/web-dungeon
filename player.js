@@ -75,6 +75,19 @@ class PlayerBody {
     unequipBoots() {
         return this.unequip("boots");
     }
+
+    grow() {
+        // Increase player's max health and attributes on level up
+        this.player.maxHealth += Math.floor(Math.random() * this.player.constitution / 10  + 5);
+        this.player.health = this.player.maxHealth; // Heal to full on level up
+        this.player.strength += 2;
+        this.player.dexterity += 2;
+        this.player.intelligence += 2;
+        this.player.wisdom += 2;
+        this.player.charisma += 2;
+        this.player.luck += 2;
+        this.player.constitution += 2;
+    }
 }
 
 class Player {
@@ -96,6 +109,7 @@ class Player {
         this.intelligence = 50; // Intelligence attribute
         this.wisdom = 50; // Wisdom attribute
         this.charisma = 50; // Charisma attribute
+        this.constitution = 50; // Constitution attribute
         this.luck = 50; // Luck attribute
         this.experience = 0; // Experience points
         this.name = 'Hero Protagonist';
@@ -368,21 +382,6 @@ class Player {
         }
         this.game.updateUI();
         this.game.consumeTurn(10);
-    }
-
-    dropWeapon() {
-        const weapon = this.body.unequipWeapon();
-        if (weapon && !(weapon instanceof EmptyItem)) {
-            if (!this.game.canDropHere()) {
-                this.body.equipWeapon(weapon); // Re-equip if can't drop
-                this.game.addMessage('Cannot drop here.');
-                return;
-            }
-            weapon.x = this.x;
-            weapon.y = this.y;
-            this.game.itemManager.items.push(weapon);
-            this.game.updateUI();
-        }
     }
 
     gainExperience(amount) {
