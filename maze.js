@@ -45,6 +45,75 @@ class Dungeon {
         const tile = this.getTile(x, y);
         return tile && tile.isWalkable();
     }
+
+    getWalkableDirections(x, y) {
+        const directions = [
+            {dx: 0, dy: -1}, // Up
+            {dx: 0, dy: 1},  // Down
+            {dx: -1, dy: 0}, // Left
+            {dx: 1, dy: 0},  // Right
+        ];
+
+        return directions.filter(dir => {
+            const newX = x + dir.dx;
+            const newY = y + dir.dy;
+            const tile = this.getTile(newX, newY);
+            return tile && tile.type !== '#' && tile.type !== '+';
+        });
+    }
+
+    openAdjacentDoors(playerX, playerY) {
+        let opened = 0;
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+        for (const [dx, dy] of dirs) {
+            const x = playerX + dx, y = playerY + dy;
+            if (!this.inBounds(x, y)) continue;
+            const tile = this.getTile(x, y);
+            if (tile && tile.type === '+') {
+                this.setTileType(x, y, '/');
+                opened++;
+            }
+        }
+        return opened;
+    }
+
+    closeAdjacentDoors(playerX, playerY) {
+        let closed = 0;
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+        for (const [dx, dy] of dirs) {
+            const x = playerX + dx, y = playerY + dy;
+            if (!this.inBounds(x, y)) continue;
+            const tile = this.getTile(x, y);
+            if (tile && tile.type === '/') {
+                this.setTileType(x, y, '+');
+                closed++;
+            }
+        }
+        return closed;
+    }
+
+    getTileDescription(x, y) {
+        const tile = this.getTile(x, y);
+        if (!tile) {
+            return 'The void stares back.';
+        }
+        switch (tile.type) {
+            case '#':
+                return 'A rough-hewn stone wall—unyielding.';
+            case '.':
+                return 'Open dungeon floor, strewn with dust and echoes.';
+            case '+':
+                return 'A closed wooden door; hinges creak with potential.';
+            case '/':
+                return 'An open doorway leading into shadow.';
+            case '<':
+                return 'A stairwell spiraling upward.';
+            case '>':
+                return 'Steps descending into deeper peril.';
+            default:
+                return 'Featureless dark.';
+        }
+    }
 }
 
 class MazeGenerator {

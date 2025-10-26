@@ -449,21 +449,6 @@
             return x >= 0 && y >= 0 && x < this.width && y < this.height;
         }
 
-        getWalkableDirections(x, y) {
-            const directions = [
-                {dx: 0, dy: -1}, // Up
-                {dx: 0, dy: 1},  // Down
-                {dx: -1, dy: 0}, // Left
-                {dx: 1, dy: 0},  // Right
-            ];
-
-            return directions.filter(dir => {
-                const newX = x + dir.dx;
-                const newY = y + dir.dy;
-                const tile = this.dungeon.getTile(newX, newY);
-                return tile && tile.type !== '#' && tile.type !== '+';
-            });
-        }
 
         async runInDirection(dx, dy) {
             if (this.gameOver) return;
@@ -523,7 +508,7 @@
                 }
 
                 // Check if we're in a narrow corridor and need to handle turns
-                const walkableDirections = this.getWalkableDirections(Game.player.x, Game.player.y);
+                const walkableDirections = this.dungeon.getWalkableDirections(Game.player.x, Game.player.y);
 
                 // If we're in a corridor (2 or fewer walkable directions), handle corridor logic
                 if (walkableDirections.length <= 2) {
@@ -746,38 +731,9 @@
                 this.addMessage(`${item.name}: ${item.description || 'An indescribable object.'}`);
                 return;
             }
-            // Tile description
-            const tile = this.dungeon.getTile(x, y);
-            if (!tile) {
-                this.addMessage('The void stares back.');
-                return;
-            }
-            let tilDesc = '';
-            switch (tile.type) {
-                case '#':
-                    tilDesc = 'A rough-hewn stone wall—unyielding.';
-                    break;
-                case '.':
-                    tilDesc = 'Open dungeon floor, strewn with dust and echoes.';
-                    break;
-                case '+':
-                    tilDesc = 'A closed wooden door; hinges creak with potential.';
-                    break;
-                case '/':
-                    tilDesc = 'An open doorway leading into shadow.';
-                    break;
-                case '<':
-                    tilDesc = 'A stairwell spiraling upward.';
-                    break;
-                case '>':
-                    tilDesc = 'Steps descending into deeper peril.';
-                    break;
-                default:
-                    tilDesc = 'Featureless dark.';
-                    break;
-            }
-            if (verbose) this.addMessage(tilDesc);
-            else this.addMessage(tilDesc);
+            // Tile description - delegate to dungeon
+            const tilDesc = this.dungeon.getTileDescription(x, y);
+            this.addMessage(tilDesc);
         }
 
         // Toggle between inventory and stats sidebar views
@@ -996,39 +952,23 @@
         }
 
         openAdjacentDoors() {
-            let opened = 0;
-            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-            for (const [dx, dy] of dirs) {
-                const x = Game.player.x + dx, y = Game.player.y + dy;
-                if (!this.inBounds(x, y)) continue;
-                const tile = this.dungeon.getTile(x, y);
-                if (tile && tile.type === '+') {
-                    this.dungeon.setTileType(x, y, '/');
-                    opened++;
-                }
-            }
+            const opened = this.dungeon.openAdjacentDoors(Game.player.x, Game.player.y);
             if (opened) {
                 this.addMessage(`You open ${opened} door${opened > 1 ? 's' : ''}.`);
                 this.consumeTurn(20);
-            } else this.addMessage('No closed door adjacent.');
+            } else {
+                this.addMessage('No closed door adjacent.');
+            }
         }
 
         closeAdjacentDoors() {
-            let closed = 0;
-            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-            for (const [dx, dy] of dirs) {
-                const x = Game.player.x + dx, y = Game.player.y + dy;
-                if (!this.inBounds(x, y)) continue;
-                const tile = this.dungeon.getTile(x, y);
-                if (tile && tile.type === '/') {
-                    this.dungeon.setTileType(x, y, '+');
-                    closed++;
-                }
-            }
+            const closed = this.dungeon.closeAdjacentDoors(Game.player.x, Game.player.y);
             if (closed) {
                 this.addMessage(`You close ${closed} door${closed > 1 ? 's' : ''}.`);
                 this.consumeTurn(20);
-            } else this.addMessage('No closed door adjacent.');
+            } else {
+                this.addMessage('No closed door adjacent.');
+            }
         }
 
         useDownStairs() {
