@@ -355,7 +355,7 @@ class Player {
             this.game.addMessage('Nothing to drop.');
             return;
         }
-        if (!this.game.canDropHere()) {
+        if (!this.game.dungeon.canDropHere(this.x, this.y, this.game.itemManager.items)) {
             this.game.addMessage('Cannot drop here.');
             return;
         }

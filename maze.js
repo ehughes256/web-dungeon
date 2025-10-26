@@ -114,6 +114,19 @@ class Dungeon {
                 return 'Featureless dark.';
         }
     }
+
+    isValidMove(x, y) {
+        if (!this.inBounds(x, y)) return false;
+        const tile = this.getTile(x, y);
+        return tile && (tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>');
+    }
+
+    canDropHere(x, y, items) {
+        if (!this.inBounds(x, y)) return false;
+        const tile = this.getTile(x, y);
+        if (!tile || !(tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>')) return false;
+        return !items.some(it => it.x === x && it.y === y);
+    }
 }
 
 class MazeGenerator {

@@ -333,7 +333,7 @@
                 while (dx <= 0) {
                     dx++;
                     const [mx, my] = this.transformOctant(cx, cy, dx, dy, octant);
-                    if (!this.inBounds(mx, my)) continue;
+                    if (!this.dungeon.inBounds(mx, my)) continue;
                     const leftSlope = (dx - 0.5) / (dy + 0.5);
                     const rightSlope = (dx + 0.5) / (dy - 0.5);
                     if (start < rightSlope) continue;
@@ -445,9 +445,6 @@
             }
         }
 
-        inBounds(x, y) {
-            return x >= 0 && y >= 0 && x < this.width && y < this.height;
-        }
 
 
         async runInDirection(dx, dy) {
@@ -480,7 +477,7 @@
                     break;
                 }
 
-                if (this.isValidMove(newX, newY)) {
+                if (this.dungeon.isValidMove(newX, newY)) {
                     Game.player.x = newX;
                     Game.player.y = newY;
                     const foundItem = this.itemManager.checkForItems();
@@ -500,7 +497,7 @@
                 const nextY = Game.player.y + dy;
 
                 // Stop if the next tile in our direction is blocked
-                if (!this.inBounds(nextX, nextY) ||
+                if (!this.dungeon.inBounds(nextX, nextY) ||
                     this.dungeon[nextY][nextX] === '#' ||
                     this.dungeon[nextY][nextX] === '+') {
                     this.running = false;
@@ -701,7 +698,7 @@
             if (!this.examineCursor) return;
             const nx = this.examineCursor.x + dx;
             const ny = this.examineCursor.y + dy;
-            if (!this.inBounds(nx, ny)) return;
+            if (!this.dungeon.inBounds(nx, ny)) return;
             if (!this.explored[ny][nx]) return; // keep cursor within explored
             this.examineCursor.x = nx;
             this.examineCursor.y = ny;
@@ -711,7 +708,7 @@
         }
 
         describeAt(x, y, verbose = false) {
-            if (!this.inBounds(x, y)) {
+            if (!this.dungeon.inBounds(x, y)) {
                 this.addMessage('Out of bounds.');
                 return;
             }
@@ -937,7 +934,7 @@
                 if (result.hit) this.monsterManager.attackMonster(monster); else this.addMessage('You miss!');
                 return;
             }
-            if (this.isValidMove(nx, ny)) {
+            if (this.dungeon.isValidMove(nx, ny)) {
                 Game.player.x = nx;
                 Game.player.y = ny;
                 this.itemManager.checkForItems();
@@ -945,11 +942,6 @@
             }
         }
 
-        isValidMove(x, y) {
-            if (x < 0 || y < 0 || x >= this.width || y >= this.height) return false;
-            const tile = this.dungeon.getTile(x, y);
-            return tile && (tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>');
-        }
 
         openAdjacentDoors() {
             const opened = this.dungeon.openAdjacentDoors(Game.player.x, Game.player.y);
@@ -1092,13 +1084,6 @@
             }
         }
 
-        canDropHere() {
-            const x = Game.player.x, y = Game.player.y;
-            if (!this.inBounds(x, y)) return false;
-            const t = this.dungeon[y][x];
-            if (!(t === '.' || t === '/' || t === '<' || t === '>')) return false;
-            return !this.itemManager.items.some(it => it.x === x && it.y === y);
-        }
 
         instantiateDroppedItem(item, x, y) {
             const ctorName = item.constructor && item.constructor.name;
