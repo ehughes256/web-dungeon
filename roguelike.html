@@ -205,6 +205,125 @@
             grid-row: 2;
             align-self: end;
         }
+
+        /* Item Info Dialog */
+        #itemDialog {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+        }
+
+        #itemDialog.show {
+            display: flex;
+        }
+
+        .dialog-content {
+            background: #2a2a2a;
+            border: 3px solid #ffaa00;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            min-width: 350px;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #444;
+            padding-bottom: 10px;
+        }
+
+        .dialog-title {
+            font-size: 20px;
+            color: #ffaa00;
+            font-weight: bold;
+        }
+
+        .dialog-close {
+            background: #444;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .dialog-close:hover {
+            background: #666;
+        }
+
+        .dialog-body {
+            margin-bottom: 15px;
+        }
+
+        .dialog-description {
+            font-style: italic;
+            color: #ccc;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .dialog-stats {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .dialog-stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .dialog-stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .dialog-stat-label {
+            color: #aaa;
+            font-weight: bold;
+        }
+
+        .dialog-stat-value {
+            color: #fff;
+        }
+
+        .dialog-stat-value.positive {
+            color: #88ff88;
+        }
+
+        .dialog-stat-value.negative {
+            color: #ff8888;
+        }
+
+        .item-name-clickable {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+        }
+
+        .item-name-clickable:hover {
+            color: #ffcc33;
+        }
     </style>
     <script src="monster.js"></script>
     <script src="player.js"></script>
@@ -213,6 +332,18 @@
 </head>
 <body>
 <h1>Roguelike Dungeon Adventure</h1>
+<div id="itemDialog" onclick="if(event.target === this) game.closeItemDialog()">
+    <div class="dialog-content">
+        <div class="dialog-header">
+            <div class="dialog-title" id="dialogItemName">Item Name</div>
+            <button class="dialog-close" onclick="game.closeItemDialog()">&times;</button>
+        </div>
+        <div class="dialog-body">
+            <div class="dialog-description" id="dialogItemDescription">Item description goes here.</div>
+            <div class="dialog-stats" id="dialogItemStats"></div>
+        </div>
+    </div>
+</div>
 <div id="gameContainer">
     <canvas id="dungeon" width="800" height="600"></canvas>
     <div id="sidebar">
@@ -739,8 +870,14 @@
                     const itemObject = p.body[bodyPartName];
                     const hasItem = itemObject && !(itemObject instanceof EmptyItem);
                     const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
-                    const itemText = hasItem ? itemObject.name : 'None';
+                    let itemText = hasItem ? itemObject.name : 'None';
                     const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
+
+                    // Make equipped item name clickable
+                    if (hasItem) {
+                        itemText = `<span class="item-name-clickable" onclick="game.showEquippedItemInfo('${bodyPartName}')">${itemText}</span>`;
+                    }
+
                     const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}')">Remove</button></div>` : '';
                     return `<div class='${slotClass}'>
                         <span class='slot-label'>${bodyPartName}:</span>
@@ -795,7 +932,11 @@
             if (category === 'potions') actionButtons += `<button onclick="game.useInventoryItem('potions',${index})">Drink</button>`;
             if (category === 'scrolls') actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
             actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
-            return `<div class='inv-item-row'><div style='flex:1 1 auto;'>${item.name || 'Unknown'} ${tags.join(' ')}</div><div class='inv-actions'>${actionButtons}</div></div>`;
+
+            // Make item name clickable to show details
+            const itemName = `<span class="item-name-clickable" onclick="game.showItemInfoByIndex('${category}', ${index})">${item.name || 'Unknown'}</span>`;
+
+            return `<div class='inv-item-row'><div style='flex:1 1 auto;'>${itemName} ${tags.join(' ')}</div><div class='inv-actions'>${actionButtons}</div></div>`;
         }
 
         equipInventoryItem(category, index) {
@@ -1128,11 +1269,192 @@
         sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
+
+        showItemDialog(item, category) {
+            if (!item) return;
+
+            const dialog = document.getElementById('itemDialog');
+            const nameEl = document.getElementById('dialogItemName');
+            const descEl = document.getElementById('dialogItemDescription');
+            const statsEl = document.getElementById('dialogItemStats');
+
+            // Set item name
+            nameEl.textContent = item.name || 'Unknown Item';
+
+            // Set item description
+            descEl.textContent = item.description || 'A mysterious item.';
+
+            // Build stats display
+            const stats = [];
+
+            // Category-specific stats
+            if (category === 'weapons') {
+                if (item.damage !== undefined) {
+                    stats.push({label: 'Base Damage', value: item.damage, positive: item.damage > 0});
+                }
+                if (typeof item.getDamage === 'function') {
+                    const totalDamage = item.getDamage();
+                    if (totalDamage !== item.damage) {
+                        stats.push({label: 'Total Damage', value: totalDamage, positive: true});
+                    }
+                }
+                if (typeof item.getDamageBonus === 'function') {
+                    const bonus = item.getDamageBonus();
+                    if (bonus !== 0) {
+                        stats.push({label: 'Damage Bonus', value: `+${bonus}`, positive: bonus > 0});
+                    }
+                }
+                if (typeof item.getAttackBonus === 'function') {
+                    const atkBonus = item.getAttackBonus();
+                    if (atkBonus !== 0) {
+                        stats.push({label: 'Attack Bonus', value: `+${atkBonus}`, positive: atkBonus > 0});
+                    }
+                }
+                if (item.speed !== undefined) {
+                    stats.push({label: 'Attack Speed', value: item.speed});
+                }
+            } else if (category === 'armor') {
+                if (item.defense !== undefined) {
+                    stats.push({label: 'Defense', value: item.defense, positive: item.defense > 0});
+                }
+                if (typeof item.getDefenseBonus === 'function') {
+                    const defBonus = item.getDefenseBonus();
+                    if (defBonus !== 0) {
+                        stats.push({label: 'Defense Bonus', value: `+${defBonus}`, positive: defBonus > 0});
+                    }
+                }
+                if (item.bodyLocation) {
+                    stats.push({label: 'Slot', value: item.bodyLocation});
+                }
+            } else if (category === 'potions') {
+                if (item.healAmount !== undefined) {
+                    stats.push({label: 'Heal Amount', value: `+${item.healAmount} HP`, positive: true});
+                }
+                if (item.speedBoost !== undefined) {
+                    stats.push({label: 'Speed Boost', value: item.speedBoost, positive: true});
+                }
+                if (item.count !== undefined && item.count > 1) {
+                    stats.push({label: 'Quantity', value: item.count});
+                }
+            } else if (category === 'scrolls') {
+                if (item.damage !== undefined) {
+                    stats.push({label: 'Damage', value: item.damage, positive: true});
+                }
+                if (item.radius !== undefined) {
+                    stats.push({label: 'Radius', value: item.radius});
+                }
+                if (item.healPerTick !== undefined) {
+                    stats.push({label: 'Heal Per Tick', value: `+${item.healPerTick} HP`, positive: true});
+                }
+                if (item.totalHeals !== undefined) {
+                    stats.push({label: 'Total Heals', value: item.totalHeals});
+                }
+                if (item.count !== undefined && item.count > 1) {
+                    stats.push({label: 'Quantity', value: item.count});
+                }
+            }
+
+            // Common stats for all items
+            if (item.weight !== undefined && item.weight > 0) {
+                stats.push({label: 'Weight', value: item.weight});
+            }
+            if (item.size !== undefined && item.size > 0) {
+                stats.push({label: 'Size', value: item.size});
+            }
+
+            // Bonuses
+            if (item.bonuses && Object.keys(item.bonuses).length > 0) {
+                Object.entries(item.bonuses).forEach(([key, value]) => {
+                    if (value !== 0) {
+                        stats.push({label: `${key} bonus`, value: `+${value}`, positive: value > 0});
+                    }
+                });
+            }
+
+            // Enchantments
+            if (item.enchantments && Object.keys(item.enchantments).length > 0) {
+                Object.entries(item.enchantments).forEach(([key, value]) => {
+                    if (value !== 0) {
+                        stats.push({label: `${key} enchantment`, value: `+${value}`, positive: value > 0});
+                    }
+                });
+            }
+
+            // Status flags
+            if (item.identified !== undefined) {
+                stats.push({label: 'Identified', value: item.identified ? 'Yes' : 'No'});
+            }
+            if (item.cursed) {
+                stats.push({label: 'Cursed', value: 'Yes', positive: false});
+            }
+
+            // Render stats
+            if (stats.length > 0) {
+                statsEl.innerHTML = stats.map(stat => {
+                    const valueClass = stat.positive === true ? 'dialog-stat-value positive' :
+                                      stat.positive === false ? 'dialog-stat-value negative' :
+                                      'dialog-stat-value';
+                    return `<div class="dialog-stat-row">
+                        <span class="dialog-stat-label">${stat.label}:</span>
+                        <span class="${valueClass}">${stat.value}</span>
+                    </div>`;
+                }).join('');
+            } else {
+                statsEl.innerHTML = '<div style="color: #888; text-align: center;">No additional stats</div>';
+            }
+
+            // Show dialog
+            dialog.classList.add('show');
+        }
+
+        closeItemDialog() {
+            const dialog = document.getElementById('itemDialog');
+            dialog.classList.remove('show');
+        }
+
+        showItemInfoByIndex(category, index) {
+            let item = null;
+
+            if (category === 'weapons') {
+                item = Game.player.inventory.weapons[index];
+            } else if (category === 'armor') {
+                item = Game.player.inventory.armor[index];
+            } else if (category === 'potions') {
+                item = Game.player.inventory.potions[index];
+            } else if (category === 'scrolls') {
+                item = Game.player.inventory.scrolls[index];
+            }
+
+            if (item) {
+                this.showItemDialog(item, category);
+            }
+        }
+
+        showEquippedItemInfo(bodyPartName) {
+            const item = Game.player.body[bodyPartName];
+            if (!item || item instanceof EmptyItem || item instanceof Fists) {
+                return;
+            }
+
+            // Determine category based on body part
+            const category = bodyPartName === 'weapon' ? 'weapons' : 'armor';
+            this.showItemDialog(item, category);
+        }
     }
 
     let game;
     window.addEventListener('load', () => {
         game = new Game();
+    });
+
+    // Add keyboard support for closing dialog
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const dialog = document.getElementById('itemDialog');
+            if (dialog && dialog.classList.contains('show')) {
+                game.closeItemDialog();
+            }
+        }
     });
 </script>
 </body>

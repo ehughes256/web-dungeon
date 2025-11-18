@@ -828,7 +828,11 @@ class MonsterManager {
         const dmg = Math.max(1, monster.getDamage());
         const actualDamage = Game.player.hitPlayer(dmg);
 
-        this.game.addMessage(`The ${monster.getDisplayName()} hits you for ${actualDamage} damage.`);
+        if(actualDamage === 0) {
+            this.game.addMessage(`The ${monster.getDisplayName()} attacks but you block it!`);
+        } else {
+            this.game.addMessage(`The ${monster.getDisplayName()} hits you for ${actualDamage} damage.`);
+        }
 
         if (Game.player.isDead()) {
             this.game.gameOver = true;
