@@ -58,10 +58,11 @@
 
         .stats {
             margin-bottom: 15px;
+            display: flex;
         }
 
         .stat {
-            margin: 5px 0;
+            margin: 5px 5px;
         }
 
         #inventorySection {
@@ -76,21 +77,14 @@
 
         #statsSection {
             margin-bottom: 20px;
+            position: absolute;
+            bottom: 0;
         }
 
         #statsSection h2 {
             margin-top: 0;
             margin-bottom: 10px;
             color: #ffaa00;
-        }
-
-        .sidebar-toggle-hint {
-            font-size: 12px;
-            color: #aaa;
-            margin-bottom: 10px;
-            text-align: center;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
         }
 
         .inv-section {
@@ -128,12 +122,6 @@
             padding: 1px 4px;
             font-size: 11px;
             color: #ccc;
-        }
-
-        .close-hint {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 6px;
         }
 
         .equipped-section {
@@ -216,18 +204,16 @@
 <div id="gameContainer">
     <canvas id="dungeon" width="800" height="600"></canvas>
     <div id="sidebar">
-        <div class="sidebar-toggle-hint">Press / to toggle view</div>
         <div id="inventorySection">
-            <h2>Inventory</h2>
             <div id="inventoryContents"></div>
         </div>
-        <div id="statsSection" style="display: none;">
-            <h2>Player Stats</h2>
+        <div id="statsSection">
             <div class="stats">
-                <div class="stat">Level: <span id="level">1</span></div>
-                <div class="stat">Exp: <span id="exp">0</span></div>
-                <div class="stat">Health: <span id="health">100</span></div>
-                <div class="stat">Gold: <span id="gold">0</span></div>
+                <div class="stat">Lv:<span id="level">1</span></div>
+                <div class="stat">Xp:<span id="exp">0</span></div>
+                <div class="stat">H:<span id="health">100</span></div>
+                <div class="stat">$:<span id="gold">0</span></div>
+                <div class="stat">Wt:<span id="weight">0</span></div>
             </div>
         </div>
         <div id="messages"
@@ -653,6 +639,7 @@
                         return;
                 }
                 if (dx || dy) {
+                    this.running = false;
                     if (shiftHeld) {
                         this.runInDirection(dx, dy);
                     } else {
@@ -771,7 +758,6 @@
                 arr.forEach((item, idx) => lines.push(renderFn(item, idx)));
                 lines.push('</div>');
             };
-            lines.push(`<div class='inv-section'><div>Gold: ${p.inventory.gold}</div></div>`);
             section('Potions', p.inventory.potions, (it, i) => this.renderInvRow('potions', it, i));
             section('Scrolls', p.inventory.scrolls, (it, i) => this.renderInvRow('scrolls', it, i));
             section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
@@ -1110,6 +1096,7 @@
             document.getElementById('health').textContent = Game.player.health;
             document.getElementById('gold').textContent = Game.player.inventory.gold;
             document.getElementById('exp').textContent = Game.player.experience;
+            document.getElementById('weight').textContent = Game.player.carriedWeight();
             this.buildInventory();
         }
 
