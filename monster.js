@@ -794,15 +794,19 @@ class MonsterManager {
             const moved = (monster.x !== oldX || monster.y !== oldY);
             if (moved) {
                 anyMovement = true;
-                // Render immediately after each monster moves so we can see it
-                this.game.render();
-                // Add a delay after each monster action to make movement visible
-                await this.game.sleep(50);
+                // Only add delay if the monster is visible to the player
+                const isVisible = this.game.visible[monster.y] && this.game.visible[monster.y][monster.x];
+                if (isVisible) {
+                    // Render immediately after each visible monster moves so we can see it
+                    this.game.render();
+                    // Add a delay after each visible monster action to make movement visible
+                    await this.game.sleep(50);
+                }
             }
         }
 
-        // Final render if monsters acted but didn't move (e.g., attacks)
-        if (actingMonsters.length > 0 && !anyMovement) {
+        // Final render if monsters acted (to update any non-visible changes)
+        if (actingMonsters.length > 0) {
             this.game.render();
         }
 
