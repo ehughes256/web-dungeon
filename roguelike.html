@@ -704,10 +704,13 @@
                 return;
             }
             // Item if visible
-            const item = this.itemManager.items.find(it => it.x === x && it.y === y && this.visible[it.y][it.x]);
-            if (item) {
-                this.addMessage(`${item.name}: ${item.description || 'An indescribable object.'}`);
-                return;
+            const tile = this.dungeon.getTile(x, y);
+            if (tile && tile.hasItems() && this.visible[y] && this.visible[y][x]) {
+                const item = tile.getTopItem();
+                if (item) {
+                    this.addMessage(`${item.name}: ${item.description || 'An indescribable object.'}`);
+                    return;
+                }
             }
             // Tile description - delegate to dungeon
             const tilDesc = this.dungeon.getTileDescription(x, y);
@@ -1011,15 +1014,24 @@
             };
             drawStair(this.dungeon.upStair, '<', '#88ff88');
             drawStair(this.dungeon.downStair, '>', '#ff8888');
-            this.itemManager.items.forEach(it => {
-                if (!this.visible[it.y][it.x]) return;
-                const px = it.x * ts, py = it.y * ts;
-                this.ctx.font = '16px monospace';
-                this.ctx.textAlign = 'center';
-                this.ctx.textBaseline = 'middle';
-                this.ctx.fillStyle = it.getColor ? (it.getColor() || '#fff') : '#fff';
-                this.ctx.fillText(it.getSymbol ? it.getSymbol() : '?', px + ts / 2, py + ts / 2);
-            });
+            // Draw items from floor tiles
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    if (!this.visible[y][x]) continue;
+                    const tile = this.dungeon.getTile(x, y);
+                    if (tile && tile.hasItems()) {
+                        const it = tile.getTopItem(); // Show top item
+                        if (it) {
+                            const px = x * ts, py = y * ts;
+                            this.ctx.font = '16px monospace';
+                            this.ctx.textAlign = 'center';
+                            this.ctx.textBaseline = 'middle';
+                            this.ctx.fillStyle = it.getColor ? (it.getColor() || '#fff') : '#fff';
+                            this.ctx.fillText(it.getSymbol ? it.getSymbol() : '?', px + ts / 2, py + ts / 2);
+                        }
+                    }
+                }
+            }
             this.itemManager.itemMemory.forEach((mem, key) => {
                 const [xs, ys] = key.split(',').map(Number);
                 if (this.visible[ys] && this.visible[ys][xs]) return;

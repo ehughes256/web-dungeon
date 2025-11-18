@@ -650,7 +650,9 @@ class MonsterManager {
             const y = room.y + Math.floor(Math.random() * room.height);
 
             if (!this.isWalkableForMonster(x, y)) continue;
-            if (this.game.itemManager.items.some((it) => it.x === x && it.y === y)) continue;
+            // Check if there are items on this tile
+            const tile = this.game.dungeon.getTile(x, y);
+            if (tile && tile.hasItems()) continue;
             if (
                 (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
                 (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y)

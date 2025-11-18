@@ -8,6 +8,31 @@ class FloorTile {
     isWalkable() {
         return this.type === '.' || this.type === '/' || this.type === '+';
     }
+
+    addItem(item) {
+        this.items.push(item);
+    }
+
+    removeItem(item) {
+        const index = this.items.indexOf(item);
+        if (index !== -1) {
+            this.items.splice(index, 1);
+            return true;
+        }
+        return false;
+    }
+
+    hasItems() {
+        return this.items.length > 0;
+    }
+
+    getTopItem() {
+        return this.items.length > 0 ? this.items[this.items.length - 1] : null;
+    }
+
+    clearItems() {
+        this.items = [];
+    }
 }
 
 class Dungeon {
@@ -121,11 +146,11 @@ class Dungeon {
         return tile && (tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>');
     }
 
-    canDropHere(x, y, items) {
+    canDropHere(x, y) {
         if (!this.inBounds(x, y)) return false;
         const tile = this.getTile(x, y);
-        if (!tile || !(tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>')) return false;
-        return !items.some(it => it.x === x && it.y === y);
+        // Allow dropping items on walkable tiles (multiple items can be on same tile now)
+        return tile && (tile.type === '.' || tile.type === '/' || tile.type === '<' || tile.type === '>');
     }
 }
 

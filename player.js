@@ -357,7 +357,12 @@ class Player {
             this.game.addMessage('Nothing to drop.');
             return;
         }
-        if (!this.game.dungeon.canDropHere(this.x, this.y, this.game.itemManager.items)) {
+        if (!this.game.dungeon.canDropHere(this.x, this.y)) {
+            this.game.addMessage('Cannot drop here.');
+            return;
+        }
+        const tile = this.game.dungeon.getTile(this.x, this.y);
+        if (!tile) {
             this.game.addMessage('Cannot drop here.');
             return;
         }
@@ -368,7 +373,7 @@ class Player {
                 this.game.addMessage('Failed to drop item.');
                 return;
             }
-            this.game.itemManager.items.push(single);
+            tile.addItem(single);
             stack.count -= 1;
             if (stack.count <= 0) arr.splice(index, 1);
             this.game.addMessage(`You drop one ${stack.name}.`);
@@ -378,8 +383,8 @@ class Player {
             if (p.equippedArmor() === item) p.unEquipArmor(item.bodyLocation);
             item.x = this.x;
             item.y = this.y;
-            // Place the item on the ground
-            this.game.itemManager.items.push(item);
+            // Place the item on the ground in the floor tile
+            tile.addItem(item);
             this.game.addMessage(`You drop ${item.name}.`);
         }
         this.game.updateUI();

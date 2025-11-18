@@ -1256,12 +1256,19 @@ class ItemFactory {
 class ItemManager {
     constructor(game) {
         this.game = game;
-        this.items = [];
         this.itemMemory = new Map(); // key: "x,y" -> {symbol, type}
     }
 
     generateItems() {
-        this.items = [];
+        // Clear all items from floor tiles
+        for (let y = 0; y < this.game.height; y++) {
+            for (let x = 0; x < this.game.width; x++) {
+                const tile = this.game.dungeon.getTile(x, y);
+                if (tile) {
+                    tile.clearItems();
+                }
+            }
+        }
         this.itemMemory = new Map();
 
         // Ensure at least one level-appropriate weapon spawns
@@ -1280,8 +1287,8 @@ class ItemManager {
                         (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
                         (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) ||
                         (x === Game.player.x && y === Game.player.y) ||
-                        (tile && tile.type === '+') ||
-                        this.items.some(it => it.x === x && it.y === y)
+                        !tile ||
+                        tile.type === '+'
                     ) {
                         continue;
                     }
@@ -1289,7 +1296,8 @@ class ItemManager {
                     const currentLevel = Game.player.level;
                     const playerLuck = Game.player.luck;
                     const item = ItemFactory.createLevelAppropriateItem(x, y, currentLevel, playerLuck);
-                    this.items.push(item);
+                    // Store item in the floor tile
+                    tile.addItem(item);
                 }
             }
         });
@@ -1330,36 +1338,45 @@ class ItemManager {
             if (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) continue;
             if (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) continue;
             if (x === Game.player.x && y === Game.player.y) continue;
-            if (this.items.some(it => it.x === x && it.y === y)) continue;
-            this.items.push(new weaponClass(x, y));
+            // Store weapon in floor tile
+            tile.addItem(new weaponClass(x, y));
             break;
         }
     }
 
     checkForItems() {
         const p = Game.player;
-        const idx = this.items.findIndex(it => it.x === p.x && it.y === p.y);
-        if (idx !== -1) {
-            const item = this.items[idx];
-            item.onCollect(this.game);
-            this.items.splice(idx, 1);
-            this.itemMemory.delete(`${item.x},${item.y}`);
-            this.game.updateUI();
-            return true;
+        const tile = this.game.dungeon.getTile(p.x, p.y);
+        if (tile && tile.hasItems()) {
+            // Pick up the top item (last in the list)
+            const item = tile.getTopItem();
+            if (item) {
+                item.onCollect(this.game);
+                tile.removeItem(item);
+                this.itemMemory.delete(`${p.x},${p.y}`);
+                this.game.updateUI();
+                return true;
+            }
         }
         return false;
     }
 
     updateItemMemory() {
         if (!this.itemMemory) this.itemMemory = new Map();
-        this.items.forEach(item => {
-            if (this.game.visible[item.y] && this.game.visible[item.y][item.x]) {
-                this.itemMemory.set(`${item.x},${item.y}`, {
-                    symbol: item.getSymbol(),
-                    type: item.getType(),
-                });
+        for (let y = 0; y < this.game.height; y++) {
+            for (let x = 0; x < this.game.width; x++) {
+                const tile = this.game.dungeon.getTile(x, y);
+                if (tile && tile.hasItems() && this.game.visible[y] && this.game.visible[y][x]) {
+                    const item = tile.getTopItem(); // Show the top item
+                    if (item) {
+                        this.itemMemory.set(`${x},${y}`, {
+                            symbol: item.getSymbol(),
+                            type: item.getType(),
+                        });
+                    }
+                }
             }
-        });
+        }
     }
 }
 
