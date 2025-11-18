@@ -36,6 +36,8 @@
             height: 600px;
             overflow-y: auto;
             box-sizing: border-box;
+            display: grid;
+            grid-template-rows: auto 1fr auto auto;
         }
 
         button {
@@ -66,7 +68,8 @@
         }
 
         #inventorySection {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            align-self: start;
         }
 
         #inventorySection h2 {
@@ -76,9 +79,7 @@
         }
 
         #statsSection {
-            margin-bottom: 20px;
-            position: absolute;
-            bottom: 0;
+            align-self: end;
         }
 
         #statsSection h2 {
@@ -102,9 +103,9 @@
             justify-content: space-between;
             gap: 6px;
             background: #2d2d2d;
-            padding: 4px 6px;
+            padding: 2px 4px;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .inv-item-row + .inv-item-row {
@@ -112,7 +113,7 @@
         }
 
         .inv-actions button {
-            padding: 2px 6px;
+            padding: 2px 4px;
             font-size: 12px;
         }
 
@@ -193,6 +194,17 @@
         .slot-actions button:hover {
             background: #666;
         }
+
+        #messages {
+            margin-top: 15px;
+            height: 160px;
+            overflow-y: auto;
+            background: #111;
+            padding: 5px;
+            border-radius: 3px;
+            grid-row: 2;
+            align-self: end;
+        }
     </style>
     <script src="monster.js"></script>
     <script src="player.js"></script>
@@ -216,8 +228,7 @@
                 <div class="stat">Wt:<span id="weight">0</span></div>
             </div>
         </div>
-        <div id="messages"
-             style="margin-top: 15px; height: 160px; overflow-y: auto; background: #111; padding: 5px; border-radius: 3px;">
+        <div id="messages">
             <div>Welcome to the dungeon!</div>
         </div>
     </div>
@@ -265,10 +276,10 @@
             this.gameOver = false;
             this.currentTick = 0;
             this.dungeonLevel = 1;
+            this.showingEquipped = true;
             this.timeManager = new TimeManager(this);
             this.monsterManager = new MonsterManager(this);
             this.itemManager = new ItemManager(this);
-            this.sidebarShowingInventory = true; // Track which view is active
             // Examine / Inspect mode state
             this.examineMode = false;
             this.examineCursor = null; // {x,y}
@@ -705,19 +716,8 @@
 
         // Toggle between inventory and stats sidebar views
         toggleSidebarView() {
-            this.sidebarShowingInventory = !this.sidebarShowingInventory;
-            const inventorySection = document.getElementById('inventorySection');
-            const statsSection = document.getElementById('statsSection');
-            if (!inventorySection || !statsSection) return;
-            if (this.sidebarShowingInventory) {
-                inventorySection.style.display = 'block';
-                statsSection.style.display = 'none';
-                // Rebuild inventory when switching back
-                this.buildInventory();
-            } else {
-                inventorySection.style.display = 'none';
-                statsSection.style.display = 'block';
-            }
+            this.showingEquipped = !this.showingEquipped;
+            this.buildInventory();
         }
 
         // Restored inventory UI construction
@@ -729,39 +729,44 @@
 
             // Equipped section
             lines.push(`<div class='equipped-section'>`);
-            lines.push(`<h4>Currently Equipped</h4>`);
-            lines.push(`<div class='equipped-grid'>`);
-            const renderSlot = (bodyPartName) => {
-                const itemObject = p.body[bodyPartName];
-                const hasItem = itemObject && !(itemObject instanceof EmptyItem);
-                const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
-                const itemText = hasItem ? itemObject.name : 'None';
-                const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
-                const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}')">Remove</button></div>` : '';
-                return `<div class='${slotClass}'>
-                    <span class='slot-label'>${bodyPartName}:</span>
-                    <span class='${itemClass}'>${itemText}</span>
-                    ${unequipButton}
-                </div>`;
-            };
-            lines.push(renderSlot("weapon"));
-            lines.push(renderSlot("armor"));
-            lines.push(renderSlot("helmet"));
-            lines.push(renderSlot("ring"));
-            lines.push(renderSlot("gloves"));
-            lines.push(renderSlot("boots"));
-            lines.push('</div></div>');
-
-            const section = (title, arr, renderFn) => {
-                if (!arr || !arr.length) return;
-                lines.push(`<div class='inv-section'><h4>${title}</h4>`);
-                arr.forEach((item, idx) => lines.push(renderFn(item, idx)));
-                lines.push('</div>');
-            };
-            section('Potions', p.inventory.potions, (it, i) => this.renderInvRow('potions', it, i));
-            section('Scrolls', p.inventory.scrolls, (it, i) => this.renderInvRow('scrolls', it, i));
-            section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
-            section('Armor', p.inventory.armor, (it, i) => this.renderInvRow('armor', it, i, p.equippedArmor().includes(it)));
+            if (this.showingEquipped) {
+                lines.push(`<h4>Currently Equipped</h4>`);
+                lines.push(`<div class='equipped-grid'>`);
+                const renderSlot = (bodyPartName) => {
+                    const itemObject = p.body[bodyPartName];
+                    const hasItem = itemObject && !(itemObject instanceof EmptyItem);
+                    const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
+                    const itemText = hasItem ? itemObject.name : 'None';
+                    const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
+                    const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}')">Remove</button></div>` : '';
+                    return `<div class='${slotClass}'>
+                        <span class='slot-label'>${bodyPartName}:</span>
+                        <span class='${itemClass}'>${itemText}</span>
+                        ${unequipButton}
+                    </div>`;
+                };
+                lines.push(renderSlot("weapon"));
+                lines.push(renderSlot("armor"));
+                lines.push(renderSlot("helmet"));
+                lines.push(renderSlot("ring"));
+                lines.push(renderSlot("gloves"));
+                lines.push(renderSlot("boots"));
+                lines.push('</div></div>');
+            } else {
+                const section = (title, arr, renderFn) => {
+                    if (!arr || !arr.length) return;
+                    lines.push(`<div class='inv-section'><h4>${title}</h4>`);
+                    arr.forEach((item, idx) => lines.push(renderFn(item, idx)));
+                    lines.push('</div>');
+                };
+                lines.push(`<h4>Inventory</h4>`);
+                lines.push(`<div class="in-pack">`);
+                section('Potions', p.inventory.potions, (it, i) => this.renderInvRow('potions', it, i));
+                section('Scrolls', p.inventory.scrolls, (it, i) => this.renderInvRow('scrolls', it, i));
+                section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
+                section('Armor', p.inventory.armor, (it, i) => this.renderInvRow('armor', it, i, p.equippedArmor().includes(it)));
+                lines.push(`</div>`);
+            }
             container.innerHTML = lines.join('');
         }
 
@@ -902,8 +907,7 @@
                 const result = Game.player.attemptAttack(monster);
                 if (result.hit) {
                     this.monsterManager.attackMonster(monster);
-                }
-                else {
+                } else {
                     this.addMessage('You miss!');
                     this.consumeTurn(Game.player.equippedWeapon().speed || 50);
                 }
