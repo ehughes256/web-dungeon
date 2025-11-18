@@ -247,9 +247,9 @@
             this.futureEvents[execTick].push(anEvent);
         }
 
-        advanceTime() {
+        async advanceTime() {
             this.game.currentTick++;
-            this.game.monsterManager.processTimeIncrement();
+            await this.game.monsterManager.processTimeIncrement();
             if (Game.player.nextFreeHealTime <= this.game.currentTick) {
                 Game.player.nextFreeHealTime = this.game.currentTick + 3000;
                 Game.player.heal(5);
@@ -476,7 +476,7 @@
                 await this.sleep(100);
 
                 // Consume a turn for each step
-                this.consumeTurn(Game.player.speed);
+                await this.consumeTurn(Game.player.speed);
 
                 // In open rooms, continue running in the same direction
                 // Only stop if we can't continue in the current direction
@@ -523,7 +523,7 @@
         }
 
         setupEventListeners() {
-            document.addEventListener('keydown', (e) => {
+            document.addEventListener('keydown', async (e) => {
                 if (this.gameOver) return;
                 const k = e.key.toLowerCase();
                 const shiftHeld = e.shiftKey;
@@ -631,10 +631,10 @@
                         this.useUpStairs();
                         return;
                     case 'o':
-                        this.openAdjacentDoors();
+                        await this.openAdjacentDoors();
                         return;
                     case 'c':
-                        this.closeAdjacentDoors();
+                        await this.closeAdjacentDoors();
                         return;
                     case '/':
                         this.toggleSidebarView();
@@ -644,7 +644,7 @@
                         return; // Enter examine mode
                     case '.':
                         this.addMessage('You wait a moment...');
-                        this.consumeTurn(100);
+                        await this.consumeTurn(100);
                         return;
                     default:
                         return;
@@ -652,9 +652,9 @@
                 if (dx || dy) {
                     this.running = false;
                     if (shiftHeld) {
-                        this.runInDirection(dx, dy);
+                        await this.runInDirection(dx, dy);
                     } else {
-                        this.handleMove(dx, dy);
+                        await this.handleMove(dx, dy);
                     }
                     e.preventDefault();
                 }
@@ -892,24 +892,24 @@
             this.render();
         }
 
-        handleMove(dx, dy) {
+        async handleMove(dx, dy) {
             const nx = Game.player.x + dx, ny = Game.player.y + dy;
             if (nx < 0 || ny < 0 || nx >= this.width || ny >= this.height) return;
             const tile = this.dungeon.getTile(nx, ny);
             if (tile && tile.type === '+') {
                 this.dungeon.setTileType(nx, ny, '/');
                 this.addMessage('You open the door.');
-                this.consumeTurn(20);
+                await this.consumeTurn(20);
                 return;
             }
             const monster = this.monsterManager.monsters.find(m => m.x === nx && m.y === ny);
             if (monster) {
                 const result = Game.player.attemptAttack(monster);
                 if (result.hit) {
-                    this.monsterManager.attackMonster(monster);
+                    await this.monsterManager.attackMonster(monster);
                 } else {
                     this.addMessage('You miss!');
-                    this.consumeTurn(Game.player.equippedWeapon().speed || 50);
+                    await this.consumeTurn(Game.player.equippedWeapon().speed || 50);
                 }
                 return;
             }
@@ -917,26 +917,26 @@
                 Game.player.x = nx;
                 Game.player.y = ny;
                 this.itemManager.checkForItems();
-                this.consumeTurn(Game.player.speed);
+                await this.consumeTurn(Game.player.speed);
             }
         }
 
 
-        openAdjacentDoors() {
+        async openAdjacentDoors() {
             const opened = this.dungeon.openAdjacentDoors(Game.player.x, Game.player.y);
             if (opened) {
                 this.addMessage(`You open ${opened} door${opened > 1 ? 's' : ''}.`);
-                this.consumeTurn(20);
+                await this.consumeTurn(20);
             } else {
                 this.addMessage('No closed door adjacent.');
             }
         }
 
-        closeAdjacentDoors() {
+        async closeAdjacentDoors() {
             const closed = this.dungeon.closeAdjacentDoors(Game.player.x, Game.player.y);
             if (closed) {
                 this.addMessage(`You close ${closed} door${closed > 1 ? 's' : ''}.`);
-                this.consumeTurn(20);
+                await this.consumeTurn(20);
             } else {
                 this.addMessage('No closed door adjacent.');
             }
@@ -960,9 +960,9 @@
             this.addMessage('There are no stairs here.');
         }
 
-        consumeTurn(ticksToConsume = 100) {
+        async consumeTurn(ticksToConsume = 100) {
             for (let i = 0; i < ticksToConsume; i++) {
-                this.timeManager.advanceTime();
+                await this.timeManager.advanceTime();
                 this.computeFOV();
                 this.render();
                 this.updateUI();

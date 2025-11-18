@@ -69,7 +69,7 @@ class Monster {
                     !(tx === Game.player.x && ty === Game.player.y) &&
                     monsterManager.isWalkableForMonster(tx, ty)
                 ) {
-                    this.moveToWithDelay(tx, ty, monsterManager.game, 50).then();
+                    this.moveTo(tx, ty);
                 }
             }
         } else if (this.lastKnownPlayerLocation) {
@@ -83,7 +83,7 @@ class Monster {
                     const [tx, ty] = step;
                     if (!(tx === Game.player.x && ty === Game.player.y) &&
                         monsterManager.isWalkableForMonster(tx, ty)) {
-                        this.moveToWithDelay(tx, ty, monsterManager.game, 50).then();
+                        this.moveTo(tx, ty);
                     }
                 }
             } else {
@@ -121,12 +121,6 @@ class Monster {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    async moveToWithDelay(x, y, game, delay) {
-        this.x = x;
-        this.y = y;
-        game.render();
-        await game.sleep(delay);
-    }
 
     moveTo(x, y) {
         this.x = x;
@@ -282,7 +276,7 @@ class Spider extends Monster {
                 const newY = this.y + dy;
                 const newDist = Math.abs(newX - Game.player.x) + Math.abs(newY - Game.player.y);
                 if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY)) {
-                    this.moveToWithDelay(newX, newY, monsterManager.game, 50).then();
+                    this.moveTo(newX, newY);
                     break;
                 }
             }
@@ -388,7 +382,7 @@ class Bat extends Monster {
             const wx = this.x + d[0];
             const wy = this.y + d[1];
             if (monsterManager.isWalkableForMonster(wx, wy)) {
-                this.moveToWithDelay(wx, wy, monsterManager.game, 50).then();
+                this.moveTo(wx, wy);
             }
         } else {
             // Sometimes chase player normally
@@ -451,9 +445,7 @@ class Wizard extends Monster {
                 const newY = this.y + dy;
                 const newDist = Math.abs(newX - Game.player.x) + Math.abs(newY - Game.player.y);
                 if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY)) {
-                    this.moveToWithDelay(newX, newY, monsterManager.game, 50).then(() => {
-                    });
-                    monsterManager.game.render();
+                    this.moveTo(newX, newY);
                     return;
                 }
             }
@@ -575,7 +567,7 @@ class Ghost extends Monster {
             const newY = this.y + moveY;
 
             if (monsterManager.game.dungeon.inBounds(newX, newY)) {
-                this.moveToWithDelay(newX, newY, monsterManager.game, 50).then();
+                this.moveTo(newX, newY);
             }
         } else {
             // Random movement when not chasing
@@ -787,7 +779,7 @@ class MonsterManager {
     }
 
     // Process time increments and handle monster actions
-    processTimeIncrement() {
+    async processTimeIncrement() {
         const actingMonsters = this.monsters.filter(
             (monster) => monster.isAlive() && monster.canAct(this.game.currentTick)
         );
@@ -798,21 +790,20 @@ class MonsterManager {
             const oldY = monster.y;
             monster.performAction(this);
 
-            // Track if any monster moved for rendering purposes
-            if (monster.x !== oldX || monster.y !== oldY) {
+            // Track if any monster moved or acted
+            const moved = (monster.x !== oldX || monster.y !== oldY);
+            if (moved) {
                 anyMovement = true;
+                // Render immediately after each monster moves so we can see it
+                this.game.render();
+                // Add a delay after each monster action to make movement visible
+                await this.game.sleep(50);
             }
         }
 
-        // Render the screen if monsters moved or acted
-        if (actingMonsters.length > 0) {
+        // Final render if monsters acted but didn't move (e.g., attacks)
+        if (actingMonsters.length > 0 && !anyMovement) {
             this.game.render();
-            // Add a small delay to make movement visible
-            if (anyMovement) {
-                // Use a shorter delay for smoother animation
-                setTimeout(() => {
-                }, 100); // 100ms delay
-            }
         }
 
         return actingMonsters.length > 0;
@@ -839,8 +830,8 @@ class MonsterManager {
         }
         monster.scheduleNextAction(this.game.currentTick, monster.attackSpeed);
     }
-
-    attackMonster(monster) {
+    async attackMonster(monster) {
+        // Player attacks a monster
         const attack = Game.player.getAttack();
         const damage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus) + 1;
 
@@ -854,7 +845,7 @@ class MonsterManager {
             this.game.render();
         }
 
-        this.game.consumeTurn(Game.player.equippedWeapon().speed || 50);
+        await this.game.consumeTurn(Game.player.equippedWeapon().speed || 50);
     }
 }
 
