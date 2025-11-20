@@ -1,5 +1,5 @@
 // Quick distribution sampler for items across player levels
-require('./items.js');
+const { ItemFactory } = require('./items.js');
 
 function sampleForLevel(level, samples=500) {
   const counts = new Map();

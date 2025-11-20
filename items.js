@@ -1,3 +1,10 @@
+// Constants for item spawning and generation
+const ITEM_SPAWN_CHANCE = 0.7;
+const MAX_ITEMS_PER_ROOM = 3;
+const WEAPON_SPAWN_MAX_ATTEMPTS = 60;
+const PRIMITIVE_WEAPON_PHASE_OUT_LEVEL = 3;
+const BASIC_WEAPON_PHASE_OUT_LEVEL = 4;
+
 // Base Item class
 class Item {
     static dropChance = 0.0;
@@ -415,6 +422,32 @@ class RegenerationScroll extends Scroll {
     }
 }
 
+// Enchantment: allows player to select and enhance an item
+class EnchantmentScroll extends Scroll {
+    static dropChance = 0.04;
+    static levelRange = [2, 15];
+
+    constructor(x, y, enchantmentPower) {
+        super(x, y, 'Enchantment Scroll');
+        this.enchantmentPower = enchantmentPower || 1; // How much to boost stats
+        this.description = 'Swirling glyphs of amplification—channel its power into a weapon or armor to transcend mortal limits.';
+    }
+
+    getColor() {
+        return '#ff99ff';
+    }
+
+    use(game) {
+        // Trigger the enchantment selection UI
+        game.startItemSelection(this);
+        return {
+            success: true,
+            message: 'Select an item to enchant...',
+            scroll: this,
+        };
+    }
+}
+
 class EquippableItem extends Item {
     constructor(x, y, name, bodyLocation = null) {
         super(x, y, name);
@@ -436,6 +469,7 @@ class Weapon extends EquippableItem {
         this.bonuses = {};
         this.enchantments = {};
         this.damage = Weapon.baseDamage;
+        this.attackBonus = 0;
     }
 
     getSymbol() {
@@ -1151,6 +1185,25 @@ class ProtectionRing extends Ring {
 
 // Item factory for creating items
 class ItemFactory {
+    // Helper method to calculate effective level with luck modifier
+    static calculateEffectiveLevel(currentLevel, playerLuck = 50) {
+        // Luck 0 = -2 levels, Luck 50 = 0 levels, Luck 100 = +2 levels
+        const luckModifier = Math.floor((playerLuck - 50) / 25);
+        return Math.max(1, currentLevel + luckModifier);
+    }
+
+    // Helper method for weighted random selection from item list
+    static selectWeightedRandom(items) {
+        if (items.length === 0) return null;
+        const totalChance = items.reduce((sum, it) => sum + it.chance, 0);
+        let rand = Math.random() * totalChance;
+        for (const item of items) {
+            if (rand < item.chance) return item;
+            rand -= item.chance;
+        }
+        return items[0]; // fallback to first item
+    }
+
     static itemTypes = [
         {class: Gold, chance: Gold.dropChance}, // move Gold to top again for clarity
         // Low-level weapons (reduced chances)
@@ -1166,6 +1219,7 @@ class ItemFactory {
         {class: MappingScroll, chance: MappingScroll.dropChance},
         {class: FireballScroll, chance: FireballScroll.dropChance},
         {class: RegenerationScroll, chance: RegenerationScroll.dropChance},
+        {class: EnchantmentScroll, chance: EnchantmentScroll.dropChance},
         // Weapons - Light/Fast
         {class: SmallDagger, chance: SmallDagger.dropChance},
         {class: Shortsword, chance: Shortsword.dropChance},
@@ -1204,23 +1258,16 @@ class ItemFactory {
     ];
 
     static createRandomItem(x, y) {
-        const totalChance = ItemFactory.itemTypes.reduce((sum, it) => sum + it.chance, 0);
-        let rand = Math.random() * totalChance;
-        for (const itemType of ItemFactory.itemTypes) {
-            if (rand < itemType.chance) {
-                return new itemType.class(x, y);
-            }
-            rand -= itemType.chance;
+        const selectedItem = ItemFactory.selectWeightedRandom(ItemFactory.itemTypes);
+        if (selectedItem) {
+            return new selectedItem.class(x, y);
         }
         // Fallback to gold if no other item is selected
         return new Gold(x, y);
     }
 
     static createLevelAppropriateItem(x, y, currentLevel, playerLuck = 50) {
-        // Calculate luck modifier (-2 to +2 level range)
-        // Luck 0 = -2 levels, Luck 50 = 0 levels, Luck 100 = +2 levels
-        const luckModifier = Math.floor((playerLuck - 50) / 25);
-        const effectiveLevel = Math.max(1, currentLevel + luckModifier);
+        const effectiveLevel = ItemFactory.calculateEffectiveLevel(currentLevel, playerLuck);
 
         // Filter items that are appropriate for this level (with luck modifier)
         const validItems = ItemFactory.itemTypes.filter(itemType => {
@@ -1236,15 +1283,10 @@ class ItemFactory {
             return ItemFactory.createRandomItem(x, y);
         }
 
-        // Calculate total chance for valid items
-        const totalChance = validItems.reduce((sum, it) => sum + it.chance, 0);
-        let rand = Math.random() * totalChance;
-
-        for (const itemType of validItems) {
-            if (rand < itemType.chance) {
-                return new itemType.class(x, y);
-            }
-            rand -= itemType.chance;
+        // Use weighted random selection
+        const selectedItem = ItemFactory.selectWeightedRandom(validItems);
+        if (selectedItem) {
+            return new selectedItem.class(x, y);
         }
 
         // Fallback to first valid item
@@ -1257,6 +1299,24 @@ class ItemManager {
     constructor(game) {
         this.game = game;
         this.itemMemory = new Map(); // key: "x,y" -> {symbol, type}
+    }
+
+    // Helper method to check if a location is valid for spawning items
+    isValidSpawnLocation(x, y, tile) {
+        if (!tile || tile.type !== '.') {
+            return false;
+        }
+
+        // Check stairs
+        if (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) {
+            return false;
+        }
+        if (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) {
+            return false;
+        }
+
+        // Check player position
+        return !(x === Game.player.x && y === Game.player.y);
     }
 
     generateItems() {
@@ -1275,21 +1335,14 @@ class ItemManager {
         this.guaranteeWeapon();
 
         this.game.dungeon.rooms.forEach((room) => {
-            const numItems = Math.floor(Math.random() * 3);
+            const numItems = Math.floor(Math.random() * MAX_ITEMS_PER_ROOM);
             for (let i = 0; i < numItems; i++) {
-                if (Math.random() < 0.7) {
+                if (Math.random() < ITEM_SPAWN_CHANCE) {
                     const x = room.x + Math.floor(Math.random() * room.width);
                     const y = room.y + Math.floor(Math.random() * room.height);
 
-                    // Avoid stairs, player start, doors, or occupied item tiles
                     const tile = this.game.dungeon.getTile(x, y);
-                    if (
-                        (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
-                        (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) ||
-                        (x === Game.player.x && y === Game.player.y) ||
-                        !tile ||
-                        tile.type === '+'
-                    ) {
+                    if (!this.isValidSpawnLocation(x, y, tile)) {
                         continue;
                     }
 
@@ -1311,36 +1364,44 @@ class ItemManager {
             Battleaxe, Warhammer, Greatsword, Halberd,
             EnchantedBlade, DragonSlayer
         ];
+
         const currentLevel = Game.player.level;
         const playerLuck = Game.player.luck || 50;
-        const luckModifier = Math.floor((playerLuck - 50) / 25);
-        const effectiveLevel = Math.max(1, currentLevel + luckModifier);
+        const effectiveLevel = ItemFactory.calculateEffectiveLevel(currentLevel, playerLuck);
+
         // Phase out primitive weapons after early game
         const phased = weaponClasses.filter(wc => {
-            if (effectiveLevel >= 3 && (wc === Stick || wc === BoneShard)) return false;
-            if (effectiveLevel >= 4 && (wc === RustyKnife || wc === Club)) return false;
+            if (effectiveLevel >= PRIMITIVE_WEAPON_PHASE_OUT_LEVEL && (wc === Stick || wc === BoneShard)) {
+                return false;
+            }
+            if (effectiveLevel >= BASIC_WEAPON_PHASE_OUT_LEVEL && (wc === RustyKnife || wc === Club)) {
+                return false;
+            }
             const lr = wc.levelRange;
             if (!lr) return true;
             return effectiveLevel >= lr[0] && effectiveLevel <= lr[1];
         });
+
         const validWeapons = phased.length ? phased : weaponClasses;
-        if (validWeapons.length === 0) validWeapons.push(SmallDagger, Shortsword);
+        if (validWeapons.length === 0) {
+            validWeapons.push(SmallDagger, Shortsword);
+        }
+
         const weaponClass = validWeapons[Math.floor(Math.random() * validWeapons.length)];
 
         let attempts = 0;
-        while (attempts < 60) {
+        while (attempts < WEAPON_SPAWN_MAX_ATTEMPTS) {
             attempts++;
             const room = this.game.dungeon.rooms[Math.floor(Math.random() * this.game.dungeon.rooms.length)];
             const x = room.x + Math.floor(Math.random() * room.width);
             const y = room.y + Math.floor(Math.random() * room.height);
             const tile = this.game.dungeon.getTile(x, y);
-            if (!tile || tile.type !== '.') continue;
-            if (this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) continue;
-            if (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y) continue;
-            if (x === Game.player.x && y === Game.player.y) continue;
-            // Store weapon in floor tile
-            tile.addItem(new weaponClass(x, y));
-            break;
+
+            if (this.isValidSpawnLocation(x, y, tile)) {
+                // Store weapon in floor tile
+                tile.addItem(new weaponClass(x, y));
+                break;
+            }
         }
     }
 
@@ -1395,6 +1456,7 @@ if (typeof module !== 'undefined') {
         MappingScroll,
         FireballScroll,
         RegenerationScroll,
+        EnchantmentScroll,
         Stick,
         RustyKnife,
         Club,

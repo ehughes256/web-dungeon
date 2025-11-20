@@ -38,49 +38,9 @@ class PlayerBody {
         return new EmptyItem();
     }
 
-    equipArmor(armor) {
-        return this.equip("armor", armor);
-    }
-
-    unequipArmor() {
-        return this.unequip("armor");
-    }
-
-    equipRing(ring) {
-        return this.equip("ring", ring);
-    }
-
-    unequipRing() {
-        return this.unequip("ring");
-    }
-
-    equipHelmet(helmet) {
-        return this.equip("helmet", helmet);
-    }
-
-    unequipHelmet() {
-        return this.unequip("helmet");
-    }
-
-    equipGloves(gloves) {
-        return this.equip("gloves", gloves);
-    }
-
-    unequipGloves() {
-        return this.unequip("gloves");
-    }
-
-    equipBoots(boots) {
-        return this.equip("boots", boots);
-    }
-
-    unequipBoots() {
-        return this.unequip("boots");
-    }
-
     grow() {
         // Increase player's max health and attributes on level up
-        this.player.maxHealth += Math.floor(Math.random() * this.player.constitution / 10  + 5);
+        this.player.maxHealth += Math.floor(Math.random() * this.player.constitution / 10 + 5);
         this.player.health = this.player.maxHealth; // Heal to full on level up
         this.player.strength += 2;
         this.player.dexterity += 2;
@@ -278,31 +238,6 @@ class Player {
     }
 
     // Item usage
-    drinkPotion(game) {
-        if (!this.inventory.potions || this.inventory.potions.length === 0) {
-            game.addMessage('No potions to drink.');
-            return;
-        }
-        const stack = this.inventory.potions[0];
-        if (stack && typeof stack.use === 'function') stack.use(game);
-        stack.count -= 1;
-        if (stack.count <= 0) this.inventory.potions.shift();
-        game.consumeTurn(20);
-    }
-
-    castScroll(game) {
-        if (!this.inventory.scrolls || this.inventory.scrolls.length === 0) {
-            game.addMessage('No scrolls to cast.');
-            return {success: false, message: 'No scrolls to cast.'};
-        }
-        const stack = this.inventory.scrolls[0];
-        game.addMessage('You read the scroll.');
-        if (stack && typeof stack.use === 'function') stack.use(game);
-        stack.count -= 1;
-        if (stack.count <= 0) this.inventory.scrolls.shift();
-        game.consumeTurn(30);
-        return {success: true, message: 'Scroll cast.'};
-    }
 
     attemptAttack(monster) {
         const weapon = this.equippedWeapon();
@@ -420,5 +355,4 @@ class Player {
 
         return chance;
     }
-
 }
