@@ -5,6 +5,57 @@ const WEAPON_SPAWN_MAX_ATTEMPTS = 60;
 const PRIMITIVE_WEAPON_PHASE_OUT_LEVEL = 3;
 const BASIC_WEAPON_PHASE_OUT_LEVEL = 4;
 
+// Item configuration constants - centralized stats for easy balancing
+const WEAPON_CONFIGS = {
+    stick: { damage: 2, speed: 40, weight: 3, size: 3, dropChance: 0.05, levelRange: [1, 2], color: '#aa8844' },
+    rustyKnife: { damage: 4, speed: 32, weight: 4, size: 4, dropChance: 0.045, levelRange: [1, 3], color: '#bb9966' },
+    club: { damage: 6, speed: 55, weight: 8, size: 8, dropChance: 0.04, levelRange: [1, 3], color: '#885522' },
+    boneShard: { damage: 3, speed: 38, weight: 2, size: 2, dropChance: 0.035, levelRange: [1, 2], color: '#ddd5c5' },
+    smallDagger: { damage: 5, speed: 30, weight: 5, size: 5, dropChance: 0.1, levelRange: [1, 5], color: '#ff4444' },
+    shortsword: { damage: 7, speed: 40, weight: 7, size: 7, dropChance: 0.08, levelRange: [2, 6], color: '#ff4444' },
+    rapier: { damage: 6, speed: 35, weight: 6, size: 6, dropChance: 0.06, levelRange: [3, 7], color: '#ffaa44' },
+    longsword: { damage: 15, speed: 50, weight: 20, size: 20, dropChance: 0.07, levelRange: [3, 8], color: '#ff4444' },
+    spear: { damage: 12, speed: 50, weight: 20, size: 20, dropChance: 0.07, levelRange: [2, 7], color: '#ffcc44', symbol: '|' },
+    battleaxe: { damage: 20, speed: 50, weight: 30, size: 20, dropChance: 0.06, levelRange: [4, 9], color: '#ff6644', symbol: '¥' },
+    warhammer: { damage: 30, speed: 75, weight: 50, size: 30, dropChance: 0.05, levelRange: [4, 9], color: '#aa4444', symbol: 'T' },
+    greatsword: { damage: 30, speed: 75, weight: 40, size: 40, dropChance: 0.04, levelRange: [5, 10], color: '#ff2222', symbol: '†' },
+    halberd: { damage: 25, speed: 60, weight: 35, size: 40, dropChance: 0.03, levelRange: [6, 12], color: '#ff4488', symbol: 'Þ' },
+    enchantedBlade: { damage: 20, speed: 45, weight: 20, size: 20, dropChance: 0.02, levelRange: [7, 15], color: '#44ffff' },
+    dragonSlayer: { damage: 50, speed: 55, weight: 45, size: 40, dropChance: 0.01, levelRange: [10, 20], color: '#ffdd00', symbol: '♦', bonuses: { attack: 5, damage: 10 } }
+};
+
+const ARMOR_CONFIGS = {
+    tatteredCloak: { defense: 1, speed: 18, weight: 3, size: 5, dropChance: 0.08, levelRange: [1, 2], color: '#888888', bodyLocation: 'armor' },
+    paddedCap: { defense: 2, speed: 8, weight: 6, size: 6, dropChance: 0.07, levelRange: [1, 2], color: '#8888ff', bodyLocation: 'helmet' },
+    wornSandals: { defense: 1, speed: 10, weight: 4, size: 5, dropChance: 0.08, levelRange: [1, 2], color: '#aa8844', bodyLocation: 'boots' },
+    raggedGloves: { defense: 1, speed: 9, weight: 3, size: 4, dropChance: 0.07, levelRange: [1, 2], color: '#4444ff', bodyLocation: 'gloves' },
+    clothRobe: { defense: 2, speed: 20, weight: 5, size: 5, dropChance: 0.1, levelRange: [1, 5], color: '#4444ff', bodyLocation: 'armor' },
+    leatherHelm: { defense: 5, speed: 10, weight: 10, size: 10, dropChance: 0.08, levelRange: [1, 3], color: '#aa8844', bodyLocation: 'helmet' },
+    ironHelmet: { defense: 10, speed: 15, weight: 25, size: 10, dropChance: 0.05, levelRange: [2, 6], color: '#8888ff', bodyLocation: 'helmet' },
+    leatherVest: { defense: 10, speed: 10, weight: 20, size: 20, dropChance: 0.08, levelRange: [1, 4], color: '#aa8844', bodyLocation: 'armor' },
+    chainMail: { defense: 20, speed: 20, weight: 50, size: 25, dropChance: 0.06, levelRange: [2, 6], color: '#8888ff', bodyLocation: 'armor' },
+    plateMail: { defense: 30, speed: 30, weight: 80, size: 30, dropChance: 0.03, levelRange: [4, 8], color: '#4444ff', bodyLocation: 'armor' },
+    leatherBoots: { defense: 5, speed: 12, weight: 10, size: 10, dropChance: 0.09, levelRange: [1, 3], color: '#aa8844', bodyLocation: 'boots' },
+    ironBoots: { defense: 12, speed: 20, weight: 30, size: 15, dropChance: 0.06, levelRange: [2, 5], color: '#8888ff', bodyLocation: 'boots' },
+    leatherGloves: { defense: 4, speed: 10, weight: 8, size: 8, dropChance: 0.08, levelRange: [1, 3], color: '#4444ff', bodyLocation: 'gloves' },
+    ironGauntlets: { defense: 10, speed: 18, weight: 20, size: 12, dropChance: 0.05, levelRange: [3, 6], color: '#4444ff', bodyLocation: 'gloves' },
+    protectionRing: { defense: 0, speed: 5, weight: 1, size: 1, dropChance: 0.03, levelRange: [2, 8], color: '#ffaa00', bodyLocation: 'ring', bonuses: { defense: 5 } }
+};
+
+const POTION_CONFIGS = {
+    health: { healAmount: 20, dropChance: 0.05, levelRange: [1, 5], color: '#ff88ff', speed: 10, weight: 1, size: 2 },
+    speed: { speedBoost: 50, duration: 1000, dropChance: 0.05, levelRange: [1, 5], color: '#00ff00', speed: 10, weight: 1, size: 2 }
+};
+
+const SCROLL_CONFIGS = {
+    psionic: { damage: 25, dropChance: 0.1, levelRange: [1, 5], color: '#aa00ff', speed: 30, weight: 1, size: 1 },
+    teleport: { dropChance: 0.05, levelRange: [1, 15], color: '#44aaff', speed: 30, weight: 1, size: 1 },
+    mapping: { dropChance: 0.04, levelRange: [1, 12], color: '#ffff44', speed: 30, weight: 1, size: 1 },
+    fireball: { damage: 18, radius: 3, dropChance: 0.06, levelRange: [2, 15], color: '#ff5522', speed: 30, weight: 1, size: 1 },
+    regeneration: { totalHeals: 5, healPerTick: 4, interval: 400, dropChance: 0.1, levelRange: [3, 18], color: '#33dd55', speed: 30, weight: 1, size: 1 },
+    enchantment: { enchantmentPower: 1, dropChance: 0.04, levelRange: [1, 15], color: '#ff99ff', speed: 30, weight: 1, size: 1 }
+};
+
 // Base Item class
 class Item {
     static dropChance = 0.0;
@@ -130,13 +181,28 @@ class Gold extends Item {
 
 // Potion item class
 class Potion extends Item {
-    constructor(x, y, name) {
+    constructor(x, y, name, configKey = null) {
         super(x, y, name);
         this.speed = 10;
         this.weight = 1;
         this.size = 2;
         this.enchantments = {};
         this.description = 'A glass vial of alchemical mystery—its contents swirl with latent promise.';
+
+        // Apply config if provided
+        if (configKey && POTION_CONFIGS[configKey]) {
+            this.applyConfig(POTION_CONFIGS[configKey]);
+        }
+    }
+
+    // Helper method to apply configuration
+    applyConfig(config) {
+        if (config.speed !== undefined) this.speed = config.speed;
+        if (config.weight !== undefined) this.weight = config.weight;
+        if (config.size !== undefined) this.size = config.size;
+        if (config.healAmount !== undefined) this.healAmount = config.healAmount;
+        if (config.speedBoost !== undefined) this.speedBoost = config.speedBoost;
+        if (config.duration !== undefined) this.duration = config.duration;
     }
 
     getSymbol() {
@@ -154,18 +220,17 @@ class Potion extends Item {
 
 // HealthPotion subclass - enhanced healing potion
 class HealthPotion extends Potion {
-    static dropChance = 0.05;
-
-    static levelRange = [1, 5];
+    static dropChance = POTION_CONFIGS.health.dropChance;
+    static levelRange = POTION_CONFIGS.health.levelRange;
 
     constructor(x, y, name, healAmount) {
-        super(x, y, name || 'Health Potion');
-        this.healAmount = healAmount || 20;
+        super(x, y, name || 'Health Potion', 'health');
+        if (healAmount !== undefined) this.healAmount = healAmount; // Allow override
         this.description = 'A ruby-red draught that knits torn flesh and steadies the warrior\'s breath.';
     }
 
     getColor() {
-        return '#ff88ff'; // Brighter pink to distinguish from regular potions
+        return POTION_CONFIGS.health.color;
     }
 
     use(game) {
@@ -185,18 +250,17 @@ class HealthPotion extends Potion {
 }
 
 class SpeedPotion extends Potion {
-    static dropChance = 0.05;
-
-    static levelRange = [1, 5];
+    static dropChance = POTION_CONFIGS.speed.dropChance;
+    static levelRange = POTION_CONFIGS.speed.levelRange;
 
     constructor(x, y, name, speedBoost) {
-        super(x, y, name || 'Speed Potion');
-        this.speedBoost = speedBoost || 50; // Example speed boost value
+        super(x, y, name || 'Speed Potion', 'speed');
+        if (speedBoost !== undefined) this.speedBoost = speedBoost; // Allow override
         this.description = 'An emerald tonic that sharpens reflexes—time itself seems to lean in your favor.';
     }
 
     getColor() {
-        return '#00ff00'; // Green color for speed potions
+        return POTION_CONFIGS.speed.color;
     }
 
     onCollect(game) {
@@ -207,7 +271,7 @@ class SpeedPotion extends Potion {
     use(game) {
         game.addMessage(`You drink the speed potion!`);
         Game.player.speed -= this.speedBoost;
-        game.timeManager.scheduleEvent(1000, this, () => {
+        game.timeManager.scheduleEvent(POTION_CONFIGS.speed.duration, this, () => {
             Game.player.speed += this.speedBoost;
             game.addMessage('The effect of the speed potion wears off.');
         });
@@ -221,12 +285,30 @@ class SpeedPotion extends Potion {
 
 // Scroll item class
 class Scroll extends Item {
-    constructor(x, y, name) {
+    constructor(x, y, name, configKey = null) {
         super(x, y, name);
         this.speed = 30;
         this.weight = 1;
         this.size = 1;
         this.description = 'A crackling parchment covered in sigils that shimmer and rearrange when not directly watched.';
+
+        // Apply config if provided
+        if (configKey && SCROLL_CONFIGS[configKey]) {
+            this.applyConfig(SCROLL_CONFIGS[configKey]);
+        }
+    }
+
+    // Helper method to apply configuration
+    applyConfig(config) {
+        if (config.speed !== undefined) this.speed = config.speed;
+        if (config.weight !== undefined) this.weight = config.weight;
+        if (config.size !== undefined) this.size = config.size;
+        if (config.damage !== undefined) this.damage = config.damage;
+        if (config.radius !== undefined) this.radius = config.radius;
+        if (config.totalHeals !== undefined) this.totalHeals = config.totalHeals;
+        if (config.healPerTick !== undefined) this.healPerTick = config.healPerTick;
+        if (config.interval !== undefined) this.interval = config.interval;
+        if (config.enchantmentPower !== undefined) this.enchantmentPower = config.enchantmentPower;
     }
 
     getSymbol() {
@@ -248,18 +330,17 @@ class Scroll extends Item {
 }
 
 class PsionicScroll extends Scroll {
-    static dropChance = 0.2;
-
-    static levelRange = [1, 5];
+    static dropChance = SCROLL_CONFIGS.psionic.dropChance;
+    static levelRange = SCROLL_CONFIGS.psionic.levelRange;
 
     constructor(x, y, name, damage) {
-        super(x, y, 'Psionic Scroll');
-        this.damage = damage || 25;
+        super(x, y, 'Psionic Scroll', 'psionic');
+        if (damage !== undefined) this.damage = damage; // Allow override
         this.description = 'A vellum scroll humming with latent mental force—its release is a silent scream that shatters thought.';
     }
 
     getColor() {
-        return '#aa00ff'; // Purple color for psionic scrolls
+        return SCROLL_CONFIGS.psionic.color;
     }
 
     onCollect(game) {
@@ -289,16 +370,16 @@ class PsionicScroll extends Scroll {
 
 // Teleportation: randomly relocates the player to a safe tile.
 class TeleportScroll extends Scroll {
-    static dropChance = 0.05;
-    static levelRange = [1, 15];
+    static dropChance = SCROLL_CONFIGS.teleport.dropChance;
+    static levelRange = SCROLL_CONFIGS.teleport.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Teleportation Scroll');
+        super(x, y, 'Teleportation Scroll', 'teleport');
         this.description = 'Glyphs swirl in spirals—space seems thin where your fingers brush the vellum.';
     }
 
     getColor() {
-        return '#44aaff';
+        return SCROLL_CONFIGS.teleport.color;
     }
 
     use(game) {
@@ -329,16 +410,16 @@ class TeleportScroll extends Scroll {
 
 // Mapping: reveals the dungeon layout (walkable tiles + doors + stairs).
 class MappingScroll extends Scroll {
-    static dropChance = 0.04;
-    static levelRange = [1, 12];
+    static dropChance = SCROLL_CONFIGS.mapping.dropChance;
+    static levelRange = SCROLL_CONFIGS.mapping.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Mapping Scroll');
+        super(x, y, 'Mapping Scroll', 'mapping');
         this.description = 'An ink lattice of corridors overlays the parchment—reading it crystallizes spatial insight.';
     }
 
     getColor() {
-        return '#ffff44';
+        return SCROLL_CONFIGS.mapping.color;
     }
 
     use(game) {
@@ -355,18 +436,18 @@ class MappingScroll extends Scroll {
 
 // Fireball: damages all monsters within a radius around the player.
 class FireballScroll extends Scroll {
-    static dropChance = 0.06;
-    static levelRange = [2, 15];
+    static dropChance = SCROLL_CONFIGS.fireball.dropChance;
+    static levelRange = SCROLL_CONFIGS.fireball.levelRange;
 
     constructor(x, y, damage, radius) {
-        super(x, y, 'Fireball Scroll');
-        this.damage = damage || 18;
-        this.radius = radius || 3;
+        super(x, y, 'Fireball Scroll', 'fireball');
+        if (damage !== undefined) this.damage = damage; // Allow override
+        if (radius !== undefined) this.radius = radius; // Allow override
         this.description = 'Crimson sigils pulse with heat—unleash it to bathe nearby foes in roaring flame.';
     }
 
     getColor() {
-        return '#ff5522';
+        return SCROLL_CONFIGS.fireball.color;
     }
 
     use(game) {
@@ -394,19 +475,19 @@ class FireballScroll extends Scroll {
 
 // Regeneration: grants periodic healing over time.
 class RegenerationScroll extends Scroll {
-    static dropChance = 0.03;
-    static levelRange = [3, 18];
+    static dropChance = SCROLL_CONFIGS.regeneration.dropChance;
+    static levelRange = SCROLL_CONFIGS.regeneration.levelRange;
 
     constructor(x, y, totalHeals, healPerTick, interval) {
-        super(x, y, 'Regeneration Scroll');
-        this.totalHeals = totalHeals || 5;
-        this.healPerTick = healPerTick || 4;
-        this.interval = interval || 400; // ticks between heals
+        super(x, y, 'Regeneration Scroll', 'regeneration');
+        if (totalHeals !== undefined) this.totalHeals = totalHeals; // Allow override
+        if (healPerTick !== undefined) this.healPerTick = healPerTick; // Allow override
+        if (interval !== undefined) this.interval = interval; // Allow override
         this.description = 'Verdant runes shed tiny motes—life reknits at their whispered urging.';
     }
 
     getColor() {
-        return '#33dd55';
+        return SCROLL_CONFIGS.regeneration.color;
     }
 
     use(game) {
@@ -424,17 +505,17 @@ class RegenerationScroll extends Scroll {
 
 // Enchantment: allows player to select and enhance an item
 class EnchantmentScroll extends Scroll {
-    static dropChance = 0.04;
-    static levelRange = [2, 15];
+    static dropChance = SCROLL_CONFIGS.enchantment.dropChance;
+    static levelRange = SCROLL_CONFIGS.enchantment.levelRange;
 
     constructor(x, y, enchantmentPower) {
-        super(x, y, 'Enchantment Scroll');
-        this.enchantmentPower = enchantmentPower || 1; // How much to boost stats
+        super(x, y, 'Enchantment Scroll', 'enchantment');
+        if (enchantmentPower !== undefined) this.enchantmentPower = enchantmentPower; // Allow override
         this.description = 'Swirling glyphs of amplification—channel its power into a weapon or armor to transcend mortal limits.';
     }
 
     getColor() {
-        return '#ff99ff';
+        return SCROLL_CONFIGS.enchantment.color;
     }
 
     use(game) {
@@ -461,7 +542,7 @@ class Weapon extends EquippableItem {
 
     static baseSpeed = 50; // Base time cost to swing. 2 attacks per 'turn'
 
-    constructor(x, y, name) {
+    constructor(x, y, name, configKey = null) {
         super(x, y, name, 'weapon');
         this.speed = Weapon.baseSpeed;
         this.weight = 3;
@@ -470,6 +551,21 @@ class Weapon extends EquippableItem {
         this.enchantments = {};
         this.damage = Weapon.baseDamage;
         this.attackBonus = 0;
+
+        // Apply config if provided
+        if (configKey && WEAPON_CONFIGS[configKey]) {
+            this.applyConfig(WEAPON_CONFIGS[configKey]);
+        }
+    }
+
+    // Helper method to apply configuration
+    applyConfig(config) {
+        if (config.damage !== undefined) this.damage = config.damage;
+        if (config.speed !== undefined) this.speed = config.speed;
+        if (config.weight !== undefined) this.weight = config.weight;
+        if (config.size !== undefined) this.size = config.size;
+        if (config.bonuses) this.bonuses = { ...config.bonuses };
+        // Static properties handled by class
     }
 
     getSymbol() {
@@ -527,292 +623,231 @@ class Fists extends Weapon {
 
 // --- New Low-Level Weapons ---
 class Stick extends Weapon {
-    static dropChance = 0.05; // reduced from 0.12
-    static levelRange = [1, 2];
+    static dropChance = WEAPON_CONFIGS.stick.dropChance;
+    static levelRange = WEAPON_CONFIGS.stick.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Stick');
-        this.speed = 40; // Fast but weak
-        this.weight = 3;
-        this.size = 3;
-        this.damage = 2;
+        super(x, y, 'Stick', 'stick');
         this.description = 'A simple length of wood—better than bare hands, barely.';
     }
 
     getColor() {
-        return '#aa8844';
+        return WEAPON_CONFIGS.stick.color;
     }
 }
 
 class RustyKnife extends Weapon {
-    static dropChance = 0.045; // reduced from 0.09
-    static levelRange = [1, 3];
+    static dropChance = WEAPON_CONFIGS.rustyKnife.dropChance;
+    static levelRange = WEAPON_CONFIGS.rustyKnife.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Rusty Knife');
-        this.speed = 32;
-        this.weight = 4;
-        this.size = 4;
-        this.damage = 4;
+        super(x, y, 'Rusty Knife', 'rustyKnife');
         this.description = 'Pitted and dull, yet still capable of drawing blood.';
     }
 
     getColor() {
-        return '#bb9966';
+        return WEAPON_CONFIGS.rustyKnife.color;
     }
 }
 
 class Club extends Weapon {
-    static dropChance = 0.04; // reduced from 0.07
-    static levelRange = [1, 3];
+    static dropChance = WEAPON_CONFIGS.club.dropChance;
+    static levelRange = WEAPON_CONFIGS.club.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Club');
-        this.speed = 55; // Slower, a bit heavier hit
-        this.weight = 8;
-        this.size = 8;
-        this.damage = 6;
+        super(x, y, 'Club', 'club');
         this.description = 'A crude bludgeon hewn from a knot of hardwood.';
     }
 
     getColor() {
-        return '#885522';
+        return WEAPON_CONFIGS.club.color;
     }
 }
 
 class BoneShard extends Weapon {
-    static dropChance = 0.035; // reduced from 0.06
-    static levelRange = [1, 2];
+    static dropChance = WEAPON_CONFIGS.boneShard.dropChance;
+    static levelRange = WEAPON_CONFIGS.boneShard.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Bone Shard');
-        this.speed = 38;
-        this.weight = 2;
-        this.size = 2;
-        this.damage = 3;
+        super(x, y, 'Bone Shard', 'boneShard');
         this.description = 'A jagged splinter of bone—unpleasant to meet at speed.';
     }
 
     getColor() {
-        return '#ddd5c5';
+        return WEAPON_CONFIGS.boneShard.color;
     }
 }
 
 // Restored original weapon classes
 class SmallDagger extends Weapon {
-    static dropChance = 0.1;
-    static levelRange = [1, 5];
+    static dropChance = WEAPON_CONFIGS.smallDagger.dropChance;
+    static levelRange = WEAPON_CONFIGS.smallDagger.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Small Dagger');
-        this.speed = 30;
-        this.weight = 5;
-        this.size = 5;
-        this.damage = 5;
+        super(x, y, name || 'Small Dagger', 'smallDagger');
         this.description = 'A slender blade balanced for quick thrusts—beloved of rogues and alley shadows.';
     }
 }
 
 class Shortsword extends Weapon {
-    static dropChance = 0.08;
-    static levelRange = [2, 6];
+    static dropChance = WEAPON_CONFIGS.shortsword.dropChance;
+    static levelRange = WEAPON_CONFIGS.shortsword.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Shortsword');
-        this.speed = 40;
-        this.weight = 7;
-        this.size = 7;
-        this.damage = 7;
+        super(x, y, name || 'Shortsword', 'shortsword');
         this.description = 'A versatile soldier\'s blade—equally suited to parry, riposte, or decisive thrust.';
     }
 }
 
 class Rapier extends Weapon {
-    static dropChance = 0.06;
-    static levelRange = [3, 7];
+    static dropChance = WEAPON_CONFIGS.rapier.dropChance;
+    static levelRange = WEAPON_CONFIGS.rapier.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Rapier');
-        this.speed = 35;
-        this.weight = 6;
-        this.size = 6;
-        this.damage = 6;
+        super(x, y, name || 'Rapier', 'rapier');
         this.description = 'A needle-fine blade tuned for elegance and lethal precision.';
     }
 
     getColor() {
-        return '#ffaa44';
+        return WEAPON_CONFIGS.rapier.color;
     }
 }
 
 class Longsword extends Weapon {
-    static dropChance = 0.07;
-    static levelRange = [3, 8];
+    static dropChance = WEAPON_CONFIGS.longsword.dropChance;
+    static levelRange = WEAPON_CONFIGS.longsword.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Longsword');
-        this.speed = 50;
-        this.weight = 20;
-        this.size = 20;
-        this.damage = 15;
+        super(x, y, name || 'Longsword', 'longsword');
         this.description = 'A knightly blade of balanced heft and reach—reliable in any melee.';
     }
 }
 
 class Spear extends Weapon {
-    static dropChance = 0.07;
-    static levelRange = [2, 7];
+    static dropChance = WEAPON_CONFIGS.spear.dropChance;
+    static levelRange = WEAPON_CONFIGS.spear.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Spear');
-        this.speed = 50;
-        this.weight = 20;
-        this.size = 20;
-        this.damage = 12;
+        super(x, y, name || 'Spear', 'spear');
         this.description = 'A stout haft ending in a leaf-shaped head—reach keeps foes an arm\'s length away.';
     }
 
     getSymbol() {
-        return '|';
+        return WEAPON_CONFIGS.spear.symbol;
     }
 
     getColor() {
-        return '#ffcc44';
+        return WEAPON_CONFIGS.spear.color;
     }
 }
 
 class Battleaxe extends Weapon {
-    static dropChance = 0.06;
-    static levelRange = [4, 9];
+    static dropChance = WEAPON_CONFIGS.battleaxe.dropChance;
+    static levelRange = WEAPON_CONFIGS.battleaxe.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Battleaxe');
-        this.speed = 50;
-        this.weight = 30;
-        this.size = 20;
-        this.damage = 20;
+        super(x, y, name || 'Battleaxe', 'battleaxe');
         this.description = 'A brutal, bearded axe meant to hew through timber, mail, and bone alike.';
     }
 
     getSymbol() {
-        return '¥';
+        return WEAPON_CONFIGS.battleaxe.symbol;
     }
 
     getColor() {
-        return '#ff6644';
+        return WEAPON_CONFIGS.battleaxe.color;
     }
 }
 
 class Warhammer extends Weapon {
-    static dropChance = 0.05;
-    static levelRange = [4, 9];
+    static dropChance = WEAPON_CONFIGS.warhammer.dropChance;
+    static levelRange = WEAPON_CONFIGS.warhammer.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Warhammer');
-        this.speed = 75;
-        this.weight = 50;
-        this.size = 30;
-        this.damage = 30;
+        super(x, y, name || 'Warhammer', 'warhammer');
         this.description = 'A mass of forged iron on a haft—designed to crumple plate and pulp shields.';
     }
 
     getSymbol() {
-        return 'T';
+        return WEAPON_CONFIGS.warhammer.symbol;
     }
 
     getColor() {
-        return '#aa4444';
+        return WEAPON_CONFIGS.warhammer.color;
     }
 }
 
 class Greatsword extends Weapon {
-    static dropChance = 0.04;
-    static levelRange = [5, 10];
+    static dropChance = WEAPON_CONFIGS.greatsword.dropChance;
+    static levelRange = WEAPON_CONFIGS.greatsword.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Greatsword');
-        this.speed = 75;
-        this.weight = 40;
-        this.size = 40;
-        this.damage = 30;
+        super(x, y, name || 'Greatsword', 'greatsword');
         this.description = 'An immense two-handed blade—each swing a cleaving arc of ruin.';
     }
 
     getSymbol() {
-        return '†';
+        return WEAPON_CONFIGS.greatsword.symbol;
     }
 
     getColor() {
-        return '#ff2222';
+        return WEAPON_CONFIGS.greatsword.color;
     }
 }
 
 class Halberd extends Weapon {
-    static dropChance = 0.03;
-    static levelRange = [6, 12];
+    static dropChance = WEAPON_CONFIGS.halberd.dropChance;
+    static levelRange = WEAPON_CONFIGS.halberd.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Halberd');
-        this.speed = 60;
-        this.weight = 35;
-        this.size = 40;
-        this.damage = 25;
+        super(x, y, name || 'Halberd', 'halberd');
         this.description = 'A polearm marrying axe blade, spear point, and hook—control and carnage in equal measure.';
     }
 
     getSymbol() {
-        return 'Þ';
+        return WEAPON_CONFIGS.halberd.symbol;
     }
 
     getColor() {
-        return '#ff4488';
+        return WEAPON_CONFIGS.halberd.color;
     }
 }
 
 class EnchantedBlade extends Weapon {
-    static dropChance = 0.02;
-    static levelRange = [7, 15];
+    static dropChance = WEAPON_CONFIGS.enchantedBlade.dropChance;
+    static levelRange = WEAPON_CONFIGS.enchantedBlade.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Enchanted Blade');
-        this.speed = 45;
-        this.weight = 20;
-        this.size = 20;
-        this.damage = 20;
+        super(x, y, name || 'Enchanted Blade', 'enchantedBlade');
         this.description = 'Runes shimmer along its fuller—the metal hums with restrained arcana.';
     }
 
     getColor() {
-        return '#44ffff';
+        return WEAPON_CONFIGS.enchantedBlade.color;
     }
 }
 
 class DragonSlayer extends Weapon {
-    static dropChance = 0.01;
-    static levelRange = [10, 20];
+    static dropChance = WEAPON_CONFIGS.dragonSlayer.dropChance;
+    static levelRange = WEAPON_CONFIGS.dragonSlayer.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Dragonslayer Sword');
-        this.speed = 55;
-        this.weight = 45;
-        this.size = 40;
-        this.bonuses = {attack: 5, damage: 10};
-        this.damage = 50;
+        super(x, y, name || 'Dragonslayer Sword', 'dragonSlayer');
         this.description = 'A legendary blade wreathed in ancient heat—said to drink the heartfire of slain wyrms.';
     }
 
     getSymbol() {
-        return '♦';
+        return WEAPON_CONFIGS.dragonSlayer.symbol;
     }
 
     getColor() {
-        return '#ffdd00';
+        return WEAPON_CONFIGS.dragonSlayer.color;
     }
 }
 
 // ==== Armor System (restored) ====
 class Armor extends EquippableItem {
-    constructor(x, y, name, bodyLocation) {
+    constructor(x, y, name, bodyLocation, configKey = null) {
         super(x, y, name, bodyLocation);
         this.speed = 0;
         this.weight = 0;
@@ -820,6 +855,20 @@ class Armor extends EquippableItem {
         this.bonuses = {};
         this.enchantments = {};
         this.defense = 0;
+
+        // Apply config if provided
+        if (configKey && ARMOR_CONFIGS[configKey]) {
+            this.applyConfig(ARMOR_CONFIGS[configKey]);
+        }
+    }
+
+    // Helper method to apply configuration
+    applyConfig(config) {
+        if (config.defense !== undefined) this.defense = config.defense;
+        if (config.speed !== undefined) this.speed = config.speed;
+        if (config.weight !== undefined) this.weight = config.weight;
+        if (config.size !== undefined) this.size = config.size;
+        if (config.bonuses) this.bonuses = { ...config.bonuses };
     }
 
     getDefense() {
@@ -859,8 +908,8 @@ class Armor extends EquippableItem {
 }
 
 class BodyArmor extends Armor {
-    constructor(x, y, name) {
-        super(x, y, name, 'armor');
+    constructor(x, y, name, configKey = null) {
+        super(x, y, name, 'armor', configKey);
     }
 
     getSymbol() {
@@ -869,8 +918,8 @@ class BodyArmor extends Armor {
 }
 
 class Gloves extends Armor {
-    constructor(x, y, name) {
-        super(x, y, name, 'gloves');
+    constructor(x, y, name, configKey = null) {
+        super(x, y, name, 'gloves', configKey);
     }
 
     getSymbol() {
@@ -879,8 +928,8 @@ class Gloves extends Armor {
 }
 
 class Shoes extends Armor {
-    constructor(x, y, name) {
-        super(x, y, name, 'boots');
+    constructor(x, y, name, configKey = null) {
+        super(x, y, name, 'boots', configKey);
     }
 
     getSymbol() {
@@ -890,20 +939,16 @@ class Shoes extends Armor {
 
 // Low-level armor (new / common early)
 class TatteredCloak extends BodyArmor {
-    static dropChance = 0.08;
-    static levelRange = [1, 2];
+    static dropChance = ARMOR_CONFIGS.tatteredCloak.dropChance;
+    static levelRange = ARMOR_CONFIGS.tatteredCloak.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Tattered Cloak');
-        this.speed = 18;
-        this.weight = 3;
-        this.size = 5;
-        this.defense = 1;
+        super(x, y, 'Tattered Cloak', 'tatteredCloak');
         this.description = 'Shredded fabric offering the barest whisper of protection.';
     }
 
     getColor() {
-        return '#888888';
+        return ARMOR_CONFIGS.tatteredCloak.color;
     }
 }
 
@@ -911,8 +956,8 @@ class Helmet extends Armor {
     static dropChance = 0.07;
     static levelRange = [1, 2];
 
-    constructor(x, y, name) {
-        super(x, y, name, 'helmet');
+    constructor(x, y, name, configKey = null) {
+        super(x, y, name, 'helmet', configKey);
     }
 
     getSymbol() {
@@ -921,241 +966,183 @@ class Helmet extends Armor {
 }
 
 class PaddedCap extends Helmet {
-    static dropChance = 0.07;
-    static levelRange = [1, 2];
+    static dropChance = ARMOR_CONFIGS.paddedCap.dropChance;
+    static levelRange = ARMOR_CONFIGS.paddedCap.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Padded Cap');
-        this.speed = 8;
-        this.weight = 6;
-        this.size = 6;
-        this.defense = 2;
+        super(x, y, 'Padded Cap', 'paddedCap');
         this.description = 'Layers of cloth and batting absorb a little of the world\'s cruelty.';
     }
 
     getColor() {
-        return '#8888ff';
+        return ARMOR_CONFIGS.paddedCap.color;
     }
 }
 
 class WornSandals extends Shoes {
-    static dropChance = 0.08;
-    static levelRange = [1, 2];
+    static dropChance = ARMOR_CONFIGS.wornSandals.dropChance;
+    static levelRange = ARMOR_CONFIGS.wornSandals.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Worn Sandals');
-        this.speed = 10;
-        this.weight = 4;
-        this.size = 5;
-        this.defense = 1;
+        super(x, y, 'Worn Sandals', 'wornSandals');
         this.description = 'Leather thongs and tired soles—better than bare stone beneath you.';
     }
 
     getColor() {
-        return '#aa8844';
+        return ARMOR_CONFIGS.wornSandals.color;
     }
 }
 
 class RaggedGloves extends Gloves {
-    static dropChance = 0.07;
-    static levelRange = [1, 2];
+    static dropChance = ARMOR_CONFIGS.raggedGloves.dropChance;
+    static levelRange = ARMOR_CONFIGS.raggedGloves.levelRange;
 
     constructor(x, y) {
-        super(x, y, 'Ragged Gloves');
-        this.speed = 9;
-        this.weight = 3;
-        this.size = 4;
-        this.defense = 1;
+        super(x, y, 'Ragged Gloves', 'raggedGloves');
         this.description = 'Frayed finger coverings that keep grime out more than blades.';
     }
 }
 
 // Mid baseline cloth
 class ClothRobe extends BodyArmor {
-    static dropChance = 0.1;
-    static levelRange = [1, 5];
+    static dropChance = ARMOR_CONFIGS.clothRobe.dropChance;
+    static levelRange = ARMOR_CONFIGS.clothRobe.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Cloth Robe');
-        this.speed = 20;
-        this.weight = 5;
-        this.size = 5;
-        this.defense = 2;
+        super(x, y, name || 'Cloth Robe', 'clothRobe');
         this.description = 'Simple woven garments—little protection, but movement comes easily.';
     }
 }
 
 // Standard armor & accessories (moved here after Armor so inheritance works)
 class LeatherHelm extends Helmet {
-    static dropChance = 0.08;
-
-    static levelRange = [1, 3];
+    static dropChance = ARMOR_CONFIGS.leatherHelm.dropChance;
+    static levelRange = ARMOR_CONFIGS.leatherHelm.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Helm');
-        this.speed = 10;
-        this.weight = 10;
-        this.size = 10;
-        this.defense = 5;
+        super(x, y, name || 'Leather Helm', 'leatherHelm');
         this.description = 'Cured leather shaped to turn aside glancing cuts and falling grit.';
     }
 
     getColor() {
-        return '#aa8844';
+        return ARMOR_CONFIGS.leatherHelm.color;
     }
 }
 
 class IronHelmet extends Helmet {
-    static dropChance = 0.05;
-
-    static levelRange = [2, 6];
+    static dropChance = ARMOR_CONFIGS.ironHelmet.dropChance;
+    static levelRange = ARMOR_CONFIGS.ironHelmet.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Iron Helmet');
-        this.speed = 15;
-        this.weight = 25;
-        this.size = 10;
-        this.defense = 10;
+        super(x, y, name || 'Iron Helmet', 'ironHelmet');
         this.description = 'A riveted iron dome—heavy, but reassuring when arrows whisper past.';
     }
 
     getColor() {
-        return '#8888ff';
+        return ARMOR_CONFIGS.ironHelmet.color;
     }
 }
 
 class LeatherVest extends BodyArmor {
-    static dropChance = 0.08;
-
-    static levelRange = [1, 4];
+    static dropChance = ARMOR_CONFIGS.leatherVest.dropChance;
+    static levelRange = ARMOR_CONFIGS.leatherVest.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Vest');
-        this.speed = 10;
-        this.weight = 20;
-        this.size = 20;
-        this.defense = 10;
+        super(x, y, name || 'Leather Vest', 'leatherVest');
         this.description = 'Supple layers of boiled leather—light, flexible, and modestly protective.';
     }
 
     getColor() {
-        return '#aa8844';
+        return ARMOR_CONFIGS.leatherVest.color;
     }
 }
 
 class ChainMail extends BodyArmor {
-    static dropChance = 0.06;
-
-    static levelRange = [2, 6];
+    static dropChance = ARMOR_CONFIGS.chainMail.dropChance;
+    static levelRange = ARMOR_CONFIGS.chainMail.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Chain Mail');
-        this.speed = 20;
-        this.weight = 50;
-        this.size = 25;
-        this.defense = 20;
+        super(x, y, name || 'Chain Mail', 'chainMail');
         this.description = 'Interlocked iron rings that chime softly—a stalwart defense against slashing blows.';
     }
 
     getColor() {
-        return '#8888ff';
+        return ARMOR_CONFIGS.chainMail.color;
     }
 }
 
 class PlateMail extends BodyArmor {
-    static dropChance = 0.03;
-
-    static levelRange = [4, 8];
+    static dropChance = ARMOR_CONFIGS.plateMail.dropChance;
+    static levelRange = ARMOR_CONFIGS.plateMail.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Plate Mail');
-        this.speed = 30;
-        this.weight = 80;
-        this.size = 30;
-        this.defense = 30;
+        super(x, y, name || 'Plate Mail', 'plateMail');
         this.description = 'A walking fortress of tempered plates—few blows land true against such craft.';
     }
 
     getColor() {
-        return '#4444ff';
+        return ARMOR_CONFIGS.plateMail.color;
     }
 }
 
 class LeatherBoots extends Shoes {
-    static dropChance = 0.09;
-
-    static levelRange = [1, 3];
+    static dropChance = ARMOR_CONFIGS.leatherBoots.dropChance;
+    static levelRange = ARMOR_CONFIGS.leatherBoots.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Boots');
-        this.speed = 12;
-        this.weight = 10;
-        this.size = 10;
-        this.defense = 5;
+        super(x, y, name || 'Leather Boots', 'leatherBoots');
         this.description = 'Well-oiled boots that hug the foot—tread soft, tread sure.';
     }
 
     getColor() {
-        return '#aa8844';
+        return ARMOR_CONFIGS.leatherBoots.color;
     }
 }
 
 class IronBoots extends Shoes {
-    static dropChance = 0.06;
-
-    static levelRange = [2, 5];
+    static dropChance = ARMOR_CONFIGS.ironBoots.dropChance;
+    static levelRange = ARMOR_CONFIGS.ironBoots.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Iron Boots');
-        this.speed = 20;
-        this.weight = 30;
-        this.size = 15;
-        this.defense = 12;
+        super(x, y, name || 'Iron Boots', 'ironBoots');
         this.description = 'Clanking sabatons—subtlety traded for steadfast protection.';
     }
 
     getColor() {
-        return '#8888ff';
+        return ARMOR_CONFIGS.ironBoots.color;
     }
 }
 
 class LeatherGloves extends Gloves {
-    static dropChance = 0.08;
-
-    static levelRange = [1, 3];
+    static dropChance = ARMOR_CONFIGS.leatherGloves.dropChance;
+    static levelRange = ARMOR_CONFIGS.leatherGloves.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Leather Gloves');
-        this.speed = 10;
-        this.weight = 8;
-        this.size = 8;
-        this.defense = 4;
+        super(x, y, name || 'Leather Gloves', 'leatherGloves');
         this.description = 'Supple gloves improving grip and shielding knuckles from cruel stone.';
     }
 }
 
 class IronGauntlets extends Gloves {
-    static dropChance = 0.05;
-
-    static levelRange = [3, 6];
+    static dropChance = ARMOR_CONFIGS.ironGauntlets.dropChance;
+    static levelRange = ARMOR_CONFIGS.ironGauntlets.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Iron Gauntlets');
-        this.speed = 18;
-        this.weight = 20;
-        this.size = 12;
-        this.defense = 10;
+        super(x, y, name || 'Iron Gauntlets', 'ironGauntlets');
         this.description = 'Segmented gauntlets of overlapping plates—turning blades with practiced ease.';
     }
 }
 
 class Ring extends Armor {
-    constructor(x, y, name) {
-        super(x, y, name, 'ring');
-        this.speed = 5;
-        this.weight = 1;
-        this.size = 1;
-        this.defense = 0;
+    constructor(x, y, name, configKey = null) {
+        super(x, y, name, 'ring', configKey);
+        // Only set defaults if no config provided
+        if (!configKey) {
+            this.speed = 5;
+            this.weight = 1;
+            this.size = 1;
+            this.defense = 0;
+        }
     }
 
     getSymbol() {
@@ -1164,22 +1151,16 @@ class Ring extends Armor {
 }
 
 class ProtectionRing extends Ring {
-    static dropChance = 0.03;
-
-    static levelRange = [2, 8];
+    static dropChance = ARMOR_CONFIGS.protectionRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.protectionRing.levelRange;
 
     constructor(x, y, name) {
-        super(x, y, name || 'Ring of Protection');
-        this.speed = 5;
-        this.weight = 1;
-        this.size = 1;
-        this.defense = 0;
-        this.bonuses = {defense: 5};
+        super(x, y, name || 'Ring of Protection', 'protectionRing');
         this.description = 'A faint, translucent shimmer halos this band—an unseen bulwark against harm.';
     }
 
     getColor() {
-        return '#ffaa00';
+        return ARMOR_CONFIGS.protectionRing.color;
     }
 }
 
