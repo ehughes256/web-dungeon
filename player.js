@@ -21,6 +21,12 @@ class PlayerBody {
 
     unequip(location) {
         const oldItem = this[location];
+
+        // Check if item is cursed
+        if (oldItem && oldItem.cursed) {
+            return null; // Cannot unequip cursed item
+        }
+
         this[location] = null;
         return oldItem;
     }
@@ -170,6 +176,11 @@ class Player {
     }
 
     unEquipWeapon() {
+        // Check if weapon is cursed before attempting to unequip
+        if (this.body.weapon && this.body.weapon.cursed) {
+            return 'cursed'; // Special return value to indicate cursed item
+        }
+
         const weapon = this.body.unequipWeapon();
         if (weapon && !(weapon instanceof EmptyItem)) {
             this.inventory.weapons.push(weapon);
@@ -194,6 +205,13 @@ class Player {
         if (!bodyLocation || !PlayerBody.armorLocations.includes(bodyLocation)) {
             return null;
         }
+
+        // Check if armor is cursed before attempting to unequip
+        const equippedItem = this.body[bodyLocation];
+        if (equippedItem && equippedItem.cursed) {
+            return 'cursed'; // Special return value to indicate cursed item
+        }
+
         const oldArmor = this.body.unequip(bodyLocation);
         if (oldArmor && !(oldArmor instanceof EmptyItem)) {
             this.inventory.armor.push(oldArmor);

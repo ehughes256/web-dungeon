@@ -53,7 +53,8 @@ const SCROLL_CONFIGS = {
     mapping: { dropChance: 0.04, levelRange: [1, 12], color: '#ffff44', speed: 30, weight: 1, size: 1 },
     fireball: { damage: 18, radius: 3, dropChance: 0.06, levelRange: [2, 15], color: '#ff5522', speed: 30, weight: 1, size: 1 },
     regeneration: { totalHeals: 5, healPerTick: 4, interval: 400, dropChance: 0.1, levelRange: [3, 18], color: '#33dd55', speed: 30, weight: 1, size: 1 },
-    enchantment: { enchantmentPower: 1, dropChance: 0.04, levelRange: [1, 15], color: '#ff99ff', speed: 30, weight: 1, size: 1 }
+    enchantment: { enchantmentPower: 1, dropChance: 0.04, levelRange: [1, 15], color: '#ff99ff', speed: 30, weight: 1, size: 1 },
+    uncurse: { dropChance: 0.06, levelRange: [1, 15], color: '#ffddaa', speed: 30, weight: 1, size: 1 }
 };
 
 // Base Item class
@@ -74,6 +75,67 @@ class Item {
         this.identified = false;
         this.cursed = false;
         this.description = 'This is a plain old item.';
+    }
+
+    // Apply curse to an item - converts bonuses to negative values
+    applyCurse() {
+        this.cursed = true;
+
+        // For weapons and armor, invert bonuses
+        if (this instanceof Weapon) {
+            // Store original damage if not already stored
+            if (this.originalDamage === undefined) {
+                this.originalDamage = this.damage;
+            }
+            // Make damage negative or reduce it significantly
+            this.damage = -Math.abs(Math.floor(this.originalDamage / 2));
+
+            // Invert any existing bonuses
+            if (this.bonuses.damage) this.bonuses.damage = -Math.abs(this.bonuses.damage);
+            if (this.bonuses.attack) this.bonuses.attack = -Math.abs(this.bonuses.attack);
+        } else if (this instanceof Armor) {
+            // Store original defense if not already stored
+            if (this.originalDefense === undefined) {
+                this.originalDefense = this.defense;
+            }
+            // Make defense negative
+            this.defense = -Math.abs(Math.floor(this.originalDefense / 2));
+
+            // Invert any existing bonuses
+            if (this.bonuses.defense) this.bonuses.defense = -Math.abs(this.bonuses.defense);
+        }
+
+        // Increase speed penalty
+        this.speed = Math.abs(this.speed) * 1.5;
+    }
+
+    // Remove curse from an item - restores original values
+    removeCurse() {
+        if (!this.cursed) return;
+
+        this.cursed = false;
+
+        if (this instanceof Weapon) {
+            if (this.originalDamage !== undefined) {
+                this.damage = this.originalDamage;
+            }
+            // Restore bonuses to positive
+            if (this.bonuses.damage) this.bonuses.damage = Math.abs(this.bonuses.damage);
+            if (this.bonuses.attack) this.bonuses.attack = Math.abs(this.bonuses.attack);
+        } else if (this instanceof Armor) {
+            if (this.originalDefense !== undefined) {
+                this.defense = this.originalDefense;
+            }
+            // Restore bonuses to positive
+            if (this.bonuses.defense) this.bonuses.defense = Math.abs(this.bonuses.defense);
+        }
+
+        // Restore normal speed
+        this.speed = Math.abs(this.speed) / 1.5;
+    }
+
+    isCursed() {
+        return this.cursed === true;
     }
 
     // Abstract methods to be implemented by subclasses
@@ -526,6 +588,44 @@ class EnchantmentScroll extends Scroll {
             message: 'Select an item to enchant...',
             scroll: this,
         };
+    }
+}
+
+// Uncurse: removes curses from equipped items
+class UncurseScroll extends Scroll {
+    static dropChance = SCROLL_CONFIGS.uncurse.dropChance;
+    static levelRange = SCROLL_CONFIGS.uncurse.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Uncurse Scroll', 'uncurse');
+        this.description = 'Pale glyphs of purification—their invocation breaks malevolent bindings and frees the afflicted.';
+    }
+
+    getColor() {
+        return SCROLL_CONFIGS.uncurse.color;
+    }
+
+    use(game) {
+        let uncursedCount = 0;
+        const uncursedItems = [];
+
+        // Check all equipped items
+        Object.entries(Game.player.body).forEach(([slot, item]) => {
+            if (item && item.cursed && typeof item.removeCurse === 'function') {
+                item.removeCurse();
+                uncursedCount++;
+                uncursedItems.push(item.name);
+            }
+        });
+
+        if (uncursedCount > 0) {
+            game.addMessage(`Holy light washes over you! ${uncursedItems.join(', ')} ${uncursedCount === 1 ? 'is' : 'are'} freed from the curse!`);
+        } else {
+            game.addMessage('The scroll glows faintly, but you carry no cursed items.');
+        }
+
+        game.updateUI();
+        game.render();
     }
 }
 
@@ -1201,6 +1301,7 @@ class ItemFactory {
         {class: FireballScroll, chance: FireballScroll.dropChance},
         {class: RegenerationScroll, chance: RegenerationScroll.dropChance},
         {class: EnchantmentScroll, chance: EnchantmentScroll.dropChance},
+        {class: UncurseScroll, chance: UncurseScroll.dropChance},
         // Weapons - Light/Fast
         {class: SmallDagger, chance: SmallDagger.dropChance},
         {class: Shortsword, chance: Shortsword.dropChance},
@@ -1330,6 +1431,15 @@ class ItemManager {
                     const currentLevel = Game.player.level;
                     const playerLuck = Game.player.luck;
                     const item = ItemFactory.createLevelAppropriateItem(x, y, currentLevel, playerLuck);
+
+                    // Chance to curse weapons and armor (5% base chance, increases with level)
+                    if (item && (item instanceof Weapon || item instanceof Armor)) {
+                        const curseChance = 0.05 + (currentLevel * 0.01); // 5% + 1% per level
+                        if (Math.random() < curseChance) {
+                            item.applyCurse();
+                        }
+                    }
+
                     // Store item in the floor tile
                     tile.addItem(item);
                 }
@@ -1380,7 +1490,15 @@ class ItemManager {
 
             if (this.isValidSpawnLocation(x, y, tile)) {
                 // Store weapon in floor tile
-                tile.addItem(new weaponClass(x, y));
+                const weapon = new weaponClass(x, y);
+
+                // Small chance to curse even the guaranteed weapon (lower than normal items)
+                const curseChance = 0.03 + (currentLevel * 0.005); // 3% + 0.5% per level
+                if (Math.random() < curseChance) {
+                    weapon.applyCurse();
+                }
+
+                tile.addItem(weapon);
                 break;
             }
         }
@@ -1438,6 +1556,7 @@ if (typeof module !== 'undefined') {
         FireballScroll,
         RegenerationScroll,
         EnchantmentScroll,
+        UncurseScroll,
         Stick,
         RustyKnife,
         Club,

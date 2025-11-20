@@ -482,6 +482,10 @@ class Game {
                 // Make equipped item name clickable
                 if (hasItem) {
                     itemText = `<span class="item-name-clickable" onclick="game.showEquippedItemInfo('${bodyPartName}')">${itemText}</span>`;
+                    // Add cursed indicator
+                    if (itemObject.cursed) {
+                        itemText += ' <span class="tag" style="background-color: #aa0000; color: #fff; font-size: 0.8em;">CURSED</span>';
+                    }
                 }
 
                 const unequipButton = (hasItem && !(itemObject instanceof Fists)) ? `<div class='slot-actions'><button onclick="game.unequipSlot('${bodyPartName}')">Remove</button></div>` : '';
@@ -519,6 +523,7 @@ class Game {
     renderInvRow(category, item, index, equipped = false) {
         const tags = [];
         if (equipped) tags.push('<span class="tag">Eq</span>');
+        if (item.cursed) tags.push('<span class="tag" style="background-color: #aa0000; color: #fff;">CURSED</span>');
         if (category === 'weapons') tags.push(`<span class='tag'>+${item.getDamage()} atk</span>`);
         if (category === 'armor') tags.push(`<span class='tag'>+${item.defense} def</span>`);
         if (category === 'potions') {
@@ -563,14 +568,22 @@ class Game {
 
     unequipInventoryItem(category) {
         if (category === 'weapons' && Game.player.equippedWeapon()) {
-            this.addMessage(`You stow ${Game.player.equippedWeapon().name}.`);
-            Game.player.unEquipWeapon();
+            const result = Game.player.unEquipWeapon();
+            if (result === 'cursed') {
+                this.addMessage(`The ${Game.player.equippedWeapon().name} is cursed! You cannot remove it!`);
+            } else {
+                this.addMessage(`You stow ${result.name}.`);
+            }
         }
         if (category === 'armor') {
             const equipped = Game.player.equippedArmor();
             equipped.forEach(a => {
-                this.addMessage(`You remove ${a.name}.`);
-                Game.player.unEquipArmor(a.bodyLocation);
+                const result = Game.player.unEquipArmor(a);
+                if (result === 'cursed') {
+                    this.addMessage(`The ${a.name} is cursed! You cannot remove it!`);
+                } else if (result) {
+                    this.addMessage(`You remove ${a.name}.`);
+                }
             });
         }
         this.buildInventory();
@@ -582,14 +595,22 @@ class Game {
         if (bodyPartName === 'weapon') {
             const weapon = p.body.weapon;
             if (weapon && !(weapon instanceof EmptyItem) && !(weapon instanceof Fists)) {
-                this.addMessage(`You stow ${weapon.name}.`);
-                p.unEquipWeapon();
+                const result = p.unEquipWeapon();
+                if (result === 'cursed') {
+                    this.addMessage(`The ${weapon.name} is cursed! You cannot remove it!`);
+                } else {
+                    this.addMessage(`You stow ${weapon.name}.`);
+                }
             }
         } else if (p.body[bodyPartName]) {
             const item = p.body[bodyPartName];
             if (item && !(item instanceof EmptyItem)) {
-                this.addMessage(`You remove ${item.name}.`);
-                p.unEquipArmor(item);
+                const result = p.unEquipArmor(item);
+                if (result === 'cursed') {
+                    this.addMessage(`The ${item.name} is cursed! You cannot remove it!`);
+                } else if (result) {
+                    this.addMessage(`You remove ${item.name}.`);
+                }
             }
         }
         this.buildInventory();
@@ -843,6 +864,10 @@ class Game {
                     return new FireballScroll(x, y, item.damage, item.radius);
                 case 'RegenerationScroll':
                     return new RegenerationScroll(x, y, item.totalHeals, item.healPerTick, item.interval);
+                case 'EnchantmentScroll':
+                    return new EnchantmentScroll(x, y, item.enchantmentPower);
+                case 'UncurseScroll':
+                    return new UncurseScroll(x, y);
                 case 'Scroll':
                     return new Scroll(x, y, item.name, item.damage);
                 default:
