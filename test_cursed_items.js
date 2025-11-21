@@ -6,10 +6,11 @@ const Game = {
     player: null
 };
 
-// Load items.js (in Node.js environment)
+// Load items.js and scrolls.js (in Node.js environment)
 if (typeof require !== 'undefined') {
     const items = require('./items.js');
-    Object.assign(global, items);
+    const scrolls = require('./scrolls.js');
+    Object.assign(global, items, scrolls);
 }
 
 function testCursedWeapon() {

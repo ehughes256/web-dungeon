@@ -1,10 +1,11 @@
 // Integration test for cursed items in the game context
 // This test verifies the feature works with the actual game mechanics
 
-// Load items.js (in Node.js environment)
+// Load items.js and scrolls.js (in Node.js environment)
 if (typeof require !== 'undefined') {
     const items = require('./items.js');
-    Object.assign(global, items);
+    const scrolls = require('./scrolls.js');
+    Object.assign(global, items, scrolls);
 }
 
 // Mock Game object with player (must be global for items.js to access)

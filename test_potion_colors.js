@@ -19,10 +19,15 @@ global.Game = {
     }
 };
 
-// Load items.js
+// Load items.js and scrolls.js
 const fs = require('fs');
-const itemsCode = fs.readFileSync('./items.js', 'utf8');
-eval(itemsCode);
+
+// Use require instead of eval to properly load modules
+const items = require('./items.js');
+const scrolls = require('./scrolls.js');
+
+// Make items and scrolls available globally
+Object.assign(global, items, scrolls);
 
 console.log('=== Testing Potion Color System ===\n');
 

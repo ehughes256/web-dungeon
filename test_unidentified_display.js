@@ -31,8 +31,11 @@ global.document = {
 const fs = require('fs');
 const path = require('path');
 
-// Load items.js
+// Load items.js first
 eval(fs.readFileSync(path.join(__dirname, 'items.js'), 'utf8'));
+
+// Load scrolls.js
+eval(fs.readFileSync(path.join(__dirname, 'scrolls.js'), 'utf8'));
 
 // Load game.js (just the showItemDialog method)
 const gameCode = fs.readFileSync(path.join(__dirname, 'game.js'), 'utf8');
