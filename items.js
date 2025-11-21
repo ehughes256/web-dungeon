@@ -42,6 +42,106 @@ const ARMOR_CONFIGS = {
     protectionRing: { defense: 0, speed: 5, weight: 1, size: 1, dropChance: 0.03, levelRange: [2, 8], color: '#ffaa00', bodyLocation: 'ring', bonuses: { defense: 5 } }
 };
 
+// 40 potion colors for randomization
+const POTION_COLORS = [
+    'crimson', 'azure', 'emerald', 'violet', 'amber', 'sapphire', 'ruby', 'golden',
+    'silver', 'bronze', 'turquoise', 'magenta', 'indigo', 'coral', 'jade', 'obsidian',
+    'pearl', 'opal', 'topaz', 'amethyst', 'chartreuse', 'cerulean', 'vermilion', 'teal',
+    'ochre', 'scarlet', 'cobalt', 'burgundy', 'lavender', 'mint', 'peach', 'plum',
+    'olive', 'maroon', 'navy', 'tan', 'beige', 'ivory', 'slate', 'copper'
+];
+
+// Mapping from color names to hex codes for visual display
+const POTION_COLOR_HEX = {
+    'crimson': '#DC143C',
+    'azure': '#007FFF',
+    'emerald': '#50C878',
+    'violet': '#8F00FF',
+    'amber': '#FFBF00',
+    'sapphire': '#0F52BA',
+    'ruby': '#E0115F',
+    'golden': '#FFD700',
+    'silver': '#C0C0C0',
+    'bronze': '#CD7F32',
+    'turquoise': '#40E0D0',
+    'magenta': '#FF00FF',
+    'indigo': '#4B0082',
+    'coral': '#FF7F50',
+    'jade': '#00A86B',
+    'obsidian': '#0B1C26',
+    'pearl': '#F0EAD6',
+    'opal': '#A8C3BC',
+    'topaz': '#FFCC00',
+    'amethyst': '#9966CC',
+    'chartreuse': '#7FFF00',
+    'cerulean': '#007BA7',
+    'vermilion': '#E34234',
+    'teal': '#008080',
+    'ochre': '#CC7722',
+    'scarlet': '#FF2400',
+    'cobalt': '#0047AB',
+    'burgundy': '#800020',
+    'lavender': '#B57EDC',
+    'mint': '#98FF98',
+    'peach': '#FFE5B4',
+    'plum': '#8E4585',
+    'olive': '#808000',
+    'maroon': '#800000',
+    'navy': '#000080',
+    'tan': '#D2B48C',
+    'beige': '#F5F5DC',
+    'ivory': '#FFFFF0',
+    'slate': '#708090',
+    'copper': '#B87333'
+};
+
+// Store color assignments for potion types (will be shuffled at game start)
+const POTION_COLOR_ASSIGNMENTS = {};
+
+// Initialize random color assignments for potion types
+function initializePotionColors() {
+    const potionTypes = ['Health Potion', 'Speed Potion'];
+    const shuffledColors = [...POTION_COLORS].sort(() => Math.random() - 0.5);
+
+    potionTypes.forEach((type, index) => {
+        POTION_COLOR_ASSIGNMENTS[type] = shuffledColors[index];
+    });
+}
+
+// 40 magical phrases for scroll identification
+const SCROLL_MAGIC_PHRASES = [
+    'XYZZY', 'PLUGH', 'ZELGO MER', 'NR 9', 'JUYED AWK',
+    'ELAM EBOW', 'VERR YED', 'VENZAR', 'PRATYAVAYAH', 'ELBIB YLOH',
+    'GHOTI', 'KERNOD WEL', 'HAPAX', 'ETAOIN', 'VELOX NEB',
+    'ASHPD', 'FOOBIE', 'TEMOV', 'GNIK SISI', 'PHOL ENDE',
+    'LOREM IPSUM', 'HACKEM MUCHE', 'PRIRUTSENIE', 'READ ME',
+    'THARR', 'YUM YUM', 'LEP GEX', 'KIRJE', 'VE FORBRYDERNE',
+    'ZLORFIK', 'XORB', 'DUAM XNAHT', 'ANDOVA BEGARIN',
+    'AQUE BRAGH', 'MAPIRO', 'VERR YED HOE', 'FROBOZZ',
+    'GARVEN DEH', 'ABRA KA', 'STRC PRST'
+];
+
+// Store magic phrase assignments for scroll types (will be shuffled at game start)
+const SCROLL_MAGIC_ASSIGNMENTS = {};
+
+// Initialize random magic phrase assignments for scroll types
+function initializeScrollMagicPhrases() {
+    const scrollTypes = [
+        'Psionic Scroll',
+        'Teleport Scroll',
+        'Mapping Scroll',
+        'Fireball Scroll',
+        'Regeneration Scroll',
+        'Enchantment Scroll',
+        'Uncurse Scroll'
+    ];
+    const shuffledPhrases = [...SCROLL_MAGIC_PHRASES].sort(() => Math.random() - 0.5);
+
+    scrollTypes.forEach((type, index) => {
+        SCROLL_MAGIC_ASSIGNMENTS[type] = shuffledPhrases[index];
+    });
+}
+
 const POTION_CONFIGS = {
     health: { healAmount: 20, dropChance: 0.05, levelRange: [1, 5], color: '#ff88ff', speed: 10, weight: 1, size: 2 },
     speed: { speedBoost: 50, duration: 1000, dropChance: 0.05, levelRange: [1, 5], color: '#00ff00', speed: 10, weight: 1, size: 2 }
@@ -249,6 +349,7 @@ class Potion extends Item {
         this.weight = 1;
         this.size = 2;
         this.enchantments = {};
+        this.colorName = POTION_COLOR_ASSIGNMENTS[name] || "";
         this.description = 'A glass vial of alchemical mystery—its contents swirl with latent promise.';
 
         // Apply config if provided
@@ -267,12 +368,23 @@ class Potion extends Item {
         if (config.duration !== undefined) this.duration = config.duration;
     }
 
+    getDisplayName() {
+        // If identified, show actual name; otherwise show color
+        if (this.identified) {
+            return this.name;
+        }
+        return this.colorName ? `${this.colorName} potion` : this.name;
+    }
+
     getSymbol() {
         return '!';
     }
 
     getColor() {
-        return '#ff00ff';
+        // Return hex color based on colorName, or default magenta if not found
+        return this.colorName && POTION_COLOR_HEX[this.colorName]
+            ? POTION_COLOR_HEX[this.colorName]
+            : '#ff00ff';
     }
 
     onCollect(game) {
@@ -291,23 +403,23 @@ class HealthPotion extends Potion {
         this.description = 'A ruby-red draught that knits torn flesh and steadies the warrior\'s breath.';
     }
 
-    getColor() {
-        return POTION_CONFIGS.health.color;
-    }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyPotionType(this.name);
         game.addMessage(`You drink the health potion!`);
         const healedAmount = Game.player.heal(this.healAmount);
         return {
             success: true,
-            message: `You drink ${this.name} (+${healedAmount} HP).`,
+            message: `You drink ${displayName} (+${healedAmount} HP). It was a ${this.name}!`,
             potion: this,
         };
     }
 
     onCollect(game) {
         Game.player.addPotion(this.createInventoryCopy());
-        game.addMessage(`Found a powerful ${this.name}!`);
+        game.addMessage(`Found a ${this.getDisplayName()}!`);
     }
 }
 
@@ -321,16 +433,16 @@ class SpeedPotion extends Potion {
         this.description = 'An emerald tonic that sharpens reflexes—time itself seems to lean in your favor.';
     }
 
-    getColor() {
-        return POTION_CONFIGS.speed.color;
-    }
 
     onCollect(game) {
         Game.player.addPotion(this.createInventoryCopy());
-        game.addMessage(`Found a Potion that boosts speed!`);
+        game.addMessage(`Found a ${this.getDisplayName()}!`);
     }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyPotionType(this.name);
         game.addMessage(`You drink the speed potion!`);
         Game.player.speed -= this.speedBoost;
         game.timeManager.scheduleEvent(POTION_CONFIGS.speed.duration, this, () => {
@@ -339,7 +451,7 @@ class SpeedPotion extends Potion {
         });
         return {
             success: true,
-            message: `You drink ${this.name} and feel faster! (+${this.speedBoost} speed)`,
+            message: `You drink ${displayName} and feel faster! (+${this.speedBoost} speed). It was a ${this.name}!`,
             potion: this,
         };
     }
@@ -352,6 +464,7 @@ class Scroll extends Item {
         this.speed = 30;
         this.weight = 1;
         this.size = 1;
+        this.magicName = SCROLL_MAGIC_ASSIGNMENTS[name] || "";
         this.description = 'A crackling parchment covered in sigils that shimmer and rearrange when not directly watched.';
 
         // Apply config if provided
@@ -373,6 +486,14 @@ class Scroll extends Item {
         if (config.enchantmentPower !== undefined) this.enchantmentPower = config.enchantmentPower;
     }
 
+    getDisplayName() {
+        // If identified, show actual name; otherwise show magic phrase
+        if (this.identified) {
+            return this.name;
+        }
+        return this.magicName ? `scroll "${this.magicName}"` : this.name;
+    }
+
     getSymbol() {
         return '?';
     }
@@ -388,6 +509,9 @@ class Scroll extends Item {
 
     onCollect(game) {
         Game.player.addScroll(this.createInventoryCopy());
+    }
+
+    onSelectItem(game) {
     }
 }
 
@@ -407,13 +531,17 @@ class PsionicScroll extends Scroll {
 
     onCollect(game) {
         Game.player.addScroll(this.createInventoryCopy());
-        game.addMessage(`Found a powerful scroll!`);
+        game.addMessage(`Found a ${this.getDisplayName()}!`);
     }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
         const targets = game.monsterManager.monsters.filter((m) => game.visible[m.y] && game.visible[m.y][m.x]);
         if (!targets.length) {
-            game.addMessage('No targets in sight.');
+            game.addMessage(`You read ${displayName}. No targets in sight. It was a ${this.name}!`);
             return;
         }
         const dmg = this.damage || 10;
@@ -423,7 +551,7 @@ class PsionicScroll extends Scroll {
             if (m.hp <= 0) killed++;
         });
         if (killed) game.monsterManager.monsters = game.monsterManager.monsters.filter((m) => m.hp > 0);
-        game.addMessage(`You cast ${this.name}. ${targets.length} hit, ${killed} slain.`);
+        game.addMessage(`You read ${displayName}. ${targets.length} hit, ${killed} slain. It was a ${this.name}!`);
         game.render();
     }
 }
@@ -445,6 +573,10 @@ class TeleportScroll extends Scroll {
     }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
         const validPositions = [];
         for (let y = 0; y < game.height; y++) {
             for (let x = 0; x < game.width; x++) {
@@ -458,13 +590,13 @@ class TeleportScroll extends Scroll {
             }
         }
         if (!validPositions.length) {
-            game.addMessage('The magic fizzles—nowhere to go.');
+            game.addMessage(`You read ${displayName}. The magic fizzles—nowhere to go. It was a ${this.name}!`);
             return;
         }
         const [nx, ny] = validPositions[Math.floor(Math.random() * validPositions.length)];
         Game.player.x = nx;
         Game.player.y = ny;
-        game.addMessage('Reality folds; you reappear elsewhere!');
+        game.addMessage(`You read ${displayName}. Reality folds; you reappear elsewhere! It was a ${this.name}!`);
         game.computeFOV();
         game.render();
     }
@@ -485,13 +617,17 @@ class MappingScroll extends Scroll {
     }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
         for (let y = 0; y < game.height; y++) {
             for (let x = 0; x < game.width; x++) {
                 const tile = game.dungeon.getTile(x, y);
                 if (tile && tile.type !== '#') game.explored[y][x] = true; // reveal all non-walls
             }
         }
-        game.addMessage('Your mind expands—paths and chambers blaze in memory.');
+        game.addMessage(`You read ${displayName}. Your mind expands—paths and chambers blaze in memory. It was a ${this.name}!`);
         game.render();
     }
 }
@@ -513,6 +649,10 @@ class FireballScroll extends Scroll {
     }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
         const px = Game.player.x, py = Game.player.y;
         const affected = [];
         game.monsterManager.monsters.forEach(m => {
@@ -521,7 +661,7 @@ class FireballScroll extends Scroll {
             if (dx * dx + dy * dy <= this.radius * this.radius) affected.push(m);
         });
         if (!affected.length) {
-            game.addMessage('Flames curl harmlessly—no foes nearby.');
+            game.addMessage(`You read ${displayName}. Flames curl harmlessly—no foes nearby. It was a ${this.name}!`);
             return;
         }
         let slain = 0;
@@ -530,7 +670,7 @@ class FireballScroll extends Scroll {
             if (m.hp <= 0) slain++;
         });
         if (slain) game.monsterManager.monsters = game.monsterManager.monsters.filter(m => m.hp > 0);
-        game.addMessage(`A sphere of fire erupts! ${affected.length} scorched, ${slain} slain.`);
+        game.addMessage(`You read ${displayName}. A sphere of fire erupts! ${affected.length} scorched, ${slain} slain. It was a ${this.name}!`);
         game.render();
     }
 }
@@ -553,7 +693,11 @@ class RegenerationScroll extends Scroll {
     }
 
     use(game) {
-        game.addMessage('Warm vitality suffuses your frame.');
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
+        game.addMessage(`You read ${displayName}. Warm vitality suffuses your frame. It was a ${this.name}!`);
         for (let i = 1; i <= this.totalHeals; i++) {
             game.timeManager.scheduleEvent(this.interval * i, this, () => {
                 const healed = Game.player.heal(this.healPerTick);
@@ -581,13 +725,33 @@ class EnchantmentScroll extends Scroll {
     }
 
     use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
         // Trigger the enchantment selection UI
         game.startItemSelection(this);
         return {
             success: true,
-            message: 'Select an item to enchant...',
+            message: `You read ${displayName}. Select an item to enchant... It was a ${this.name}!`,
             scroll: this,
         };
+    }
+
+    onSelectItem(game, item) {
+        if (!item || !(item instanceof Weapon || item instanceof Armor)) {
+            game.addMessage('You can only enchant weapons or armor.');
+            return;
+        }
+        const power = this.enchantmentPower || 1;
+        // Apply enchantment
+        if (item instanceof Weapon) {
+            item.enchantments.damage = (item.enchantments.damage || 0) + power;
+            game.addMessage(`${item.name} glows with power! +${power} damage enchantment applied.`);
+        } else if (item instanceof Armor) {
+            item.enchantments.defense = (item.enchantments.defense || 0) + power;
+            game.addMessage(`${item.name} shimmers with protective magic! +${power} defense enchantment applied.`);
+        }
     }
 }
 
@@ -606,26 +770,26 @@ class UncurseScroll extends Scroll {
     }
 
     use(game) {
-        let uncursedCount = 0;
-        const uncursedItems = [];
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
 
-        // Check all equipped items
-        Object.entries(Game.player.body).forEach(([slot, item]) => {
-            if (item && item.cursed && typeof item.removeCurse === 'function') {
-                item.removeCurse();
-                uncursedCount++;
-                uncursedItems.push(item.name);
-            }
-        });
+        // Trigger the enchantment selection UI
+        game.startItemSelection(this);
+        return {
+            success: true,
+            message: `You read ${displayName}. Select an item to uncurse... It was a ${this.name}!`,
+            scroll: this,
+        };
+    }
 
-        if (uncursedCount > 0) {
-            game.addMessage(`Holy light washes over you! ${uncursedItems.join(', ')} ${uncursedCount === 1 ? 'is' : 'are'} freed from the curse!`);
+    onSelectItem(game, item) {
+        if(item && item.cursed && typeof item.removeCurse === 'function') {
+            item.removeCurse();
+            game.addMessage(`Holy light washes over you! ${item.name} is freed from the curse!`);
         } else {
-            game.addMessage('The scroll glows faintly, but you carry no cursed items.');
+            game.addMessage('The scroll glows faintly, but that item isn\'t cursed.');
         }
-
-        game.updateUI();
-        game.render();
     }
 }
 

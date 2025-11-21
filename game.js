@@ -1,6 +1,11 @@
 // Game class - main game logic and UI management
 class Game {
     constructor() {
+        // Initialize random color assignments for potions
+        initializePotionColors();
+        // Initialize random magic phrase assignments for scrolls
+        initializeScrollMagicPhrases();
+
         Game.player = new Player(this, 0, 0);
         this.canvas = document.getElementById('dungeon');
         this.ctx = this.canvas.getContext('2d');
@@ -524,10 +529,10 @@ class Game {
         const tags = [];
         if (equipped) tags.push('<span class="tag">Eq</span>');
         if (item.cursed) tags.push('<span class="tag" style="background-color: #aa0000; color: #fff;">CURSED</span>');
-        if (category === 'weapons') tags.push(`<span class='tag'>+${item.getDamage()} atk</span>`);
-        if (category === 'armor') tags.push(`<span class='tag'>+${item.defense} def</span>`);
+        if (category === 'weapons') tags.push(`<span class='tag'>+${item.identified ? item.getDamage() : "?"} atk</span>`);
+        if (category === 'armor') tags.push(`<span class='tag'>+${item.identified ? item.defense : "?"} def</span>`);
         if (category === 'potions') {
-            if (item.healAmount) tags.push(`<span class='tag'>+${item.healAmount} HP</span>`);
+            if (item.healAmount) tags.push(`<span class='tag'>+${item.identified ? item.healAmount : "?"} HP</span>`);
             if (item.count > 1) tags.push(`<span class='tag'>x${item.count}</span>`);
         }
         if (category === 'scrolls') {
@@ -545,7 +550,8 @@ class Game {
         actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
 
         // Make item name clickable to show details
-        const itemName = `<span class="item-name-clickable" onclick="game.showItemInfoByIndex('${category}', ${index})">${item.name || 'Unknown'}</span>`;
+        const displayName = (item.getDisplayName && typeof item.getDisplayName === 'function') ? item.getDisplayName() : (item.name || 'Unknown');
+        const itemName = `<span class="item-name-clickable" onclick="game.showItemInfoByIndex('${category}', ${index})">${displayName}</span>`;
 
         return `<div class='inv-item-row'><div style='flex:1 1 auto;'>${itemName} ${tags.join(' ')}</div><div class='inv-actions'>${actionButtons}</div></div>`;
     }
@@ -909,76 +915,125 @@ class Game {
         const descEl = document.getElementById('dialogItemDescription');
         const statsEl = document.getElementById('dialogItemStats');
 
-        // Set item name
-        nameEl.textContent = item.name || 'Unknown Item';
+        // Set item name - use getDisplayName for potions
+        nameEl.textContent = (item.getDisplayName && typeof item.getDisplayName === 'function') ? item.getDisplayName() : (item.name || 'Unknown Item');
 
-        // Set item description
-        descEl.textContent = item.description || 'A mysterious item.';
+        // Check if item is identified (defaults to true if property doesn't exist)
+        const isIdentified = item.identified !== false;
 
         // Build stats display
         const stats = [];
 
         // Category-specific stats
         if (category === 'weapons') {
+            // Set item description
+            descEl.textContent = item.description || 'A mysterious item.';
             if (item.damage !== undefined) {
-                stats.push({label: 'Base Damage', value: item.damage, positive: item.damage > 0});
+                stats.push({
+                    label: 'Base Damage',
+                    value: isIdentified ? item.damage : '???',
+                    positive: isIdentified && item.damage > 0
+                });
             }
             if (typeof item.getDamage === 'function') {
                 const totalDamage = item.getDamage();
                 if (totalDamage !== item.damage) {
-                    stats.push({label: 'Total Damage', value: totalDamage, positive: true});
+                    stats.push({
+                        label: 'Total Damage',
+                        value: isIdentified ? totalDamage : '???',
+                        positive: isIdentified
+                    });
                 }
             }
             if (typeof item.getDamageBonus === 'function') {
                 const bonus = item.getDamageBonus();
                 if (bonus !== 0) {
-                    stats.push({label: 'Damage Bonus', value: `+${bonus}`, positive: bonus > 0});
+                    stats.push({
+                        label: 'Damage Bonus',
+                        value: isIdentified ? `+${bonus}` : '???',
+                        positive: isIdentified && bonus > 0
+                    });
                 }
             }
             if (typeof item.getAttackBonus === 'function') {
                 const atkBonus = item.getAttackBonus();
                 if (atkBonus !== 0) {
-                    stats.push({label: 'Attack Bonus', value: `+${atkBonus}`, positive: atkBonus > 0});
+                    stats.push({
+                        label: 'Attack Bonus',
+                        value: isIdentified ? `+${atkBonus}` : '???',
+                        positive: isIdentified && atkBonus > 0
+                    });
                 }
             }
             if (item.speed !== undefined) {
-                stats.push({label: 'Attack Speed', value: item.speed});
+                stats.push({label: 'Attack Speed', value: isIdentified ? item.speed : '???'});
             }
         } else if (category === 'armor') {
+            // Set item description
+            descEl.textContent = item.description || 'A mysterious item.';
+
             if (item.defense !== undefined) {
-                stats.push({label: 'Defense', value: item.defense, positive: item.defense > 0});
+                stats.push({
+                    label: 'Defense',
+                    value: isIdentified ? item.defense : '???',
+                    positive: isIdentified && item.defense > 0
+                });
             }
             if (typeof item.getDefenseBonus === 'function') {
                 const defBonus = item.getDefenseBonus();
                 if (defBonus !== 0) {
-                    stats.push({label: 'Defense Bonus', value: `+${defBonus}`, positive: defBonus > 0});
+                    stats.push({
+                        label: 'Defense Bonus',
+                        value: isIdentified ? `+${defBonus}` : '???',
+                        positive: isIdentified && defBonus > 0
+                    });
                 }
             }
             if (item.bodyLocation) {
                 stats.push({label: 'Slot', value: item.bodyLocation});
             }
         } else if (category === 'potions') {
-            if (item.healAmount !== undefined) {
-                stats.push({label: 'Heal Amount', value: `+${item.healAmount} HP`, positive: true});
-            }
-            if (item.speedBoost !== undefined) {
-                stats.push({label: 'Speed Boost', value: item.speedBoost, positive: true});
+            // Set item description
+            descEl.textContent = isIdentified ? item.description : 'A mysterious potion.';
+
+            if (isIdentified) {
+                if (item.healAmount !== undefined) {
+                    stats.push({
+                        label: 'Heal Amount',
+                        value: isIdentified ? `+${item.healAmount} HP` : '???',
+                        positive: isIdentified
+                    });
+                }
+                if (item.speedBoost !== undefined) {
+                    stats.push({
+                        label: 'Speed Boost',
+                        value: isIdentified ? item.speedBoost : '???',
+                        positive: isIdentified
+                    });
+                }
             }
             if (item.count !== undefined && item.count > 1) {
                 stats.push({label: 'Quantity', value: item.count});
             }
         } else if (category === 'scrolls') {
-            if (item.damage !== undefined) {
-                stats.push({label: 'Damage', value: item.damage, positive: true});
-            }
-            if (item.radius !== undefined) {
-                stats.push({label: 'Radius', value: item.radius});
-            }
-            if (item.healPerTick !== undefined) {
-                stats.push({label: 'Heal Per Tick', value: `+${item.healPerTick} HP`, positive: true});
-            }
-            if (item.totalHeals !== undefined) {
-                stats.push({label: 'Total Heals', value: item.totalHeals});
+            descEl.textContent = isIdentified ? item.description : 'A mysterious scroll.';
+            if (isIdentified) {
+                if (item.damage !== undefined) {
+                    stats.push({label: 'Damage', value: isIdentified ? item.damage : '???', positive: isIdentified});
+                }
+                if (item.radius !== undefined) {
+                    stats.push({label: 'Radius', value: isIdentified ? item.radius : '???'});
+                }
+                if (item.healPerTick !== undefined) {
+                    stats.push({
+                        label: 'Heal Per Tick',
+                        value: isIdentified ? `+${item.healPerTick} HP` : '???',
+                        positive: isIdentified
+                    });
+                }
+                if (item.totalHeals !== undefined) {
+                    stats.push({label: 'Total Heals', value: isIdentified ? item.totalHeals : '???'});
+                }
             }
             if (item.count !== undefined && item.count > 1) {
                 stats.push({label: 'Quantity', value: item.count});
@@ -997,7 +1052,11 @@ class Game {
         if (item.bonuses && Object.keys(item.bonuses).length > 0) {
             Object.entries(item.bonuses).forEach(([key, value]) => {
                 if (value !== 0) {
-                    stats.push({label: `${key} bonus`, value: `+${value}`, positive: value > 0});
+                    stats.push({
+                        label: `${key} bonus`,
+                        value: isIdentified ? `+${value}` : '???',
+                        positive: isIdentified && value > 0
+                    });
                 }
             });
         }
@@ -1006,7 +1065,11 @@ class Game {
         if (item.enchantments && Object.keys(item.enchantments).length > 0) {
             Object.entries(item.enchantments).forEach(([key, value]) => {
                 if (value !== 0) {
-                    stats.push({label: `${key} enchantment`, value: `+${value}`, positive: value > 0});
+                    stats.push({
+                        label: `${key} enchantment`,
+                        value: isIdentified ? `+${value}` : '???',
+                        positive: isIdentified && value > 0
+                    });
                 }
             });
         }
@@ -1015,7 +1078,7 @@ class Game {
         if (item.identified !== undefined) {
             stats.push({label: 'Identified', value: item.identified ? 'Yes' : 'No'});
         }
-        if (item.cursed) {
+        if (isIdentified && item.cursed) {
             stats.push({label: 'Cursed', value: 'Yes', positive: false});
         }
 
@@ -1023,8 +1086,8 @@ class Game {
         if (stats.length > 0) {
             statsEl.innerHTML = stats.map(stat => {
                 const valueClass = stat.positive === true ? 'dialog-stat-value positive' :
-                                  stat.positive === false ? 'dialog-stat-value negative' :
-                                  'dialog-stat-value';
+                    stat.positive === false ? 'dialog-stat-value negative' :
+                        'dialog-stat-value';
                 return `<div class="dialog-stat-row">
                     <span class="dialog-stat-label">${stat.label}:</span>
                     <span class="${valueClass}">${stat.value}</span>
@@ -1072,8 +1135,8 @@ class Game {
         this.showItemDialog(item, category);
     }
 
-    startItemSelection(scroll) {
-        this.currentEnchantmentScroll = scroll;
+    startItemSelection(scroll, filterFn = () => true) {
+        this.currentScroll = scroll;
         const dialog = document.getElementById('enchantmentDialog');
         const itemsContainer = document.getElementById('enchantmentItems');
 
@@ -1082,7 +1145,9 @@ class Game {
         Object.entries(Game.player.body).forEach(([slot, item]) => {
             if (item && !(item instanceof EmptyItem) && !(item instanceof Fists)) {
                 if (item instanceof Weapon || item instanceof Armor) {
-                    equippedSection.push({ item, slot, equipped: true });
+                    if (filterFn(item)) {
+                        equippedSection.push({item, slot, equipped: true});
+                    }
                 }
             }
         });
@@ -1091,7 +1156,9 @@ class Game {
         const weaponSection = [];
         Game.player.inventory.weapons.forEach((item, index) => {
             if (item && !(item instanceof EmptyItem) && !(item instanceof Fists)) {
-                weaponSection.push({ item, category: 'weapons', index });
+                if (filterFn(item)) {
+                    weaponSection.push({item, category: 'weapons', index});
+                }
             }
         });
 
@@ -1099,7 +1166,9 @@ class Game {
         const armorSection = [];
         Game.player.inventory.armor.forEach((item, index) => {
             if (item && !(item instanceof EmptyItem)) {
-                armorSection.push({ item, category: 'armor', index });
+                if (filterFn(item)) {
+                    armorSection.push({item, category: 'armor', index});
+                }
             }
         });
 
@@ -1107,10 +1176,10 @@ class Game {
 
         if (equippedSection.length > 0) {
             html += '<div class="enchantment-section"><h4>Equipped Items</h4>';
-            equippedSection.forEach(({ item, slot }) => {
+            equippedSection.forEach(({item, slot}) => {
                 const currentEnchant = item.enchantments || {};
                 const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k,v]) => `+${v} ${k}`).join(', ')}`
+                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k, v]) => `+${v} ${k}`).join(', ')}`
                     : 'No enchantments';
 
                 let statsText = '';
@@ -1133,10 +1202,10 @@ class Game {
 
         if (weaponSection.length > 0) {
             html += '<div class="enchantment-section"><h4>Weapons in Inventory</h4>';
-            weaponSection.forEach(({ item, category, index }) => {
+            weaponSection.forEach(({item, category, index}) => {
                 const currentEnchant = item.enchantments || {};
                 const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k,v]) => `+${v} ${k}`).join(', ')}`
+                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k, v]) => `+${v} ${k}`).join(', ')}`
                     : 'No enchantments';
 
                 html += `<div class="enchantable-item" onclick="game.applyEnchantment('${category}', ${index})">
@@ -1152,10 +1221,10 @@ class Game {
 
         if (armorSection.length > 0) {
             html += '<div class="enchantment-section"><h4>Armor in Inventory</h4>';
-            armorSection.forEach(({ item, category, index }) => {
+            armorSection.forEach(({item, category, index}) => {
                 const currentEnchant = item.enchantments || {};
                 const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k,v]) => `+${v} ${k}`).join(', ')}`
+                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k, v]) => `+${v} ${k}`).join(', ')}`
                     : 'No enchantments';
 
                 html += `<div class="enchantable-item" onclick="game.applyEnchantment('${category}', ${index})">
@@ -1199,16 +1268,9 @@ class Game {
             item.enchantments = {};
         }
 
-        const power = this.currentEnchantmentScroll.enchantmentPower || 1;
+        const power = this.currentScroll.enchantmentPower || 1;
 
-        // Apply enchantment based on item type
-        if (item instanceof Weapon) {
-            item.enchantments.damage = (item.enchantments.damage || 0) + power;
-            this.addMessage(`${item.name} glows with power! +${power} damage enchantment applied.`);
-        } else if (item instanceof Armor) {
-            item.enchantments.defense = (item.enchantments.defense || 0) + power;
-            this.addMessage(`${item.name} shimmers with protective magic! +${power} defense enchantment applied.`);
-        }
+        item.onSelectItem(this, item);
 
         // Close the dialog and update UI
         this.closeEnchantmentDialog();
@@ -1219,7 +1281,7 @@ class Game {
     closeEnchantmentDialog() {
         const dialog = document.getElementById('enchantmentDialog');
         dialog.classList.remove('show');
-        this.currentEnchantmentScroll = null;
+        this.currentScroll = null;
     }
 }
 

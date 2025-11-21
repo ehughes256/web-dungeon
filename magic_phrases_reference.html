@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scroll Magic Phrases - Complete Reference</title>
+    <style>
+        body {
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: monospace;
+        }
+        h1 { color: #00ffff; text-align: center; }
+        .phrase-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .phrase-card {
+            background: #222;
+            border: 2px solid #00ffff;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .phrase-symbol {
+            font-size: 36px;
+            color: #00ffff;
+            margin: 10px 0;
+        }
+        .phrase-text {
+            font-weight: bold;
+            color: #ffffff;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .phrase-number {
+            color: #888;
+            font-size: 12px;
+        }
+        .legend {
+            background: #222;
+            border: 2px solid #444;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .legend h2 {
+            color: #00ffff;
+        }
+        .legend ul {
+            columns: 2;
+            -webkit-columns: 2;
+            -moz-columns: 2;
+        }
+        .reference {
+            color: #ffaa00;
+        }
+    </style>
+</head>
+<body>
+    <h1>📜 All 40 Scroll Magic Phrases 📜</h1>
+
+    <div class="legend">
+        <h2>About These Phrases</h2>
+        <p>Each game randomly assigns these magical phrases to the 7 scroll types. The same phrase means different things in different games!</p>
+        <h3>Classic References</h3>
+        <ul>
+            <li><span class="reference">XYZZY, PLUGH</span> - Colossal Cave Adventure</li>
+            <li><span class="reference">ZELGO MER, JUYED AWK</span> - NetHack</li>
+            <li><span class="reference">ELAM EBOW</span> - "BOW MALE" scrambled</li>
+            <li><span class="reference">ELBIB YLOH</span> - "HOLY BIBLE" reversed</li>
+            <li><span class="reference">FROBOZZ</span> - Zork</li>
+            <li><span class="reference">HACKEM MUCHE</span> - NetHack variant</li>
+            <li><span class="reference">LOREM IPSUM</span> - Classic placeholder</li>
+        </ul>
+    </div>
+
+    <div id="phraseGrid" class="phrase-grid"></div>
+
+    <script>
+        const phrases = [
+            'XYZZY', 'PLUGH', 'ZELGO MER', 'NR 9', 'JUYED AWK',
+            'ELAM EBOW', 'VERR YED', 'VENZAR', 'PRATYAVAYAH', 'ELBIB YLOH',
+            'GHOTI', 'KERNOD WEL', 'HAPAX', 'ETAOIN', 'VELOX NEB',
+            'ASHPD', 'FOOBIE', 'TEMOV', 'GNIK SISI', 'PHOL ENDE',
+            'LOREM IPSUM', 'HACKEM MUCHE', 'PRIRUTSENIE', 'READ ME',
+            'THARR', 'YUM YUM', 'LEP GEX', 'KIRJE', 'VE FORBRYDERNE',
+            'ZLORFIK', 'XORB', 'DUAM XNAHT', 'ANDOVA BEGARIN',
+            'AQUE BRAGH', 'MAPIRO', 'VERR YED HOE', 'FROBOZZ',
+            'GARVEN DEH', 'ABRA KA', 'STRC PRST'
+        ];
+
+        const grid = document.getElementById('phraseGrid');
+
+        phrases.forEach((phrase, index) => {
+            const card = document.createElement('div');
+            card.className = 'phrase-card';
+
+            card.innerHTML = `
+                <div class="phrase-symbol">?</div>
+                <div class="phrase-text">"${phrase}"</div>
+                <div class="phrase-number">#${index + 1}</div>
+            `;
+
+            grid.appendChild(card);
+        });
+    </script>
+
+    <div class="legend">
+        <h2>In Your Game</h2>
+        <p>When you start a new game, 7 of these 40 phrases are randomly chosen for the 7 scroll types:</p>
+        <ol>
+            <li><strong>Psionic Scroll</strong> - Mental attack on visible monsters</li>
+            <li><strong>Teleport Scroll</strong> - Random teleportation</li>
+            <li><strong>Mapping Scroll</strong> - Reveal dungeon layout</li>
+            <li><strong>Fireball Scroll</strong> - Area damage</li>
+            <li><strong>Regeneration Scroll</strong> - Heal over time</li>
+            <li><strong>Enchantment Scroll</strong> - Enhance equipment</li>
+            <li><strong>Uncurse Scroll</strong> - Remove curse</li>
+        </ol>
+        <p><strong>Example:</strong> In one game, "XYZZY" might teleport you. In the next game, "XYZZY" might cast fireball!</p>
+    </div>
+</body>
+</html>
+

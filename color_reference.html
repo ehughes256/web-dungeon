@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Potion Color Reference</title>
+    <style>
+        body {
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: monospace;
+        }
+        h1 { color: #FFD700; }
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .color-card {
+            background: #222;
+            border: 2px solid #444;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .color-sample {
+            font-size: 48px;
+            margin: 10px 0;
+        }
+        .color-name {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .color-hex {
+            color: #888;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚗️ Potion Color Reference - All 40 Colors</h1>
+    <p>Visual reference for all potion colors with their hex codes</p>
+
+    <div id="colorGrid" class="color-grid"></div>
+
+    <script>
+        const POTION_COLOR_HEX = {
+            'crimson': '#DC143C',
+            'azure': '#007FFF',
+            'emerald': '#50C878',
+            'violet': '#8F00FF',
+            'amber': '#FFBF00',
+            'sapphire': '#0F52BA',
+            'ruby': '#E0115F',
+            'golden': '#FFD700',
+            'silver': '#C0C0C0',
+            'bronze': '#CD7F32',
+            'turquoise': '#40E0D0',
+            'magenta': '#FF00FF',
+            'indigo': '#4B0082',
+            'coral': '#FF7F50',
+            'jade': '#00A86B',
+            'obsidian': '#0B1C26',
+            'pearl': '#F0EAD6',
+            'opal': '#A8C3BC',
+            'topaz': '#FFCC00',
+            'amethyst': '#9966CC',
+            'chartreuse': '#7FFF00',
+            'cerulean': '#007BA7',
+            'vermilion': '#E34234',
+            'teal': '#008080',
+            'ochre': '#CC7722',
+            'scarlet': '#FF2400',
+            'cobalt': '#0047AB',
+            'burgundy': '#800020',
+            'lavender': '#B57EDC',
+            'mint': '#98FF98',
+            'peach': '#FFE5B4',
+            'plum': '#8E4585',
+            'olive': '#808000',
+            'maroon': '#800000',
+            'navy': '#000080',
+            'tan': '#D2B48C',
+            'beige': '#F5F5DC',
+            'ivory': '#FFFFF0',
+            'slate': '#708090',
+            'copper': '#B87333'
+        };
+
+        const grid = document.getElementById('colorGrid');
+
+        Object.entries(POTION_COLOR_HEX).forEach(([name, hex]) => {
+            const card = document.createElement('div');
+            card.className = 'color-card';
+            card.style.borderColor = hex;
+
+            // Determine if we need dark text for light colors
+            const rgb = parseInt(hex.slice(1), 16);
+            const r = (rgb >> 16) & 0xff;
+            const g = (rgb >> 8) & 0xff;
+            const b = (rgb >> 0) & 0xff;
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            const textColor = brightness > 155 ? '#000' : hex;
+
+            card.innerHTML = `
+                <div class="color-sample" style="color: ${hex}">!</div>
+                <div class="color-name" style="color: ${textColor}">${name} potion</div>
+                <div class="color-hex">${hex}</div>
+            `;
+
+            grid.appendChild(card);
+        });
+    </script>
+</body>
+</html>
+

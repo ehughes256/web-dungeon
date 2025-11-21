@@ -235,6 +235,28 @@ class Player {
         }
     }
 
+    identifyPotionType(potionName) {
+        // Mark all potions of this type as identified
+        if (this.inventory.potions) {
+            this.inventory.potions.forEach(p => {
+                if (p.name === potionName) {
+                    p.identified = true;
+                }
+            });
+        }
+    }
+
+    identifyScrollType(scrollName) {
+        // Mark all scrolls of this type as identified
+        if (this.inventory.scrolls) {
+            this.inventory.scrolls.forEach(s => {
+                if (s.name === scrollName) {
+                    s.identified = true;
+                }
+            });
+        }
+    }
+
     addScroll(scroll) {
         if (!this.inventory.scrolls) this.inventory.scrolls = [];
         const match = this.inventory.scrolls.find((s) => s.name === scroll.name && s.damage === scroll.damage);
