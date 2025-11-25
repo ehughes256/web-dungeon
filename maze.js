@@ -34,6 +34,18 @@ class FloorTile {
     clearItems() {
         this.items = [];
     }
+
+    setTrap(trap) {
+        this.trap = trap;
+    }
+
+    hasTrap() {
+        return this.trap !== null && !this.trap.triggered;
+    }
+
+    hasDiscoveredTrap() {
+        return this.trap !== null && this.trap.discovered && !this.trap.triggered;
+    }
 }
 
 class Dungeon {
@@ -123,22 +135,37 @@ class Dungeon {
         if (!tile) {
             return 'The void stares back.';
         }
+
+        let description;
         switch (tile.type) {
             case '#':
-                return 'A rough-hewn stone wall—unyielding.';
+                description = 'A rough-hewn stone wall—unyielding.';
+                break;
             case '.':
-                return 'Open dungeon floor, strewn with dust and echoes.';
+                description = 'Open dungeon floor, strewn with dust and echoes.';
+                break;
             case '+':
-                return 'A closed wooden door; hinges creak with potential.';
+                description = 'A closed wooden door; hinges creak with potential.';
+                break;
             case '/':
-                return 'An open doorway leading into shadow.';
+                description = 'An open doorway leading into shadow.';
+                break;
             case '<':
-                return 'A stairwell spiraling upward.';
+                description = 'A stairwell spiraling upward.';
+                break;
             case '>':
-                return 'Steps descending into deeper peril.';
+                description = 'Steps descending into deeper peril.';
+                break;
             default:
-                return 'Featureless dark.';
+                description = 'Featureless dark.';
         }
+
+        // Add trap information if trap is discovered
+        if (tile.trap && tile.trap.discovered) {
+            description += ` You notice a ${tile.trap.name} here!`;
+        }
+
+        return description;
     }
 
     isValidMove(x, y) {
@@ -346,6 +373,57 @@ class MazeGenerator {
             x: downRoom.x + Math.floor(Math.random() * downRoom.width),
             y: downRoom.y + Math.floor(Math.random() * downRoom.height),
         };
+    }
+
+    placeTraps(dungeon, dungeonLevel = 1) {
+        // Calculate number of traps based on dungeon level
+        // Start with 2-4 traps per level, increasing with depth
+        const baseTraps = 2 + Math.floor(dungeonLevel / 2);
+        const numTraps = baseTraps + Math.floor(Math.random() * 3);
+
+        let trapsPlaced = 0;
+        const maxAttempts = 100;
+
+        for (let i = 0; i < numTraps && trapsPlaced < numTraps; i++) {
+            let attempts = 0;
+            while (attempts < maxAttempts) {
+                attempts++;
+
+                // Choose a random room or corridor
+                const useRoom = Math.random() > 0.3; // 70% chance in rooms, 30% in corridors
+
+                let x, y;
+                if (useRoom && dungeon.rooms.length > 0) {
+                    // Place in a random room
+                    const room = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
+                    x = room.x + Math.floor(Math.random() * room.width);
+                    y = room.y + Math.floor(Math.random() * room.height);
+                } else {
+                    // Place randomly in walkable area
+                    x = Math.floor(Math.random() * dungeon.width);
+                    y = Math.floor(Math.random() * dungeon.height);
+                }
+
+                const tile = dungeon.getTile(x, y);
+                if (!tile || tile.type !== '.' || tile.trap) {
+                    continue; // Skip non-floor tiles or tiles with existing traps
+                }
+
+                // Don't place traps on stairs
+                if ((dungeon.upStair && x === dungeon.upStair.x && y === dungeon.upStair.y) ||
+                    (dungeon.downStair && x === dungeon.downStair.x && y === dungeon.downStair.y)) {
+                    continue;
+                }
+
+                // Create and place trap (requires TrapFactory from traps.js)
+                if (typeof TrapFactory !== 'undefined') {
+                    const trap = TrapFactory.createRandomTrap(x, y, dungeonLevel);
+                    tile.setTrap(trap);
+                    trapsPlaced++;
+                    break;
+                }
+            }
+        }
     }
 }
 

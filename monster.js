@@ -89,6 +89,7 @@ class Monster {
             } else {
                 this.lastKnownPlayerLocation = null; // forget after some time
             }
+            this.lastSawPlayerMoves += 1;
         } else if (Math.random() < 0.2) {
             // Random movement when not chasing - now includes diagonal directions
             const dirs = [

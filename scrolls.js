@@ -82,6 +82,11 @@ class Scroll extends Item {
         this.magicName = SCROLL_MAGIC_ASSIGNMENTS[name] || "";
         this.description = 'A crackling parchment covered in sigils that shimmer and rearrange when not directly watched.';
 
+        // Check if this scroll type has already been identified
+        if (typeof Player !== 'undefined' && Player.identifiedScrollTypes && Player.identifiedScrollTypes.has(name)) {
+            this.identified = true;
+        }
+
         // Apply config if provided
         if (configKey && SCROLL_CONFIGS[configKey]) {
             this.applyConfig(SCROLL_CONFIGS[configKey]);

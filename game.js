@@ -6,6 +6,8 @@ class Game {
         // Initialize random magic phrase assignments for scrolls
         initializeScrollMagicPhrases();
 
+        // Set global game instance reference
+        Game.instance = this;
         Game.player = new Player(this, 0, 0);
         this.canvas = document.getElementById('dungeon');
         this.ctx = this.canvas.getContext('2d');
@@ -169,6 +171,9 @@ class Game {
         const mazeGenerator = new MazeGenerator(this.width, this.height);
         this.dungeon = mazeGenerator.generateDungeon();
 
+        // Place traps after dungeon generation
+        mazeGenerator.placeTraps(this.dungeon, this.dungeonLevel);
+
         if (this.dungeon.rooms.length && !this.levelCache[this.dungeonLevel]) {
             const r = this.dungeon.rooms[0];
             Game.player.x = r.x + Math.floor(r.width / 2);
@@ -209,6 +214,10 @@ class Game {
             if (this.dungeon.isValidMove(newX, newY)) {
                 Game.player.x = newX;
                 Game.player.y = newY;
+
+                // Check for traps - this will also stop running if trap is discovered
+                this.checkForTraps();
+
                 const foundItem = this.itemManager.checkForItems();
                 if (foundItem) this.running = false;
             }
@@ -693,8 +702,43 @@ class Game {
         if (this.dungeon.isValidMove(nx, ny)) {
             Game.player.x = nx;
             Game.player.y = ny;
+
+            // Check for traps
+            this.checkForTraps();
+
             this.itemManager.checkForItems();
             await this.consumeTurn(Game.player.speed);
+        }
+    }
+
+    checkForTraps() {
+        const tile = this.dungeon.getTile(Game.player.x, Game.player.y);
+        if (!tile || !tile.trap) return;
+
+        const trap = tile.trap;
+
+        // If trap is already discovered or triggered, don't do anything
+        if (trap.discovered || trap.triggered) return;
+
+        // Calculate detection chance based on intelligence and luck
+        const baseChance = 5; // 5% base chance
+        const intBonus = Math.floor((Game.player.intelligence - 50) / 10); // +1% per 10 int above 50
+        const luckBonus = Math.floor((Game.player.luck - 50) / 20); // +1% per 20 luck above 50
+
+        const detectionDifficulty = trap.getDetectionDifficulty();
+        const detectionChance = Math.min(95, Math.max(1, baseChance + intBonus + luckBonus + (100 - detectionDifficulty) / 2));
+
+        const roll = Math.random() * 100;
+        if (roll < detectionChance) {
+            // Player spotted the trap!
+            trap.discovered = true;
+            this.addMessage(`You spot a ${trap.name}!`);
+            this.running = false; // Stop running
+        } else {
+            // Trap was not spotted - trigger it!
+            trap.trigger(this, Game.player);
+            trap.discovered = true; // Traps become visible after triggering
+            this.running = false; // Stop running when trap triggers
         }
     }
 
@@ -788,6 +832,23 @@ class Game {
         };
         drawStair(this.dungeon.upStair, '<', '#88ff88');
         drawStair(this.dungeon.downStair, '>', '#ff8888');
+
+        // Draw discovered traps
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (!this.explored[y][x]) continue;
+                const tile = this.dungeon.getTile(x, y);
+                if (tile && tile.trap && tile.trap.discovered && !tile.trap.triggered) {
+                    const px = x * ts, py = y * ts;
+                    this.ctx.font = '16px monospace';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillStyle = tile.trap.color || '#ff4444';
+                    this.ctx.fillText(tile.trap.symbol, px + ts / 2, py + ts / 2);
+                }
+            }
+        }
+
         // Draw items from floor tiles
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {

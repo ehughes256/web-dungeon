@@ -91,6 +91,11 @@ class Potion extends Item {
         this.colorName = POTION_COLOR_ASSIGNMENTS[name] || "";
         this.description = 'A glass vial of alchemical mystery—its contents swirl with latent promise.';
 
+        // Check if this potion type has already been identified
+        if (typeof Player !== 'undefined' && Player.identifiedPotionTypes && Player.identifiedPotionTypes.has(name)) {
+            this.identified = true;
+        }
+
         // Apply config if provided
         if (configKey && POTION_CONFIGS[configKey]) {
             this.applyConfig(POTION_CONFIGS[configKey]);

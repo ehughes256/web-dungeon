@@ -236,7 +236,13 @@ class Player {
     }
 
     identifyPotionType(potionName) {
-        // Mark all potions of this type as identified
+        // Add to global identified types
+        if (!Player.identifiedPotionTypes) {
+            Player.identifiedPotionTypes = new Set();
+        }
+        Player.identifiedPotionTypes.add(potionName);
+
+        // Mark all potions of this type as identified in inventory
         if (this.inventory.potions) {
             this.inventory.potions.forEach(p => {
                 if (p.name === potionName) {
@@ -244,16 +250,54 @@ class Player {
                 }
             });
         }
+
+        // Mark all potions of this type on the ground as identified
+        if (Game.instance && Game.instance.dungeon) {
+            for (let y = 0; y < Game.instance.height; y++) {
+                for (let x = 0; x < Game.instance.width; x++) {
+                    const tile = Game.instance.dungeon.getTile(x, y);
+                    if (tile && tile.items) {
+                        tile.items.forEach(item => {
+                            if (item instanceof Potion && item.name === potionName) {
+                                item.identified = true;
+                            }
+                        });
+                    }
+                }
+            }
+        }
     }
 
     identifyScrollType(scrollName) {
-        // Mark all scrolls of this type as identified
+        // Add to global identified types
+        if (!Player.identifiedScrollTypes) {
+            Player.identifiedScrollTypes = new Set();
+        }
+        Player.identifiedScrollTypes.add(scrollName);
+
+        // Mark all scrolls of this type as identified in inventory
         if (this.inventory.scrolls) {
             this.inventory.scrolls.forEach(s => {
                 if (s.name === scrollName) {
                     s.identified = true;
                 }
             });
+        }
+
+        // Mark all scrolls of this type on the ground as identified
+        if (Game.instance && Game.instance.dungeon) {
+            for (let y = 0; y < Game.instance.height; y++) {
+                for (let x = 0; x < Game.instance.width; x++) {
+                    const tile = Game.instance.dungeon.getTile(x, y);
+                    if (tile && tile.items) {
+                        tile.items.forEach(item => {
+                            if (item instanceof Scroll && item.name === scrollName) {
+                                item.identified = true;
+                            }
+                        });
+                    }
+                }
+            }
         }
     }
 

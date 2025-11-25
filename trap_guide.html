@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trap System Visual Guide</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #222;
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #444;
+        }
+        h1 {
+            color: #ff8888;
+            text-align: center;
+            border-bottom: 2px solid #444;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #88ff88;
+            margin-top: 30px;
+        }
+        .trap-example {
+            background: #000;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #666;
+            border-radius: 5px;
+        }
+        .trap-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .trap-visual {
+            font-size: 24px;
+            text-align: center;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .stat-box {
+            background: #111;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #666;
+        }
+        .formula {
+            background: #2a2a2a;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #4488ff;
+            font-family: monospace;
+        }
+        .example-scenario {
+            background: #1a2a1a;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 3px solid #88ff88;
+        }
+        .warning {
+            background: #2a1a1a;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 3px solid #ff8888;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #444;
+            text-align: left;
+        }
+        th {
+            background: #333;
+            color: #ffff88;
+        }
+        .easy { color: #88ff88; }
+        .medium { color: #ffff88; }
+        .hard { color: #ff8888; }
+        .map-demo {
+            font-family: monospace;
+            font-size: 16px;
+            line-height: 1.2;
+            white-space: pre;
+            background: #000;
+            padding: 15px;
+            border: 2px solid #444;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Trap System Visual Guide</h1>
+
+        <p style="text-align: center; font-size: 18px; color: #aaa;">
+            A comprehensive guide to surviving the deadly traps of the dungeon
+        </p>
+
+        <h2>📋 Overview</h2>
+        <p>
+            Traps are hidden dangers in the dungeon that remain <strong>invisible</strong> until:
+        </p>
+        <ul>
+            <li>You successfully detect them (based on INT and LUCK)</li>
+            <li>You accidentally trigger them (ouch!)</li>
+        </ul>
+
+        <h2>🎲 Detection Mechanics</h2>
+
+        <div class="formula">
+            <strong>Detection Chance Formula:</strong><br>
+            <code>min(95, max(1, 5 + intBonus + luckBonus + (100 - trapDifficulty) / 2))</code>
+            <br><br>
+            <strong>Where:</strong><br>
+            • Base Chance = 5%<br>
+            • INT Bonus = floor((Intelligence - 50) / 10) [+1% per 10 INT above 50]<br>
+            • Luck Bonus = floor((Luck - 50) / 20) [+1% per 20 LUCK above 50]<br>
+            • Trap Difficulty = 35 to 70 (trap-specific)
+        </div>
+
+        <div class="example-scenario">
+            <strong>Example: Average Character (INT 50, LUCK 50)</strong><br>
+            Base: 5%<br>
+            INT Bonus: 0% (50 is baseline)<br>
+            Luck Bonus: 0% (50 is baseline)<br>
+            vs Spike Trap (difficulty 40): 5 + 0 + 0 + (100-40)/2 = <strong>35% chance</strong><br>
+            vs Teleport Trap (difficulty 70): 5 + 0 + 0 + (100-70)/2 = <strong>20% chance</strong>
+        </div>
+
+        <div class="example-scenario">
+            <strong>Example: Smart Character (INT 80, LUCK 70)</strong><br>
+            Base: 5%<br>
+            INT Bonus: 3% (floor((80-50)/10) = 3)<br>
+            Luck Bonus: 1% (floor((70-50)/20) = 1)<br>
+            vs Spike Trap (difficulty 40): 5 + 3 + 1 + (100-40)/2 = <strong>39% chance</strong><br>
+            vs Teleport Trap (difficulty 70): 5 + 3 + 1 + (100-70)/2 = <strong>24% chance</strong>
+        </div>
+
+        <h2>🗡️ Trap Types</h2>
+
+        <table>
+            <tr>
+                <th>Trap</th>
+                <th>Symbol</th>
+                <th>Damage/Effect</th>
+                <th>Difficulty</th>
+                <th>Available Level</th>
+            </tr>
+            <tr>
+                <td>Spike Trap</td>
+                <td style="color: #ff4444;">^</td>
+                <td>5-15 HP</td>
+                <td class="easy">40 (Easy)</td>
+                <td>1+</td>
+            </tr>
+            <tr>
+                <td>Poison Dart</td>
+                <td style="color: #44ff44;">^</td>
+                <td>3-11 HP</td>
+                <td class="medium">60 (Medium)</td>
+                <td>3+</td>
+            </tr>
+            <tr>
+                <td>Pit Trap</td>
+                <td style="color: #ff4444;">^</td>
+                <td>10-25 HP + 50 tick delay</td>
+                <td class="easy">35 (Easy)</td>
+                <td>3+</td>
+            </tr>
+            <tr>
+                <td>Teleport Trap</td>
+                <td style="color: #4444ff;">^</td>
+                <td>Random teleport</td>
+                <td class="hard">70 (Hard)</td>
+                <td>6+</td>
+            </tr>
+            <tr>
+                <td>Alarm Trap</td>
+                <td style="color: #ffff44;">^</td>
+                <td>Alerts monsters (15 tile radius)</td>
+                <td class="medium">55 (Medium)</td>
+                <td>1+</td>
+            </tr>
+            <tr>
+                <td>Weakening Trap</td>
+                <td style="color: #ff44ff;">^</td>
+                <td>-3 to -8 STR and DEX</td>
+                <td class="hard">65 (Hard)</td>
+                <td>6+</td>
+            </tr>
+        </table>
+
+        <h2>🗺️ Map Visualization</h2>
+
+        <div class="map-demo">Before Detection:
+############
+#..........#
+#..@.......#    @ = Player
+#..........#    . = Floor
+#..........#    # = Wall
+############    (Trap at position marked with .)
+
+After Detection:
+############
+#..........#
+#..@.......#    @ = Player
+#..<span style="color: #ff4444;">^</span>.......#    <span style="color: #ff4444;">^</span> = Discovered Spike Trap
+#..........#
+############
+        </div>
+
+        <h2>⚠️ Key Mechanics</h2>
+
+        <div class="stat-box">
+            <strong>🏃 Running Behavior:</strong><br>
+            • Running is FAST but RISKY<br>
+            • You check for traps on EVERY step while running<br>
+            • Running STOPS immediately if you discover a trap<br>
+            • Running STOPS if you trigger a trap<br>
+            • Use shift + arrow keys to run
+        </div>
+
+        <div class="stat-box">
+            <strong>👁️ Discovered Traps:</strong><br>
+            • Remain visible on the map permanently<br>
+            • Cannot be triggered once discovered<br>
+            • Shown with <span style="color: #ff4444;">^</span> symbol in color-coded format<br>
+            • Can be examined with 'x' key for details
+        </div>
+
+        <div class="stat-box">
+            <strong>💥 Triggered Traps:</strong><br>
+            • Execute their effect immediately<br>
+            • Become visible after triggering<br>
+            • Are single-use (disappear after trigger)<br>
+            • Generate a message in the log
+        </div>
+
+        <h2>💡 Strategic Tips</h2>
+
+        <div class="example-scenario">
+            <strong>✓ DO:</strong><br>
+            • Invest in Intelligence for safer exploration<br>
+            • Walk carefully in new areas (don't run blind)<br>
+            • Use examine mode ('x') to check suspicious tiles<br>
+            • Build INT/LUCK for trap-heavy builds<br>
+            • Remember trap locations on the map
+        </div>
+
+        <div class="warning">
+            <strong>✗ DON'T:</strong><br>
+            • Run through unexplored areas blindly<br>
+            • Ignore Intelligence as a "useless" stat<br>
+            • Assume all floors are safe<br>
+            • Sprint at low health (one trap = death)<br>
+            • Forget that deeper levels have deadlier traps
+        </div>
+
+        <h2>📊 Level Scaling</h2>
+
+        <table>
+            <tr>
+                <th>Dungeon Level</th>
+                <th>Available Traps</th>
+                <th>Quantity</th>
+            </tr>
+            <tr>
+                <td>1-2</td>
+                <td>Spike Trap, Alarm Trap</td>
+                <td>2-4 traps</td>
+            </tr>
+            <tr>
+                <td>3-5</td>
+                <td>+ Poison Dart, Pit Trap</td>
+                <td>3-5 traps</td>
+            </tr>
+            <tr>
+                <td>6-8</td>
+                <td>+ Teleport, Weakening</td>
+                <td>4-7 traps</td>
+            </tr>
+            <tr>
+                <td>9+</td>
+                <td>All trap types</td>
+                <td>5-8 traps</td>
+            </tr>
+        </table>
+
+        <h2>🎮 Keyboard Controls</h2>
+
+        <div class="stat-box">
+            • <strong>Arrow Keys</strong>: Walk (checks for traps each step)<br>
+            • <strong>Shift + Arrow</strong>: Run (risky but fast)<br>
+            • <strong>X</strong>: Examine mode (check tiles for traps/items)<br>
+            • <strong>I</strong>: View inventory and stats
+        </div>
+
+        <h2>🔮 Future Features</h2>
+
+        <p>Planned enhancements for the trap system:</p>
+        <ul>
+            <li>🔧 Disarming discovered traps (dexterity check)</li>
+            <li>🎒 Collecting trap components</li>
+            <li>🛠️ Crafting player-set traps</li>
+            <li>🛡️ Trap immunity equipment</li>
+            <li>🤸 High DEX allows stepping over traps</li>
+            <li>⏰ Timer-based reusable traps</li>
+        </ul>
+
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #444;">
+            <p style="color: #888;">
+                Remember: Intelligence saves lives!<br>
+                Good luck, adventurer. 🗡️
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
