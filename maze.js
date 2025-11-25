@@ -38,14 +38,6 @@ class FloorTile {
     setTrap(trap) {
         this.trap = trap;
     }
-
-    hasTrap() {
-        return this.trap !== null && !this.trap.triggered;
-    }
-
-    hasDiscoveredTrap() {
-        return this.trap !== null && this.trap.discovered && !this.trap.triggered;
-    }
 }
 
 class Dungeon {
