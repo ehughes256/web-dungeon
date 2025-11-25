@@ -1268,9 +1268,12 @@ class Game {
             item.enchantments = {};
         }
 
-        const power = this.currentScroll.enchantmentPower || 1;
-
-        item.onSelectItem(this, item);
+        // Call the scroll's onSelectItem method to apply the effect
+        if (this.currentScroll && typeof this.currentScroll.onSelectItem === 'function') {
+            this.currentScroll.onSelectItem(this, item);
+        } else {
+            this.addMessage('Error: Invalid scroll.');
+        }
 
         // Close the dialog and update UI
         this.closeEnchantmentDialog();

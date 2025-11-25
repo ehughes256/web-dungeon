@@ -2,6 +2,7 @@ class FloorTile {
     constructor(type) {
         this.type = type; // '#': wall, '.': floor, '+': door, '/': stair
         this.items = [];
+        this.trap = null;
         this.discovered = false;
     }
 
@@ -155,179 +156,201 @@ class Dungeon {
 }
 
 class MazeGenerator {
-  constructor(width, height) {
-    this.width = width;
-    this.height = height;
-  }
-
-  generateDungeon() {
-    const dungeon = new Dungeon(this.width, this.height);
-    const numRooms = Math.floor(Math.random() * 8) + 6;
-    const maxAttempts = 50;
-
-    // Generate rooms
-    for (let i = 0; i < numRooms; i++) {
-      let attempts = 0,
-        room;
-      do {
-        const w = Math.floor(Math.random() * 8) + 4;
-        const h = Math.floor(Math.random() * 6) + 4;
-        const x = Math.floor(Math.random() * (this.width - w - 2)) + 1;
-        const y = Math.floor(Math.random() * (this.height - h - 2)) + 1;
-        room = { x, y, width: w, height: h };
-        attempts++;
-      } while (this.roomOverlaps(room, dungeon.rooms) && attempts < maxAttempts);
-
-      if (attempts < maxAttempts) {
-        dungeon.rooms.push(room);
-        this.carveRoom(room, dungeon);
-      }
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
     }
 
-    // Connect rooms with corridors
-    for (let i = 0; i < dungeon.rooms.length - 1; i++) {
-      this.connectRooms(dungeon.rooms[i], dungeon.rooms[i + 1], dungeon);
+    generateDungeon() {
+        const dungeon = new Dungeon(this.width, this.height);
+        const numRooms = Math.floor(Math.random() * 8) + 6;
+        const maxAttempts = 50;
+
+        // Generate rooms
+        for (let i = 0; i < numRooms; i++) {
+            let attempts = 0,
+                room;
+            do {
+                const w = Math.floor(Math.random() * 8) + 4;
+                const h = Math.floor(Math.random() * 6) + 4;
+                const x = Math.floor(Math.random() * (this.width - w - 2)) + 1;
+                const y = Math.floor(Math.random() * (this.height - h - 2)) + 1;
+                room = {x, y, width: w, height: h};
+                attempts++;
+            } while (this.roomOverlaps(room, dungeon.rooms) && attempts < maxAttempts);
+
+            if (attempts < maxAttempts) {
+                dungeon.rooms.push(room);
+                this.carveRoom(room, dungeon);
+            }
+        }
+
+        // Connect rooms with corridors
+        for (let i = 0; i < dungeon.rooms.length - 1; i++) {
+            this.connectRooms(dungeon.rooms[i], dungeon.rooms[i + 1], dungeon);
+        }
+
+        // Place stairs
+        this.placeStairs(dungeon);
+
+        return dungeon;
     }
 
-    // Place stairs
-    this.placeStairs(dungeon);
-
-    return dungeon;
-  }
-
-  roomOverlaps(newRoom, rooms) {
-    return rooms.some(
-      (room) =>
-        newRoom.x < room.x + room.width + 1 &&
-        newRoom.x + newRoom.width + 1 > room.x &&
-        newRoom.y < room.y + room.height + 1 &&
-        newRoom.y + newRoom.height + 1 > room.y
-    );
-  }
-
-  carveRoom(room, dungeon) {
-    for (let y = room.y; y < room.y + room.height; y++) {
-      for (let x = room.x; x < room.x + room.width; x++) {
-        dungeon.setTileType(x, y, '.');
-      }
-    }
-  }
-
-  isInsideRoom(x, y, room) {
-    return x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height;
-  }
-
-  connectRooms(r1, r2, dungeon) {
-    const x1 = r1.x + Math.floor(r1.width / 2);
-    const y1 = r1.y + Math.floor(r1.height / 2);
-    const x2 = r2.x + Math.floor(r2.width / 2);
-    const y2 = r2.y + Math.floor(r2.height / 2);
-
-    let x = x1,
-      y = y1;
-    const path = [];
-
-    // Move horizontally first
-    const stepX = x2 > x1 ? 1 : -1;
-    while (x !== x2) {
-      x += stepX;
-      path.push({
-        x,
-        y,
-        in1: this.isInsideRoom(x, y, r1),
-        in2: this.isInsideRoom(x, y, r2),
-      });
+    roomOverlaps(newRoom, rooms) {
+        // Check if rooms overlap or are too close (need at least 2 tiles separation for corridors)
+        return rooms.some(
+            (room) =>
+                newRoom.x < room.x + room.width + 2 &&
+                newRoom.x + newRoom.width + 2 > room.x &&
+                newRoom.y < room.y + room.height + 2 &&
+                newRoom.y + newRoom.height + 2 > room.y
+        );
     }
 
-    // Then move vertically
-    const stepY = y2 > y1 ? 1 : -1;
-    while (y !== y2) {
-      y += stepY;
-      path.push({
-        x,
-        y,
-        in1: this.isInsideRoom(x, y, r1),
-        in2: this.isInsideRoom(x, y, r2),
-      });
+    carveRoom(room, dungeon) {
+        for (let y = room.y; y < room.y + room.height; y++) {
+            for (let x = room.x; x < room.x + room.width; x++) {
+                dungeon.setTileType(x, y, '.');
+            }
+        }
     }
 
-    // Find door positions
-    let door1 = null,
-      door2 = null;
-    for (let i = 1; i < path.length; i++) {
-      const p = path[i - 1],
-        c = path[i];
-      if (p.in1 && !c.in1 && !door1) door1 = c;
-      if (!p.in2 && c.in2 && !door2) door2 = p;
+    isInsideRoom(x, y, room) {
+        return x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height;
     }
 
-    // Carve corridor
-    path.forEach((c) => {
-      const tile = dungeon.getTile(c.x, c.y);
-      if (tile && tile.type === '#') {
-        dungeon.setTileType(c.x, c.y, '.');
-      }
-    });
+    connectRooms(r1, r2, dungeon) {
+        const x1 = r1.x + Math.floor(r1.width / 2);
+        const y1 = r1.y + Math.floor(r1.height / 2);
+        const x2 = r2.x + Math.floor(r2.width / 2);
+        const y2 = r2.y + Math.floor(r2.height / 2);
 
-    // Place doors
-    if (door1) {
-      const tile1 = dungeon.getTile(door1.x, door1.y);
-      if (tile1 && tile1.type === '.' && !this.doorAdjacent(door1.x, door1.y, dungeon)) {
-        dungeon.setTileType(door1.x, door1.y, '+');
-      }
+        let x = x1;
+        let y = y1;
+        const path = [];
+
+        // Start from room 1 center
+        path.push({x, y});
+
+        // Move horizontally first
+        const stepX = x2 > x1 ? 1 : -1;
+        while (x !== x2) {
+            x += stepX;
+            path.push({x, y});
+        }
+
+        // Then move vertically
+        const stepY = y2 > y1 ? 1 : -1;
+        while (y !== y2) {
+            y += stepY;
+            path.push({x, y});
+        }
+
+        // Track door positions
+        const doorPositions = [];
+
+        // Carve corridor and identify door positions at room boundaries
+        for (let i = 0; i < path.length; i++) {
+            const curr = path[i];
+            const prev = i > 0 ? path[i - 1] : null;
+
+            const currInR1 = this.isInsideRoom(curr.x, curr.y, r1);
+            const currInR2 = this.isInsideRoom(curr.x, curr.y, r2);
+            const prevInR1 = prev ? this.isInsideRoom(prev.x, prev.y, r1) : false;
+            const prevInR2 = prev ? this.isInsideRoom(prev.x, prev.y, r2) : false;
+
+            const tile = dungeon.getTile(curr.x, curr.y);
+            if (!tile) continue;
+
+            // Carve floor if it's a wall
+            if (tile.type === '#') {
+                dungeon.setTileType(curr.x, curr.y, '.');
+            }
+
+            // Detect transition from room to corridor (door location)
+            if (prev) {
+                // Exiting room 1
+                if (prevInR1 && !currInR1 && !currInR2) {
+                    doorPositions.push({x: curr.x, y: curr.y, room: 1});
+                }
+                // Entering room 2
+                if (!prevInR1 && !prevInR2 && currInR2) {
+                    doorPositions.push({x: curr.x, y: curr.y, room: 2});
+                }
+            }
+        }
+
+        // Place doors at detected positions
+        for (const doorPos of doorPositions) {
+            const tile = dungeon.getTile(doorPos.x, doorPos.y);
+            if (tile && tile.type === '.' && !this.doorAdjacent(doorPos.x, doorPos.y, dungeon)) {
+                // Verify this is a proper doorway (has walls on perpendicular sides)
+                if (this.isValidDoorPosition(doorPos.x, doorPos.y, dungeon)) {
+                    dungeon.setTileType(doorPos.x, doorPos.y, '+');
+                }
+            }
+        }
     }
-    if (door2) {
-      const tile2 = dungeon.getTile(door2.x, door2.y);
-      if (tile2 && tile2.type === '.' && !this.doorAdjacent(door2.x, door2.y, dungeon)) {
-        dungeon.setTileType(door2.x, door2.y, '+');
-      }
-    }
-  }
 
-  doorAdjacent(x, y, dungeon) {
-    const dirs = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ];
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx,
-        ny = y + dy;
-      if (!dungeon.inBounds(nx, ny)) continue;
-      const tile = dungeon.getTile(nx, ny);
-      if (tile && (tile.type === '+' || tile.type === '/')) return true;
-    }
-    return false;
-  }
+    isValidDoorPosition(x, y, dungeon) {
+        // A door should have walls or nothing on at least 2 perpendicular sides
+        // This prevents doors in the middle of corridors
+        const north = dungeon.getTile(x, y - 1);
+        const south = dungeon.getTile(x, y + 1);
+        const west = dungeon.getTile(x - 1, y);
+        const east = dungeon.getTile(x + 1, y);
 
-  placeStairs(dungeon) {
-    if (dungeon.rooms.length < 2) {
-      return;
+        const verticalWalls = (!north || north.type === '#') && (!south || south.type === '#');
+        const horizontalWalls = (!west || west.type === '#') && (!east || east.type === '#');
+
+        // Door should span either horizontally or vertically between walls
+        return verticalWalls || horizontalWalls;
     }
 
-    // Place up stair
-    const upRoom = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
-    dungeon.upStair = {
-      x: upRoom.x + Math.floor(Math.random() * upRoom.width),
-      y: upRoom.y + Math.floor(Math.random() * upRoom.height),
-    };
+    doorAdjacent(x, y, dungeon) {
+        const dirs = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+        ];
+        for (const [dx, dy] of dirs) {
+            const nx = x + dx,
+                ny = y + dy;
+            if (!dungeon.inBounds(nx, ny)) continue;
+            const tile = dungeon.getTile(nx, ny);
+            if (tile && (tile.type === '+' || tile.type === '/')) return true;
+        }
+        return false;
+    }
 
-    // Place down stair in different room
-    let downRoom;
-    do {
-      downRoom = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
-    } while (downRoom === upRoom && dungeon.rooms.length > 1);
+    placeStairs(dungeon) {
+        if (dungeon.rooms.length < 2) {
+            return;
+        }
 
-    dungeon.downStair = {
-      x: downRoom.x + Math.floor(Math.random() * downRoom.width),
-      y: downRoom.y + Math.floor(Math.random() * downRoom.height),
-    };
-  }
+        // Place up stair
+        const upRoom = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
+        dungeon.upStair = {
+            x: upRoom.x + Math.floor(Math.random() * upRoom.width),
+            y: upRoom.y + Math.floor(Math.random() * upRoom.height),
+        };
+
+        // Place down stair in different room
+        let downRoom;
+        do {
+            downRoom = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
+        } while (downRoom === upRoom && dungeon.rooms.length > 1);
+
+        dungeon.downStair = {
+            x: downRoom.x + Math.floor(Math.random() * downRoom.width),
+            y: downRoom.y + Math.floor(Math.random() * downRoom.height),
+        };
+    }
 }
 
 // Export for Node.js testing
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FloorTile, Dungeon, MazeGenerator };
+    module.exports = {FloorTile, Dungeon, MazeGenerator};
 }
 
