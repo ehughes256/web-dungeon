@@ -128,6 +128,23 @@ class Monster {
         this.y = y;
     }
 
+    // Check if monster triggered a trap
+    checkForTraps(game) {
+        const tile = game.dungeon.getTile(this.x, this.y);
+        if (!tile || !tile.trap) return;
+
+        const trap = tile.trap;
+
+        // If trap is already triggered, don't trigger again
+        if (trap.triggered) return;
+
+        // Check if trap can trigger
+        if (!trap.canTrigger(this)) return;
+
+        // Monsters always trigger traps (no detection chance)
+        trap.trigger(game, this);
+    }
+
     canAct(currentTick) {
         return currentTick >= this.nextActionTime;
     }
@@ -797,8 +814,14 @@ class MonsterManager {
             const moved = (monster.x !== oldX || monster.y !== oldY);
             if (moved) {
                 anyMovement = true;
+                // Check for traps after monster moves
+                monster.checkForTraps(this.game);
+
+                // Remove dead monsters (killed by traps)
+                this.monsters = this.monsters.filter((m) => m.isAlive());
+
                 // Only add delay if the monster is visible to the player
-                const isVisible = this.game.visible[monster.y] && this.game.visible[monster.y][monster.x];
+                const isVisible = monster.isAlive() && this.game.visible[monster.y] && this.game.visible[monster.y][monster.x];
                 if (isVisible) {
                     // Render immediately after each visible monster moves so we can see it
                     this.game.render();

@@ -12,10 +12,26 @@ class Trap {
         this.color = '#ff4444';
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
         this.triggered = true;
         // Override in subclass
+    }
+
+    // Check if entity can trigger this trap
+    canTrigger(entity) {
+        // By default, all entities can trigger traps
+        return !this.triggered;
+    }
+
+    // Check if entity is the player
+    isPlayer(entity) {
+        return entity === Game.player;
+    }
+
+    // Check if trap location is visible to player
+    isVisibleToPlayer(game) {
+        return game.visible && game.visible[this.y] && game.visible[this.y][this.x];
     }
 
     getDetectionDifficulty() {
@@ -32,15 +48,31 @@ class SpikeTrap extends Trap {
         this.damage = Math.floor(Math.random() * 10) + 5; // 5-15 damage
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
-        super.trigger(game, player);
+        super.trigger(game, entity);
 
-        const actualDamage = player.hitPlayer(this.damage);
-        game.addMessage(`You triggered a spike trap! You take ${actualDamage} damage.`);
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
 
-        if (player.isDead()) {
-            game.handlePlayerDeath();
+        if (isPlayer) {
+            this.discovered = true; // Player always discovers trap when triggering
+            const actualDamage = entity.hitPlayer(this.damage);
+            game.addMessage(`You triggered a spike trap! You take ${actualDamage} damage.`);
+
+            if (entity.isDead()) {
+                game.handlePlayerDeath();
+            }
+        } else {
+            // Monster triggered the trap
+            const actualDamage = Math.min(this.damage, entity.hp);
+            entity.takeDamage(this.damage);
+
+            if (isVisible) {
+                this.discovered = true;
+                const monsterName = entity.getDisplayName();
+                game.addMessage(`A ${monsterName} triggered a spike trap!${entity.hp <= 0 ? ' It died.' : ''}`);
+            }
         }
     }
 
@@ -59,16 +91,32 @@ class PoisonDartTrap extends Trap {
         this.color = '#44ff44';
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
-        super.trigger(game, player);
+        super.trigger(game, entity);
 
-        const actualDamage = player.hitPlayer(this.damage);
-        game.addMessage(`A poison dart shoots out! You take ${actualDamage} damage.`);
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
 
-        // Additional poison effect - reduce max health temporarily (not implemented yet)
-        if (player.isDead()) {
-            game.handlePlayerDeath();
+        if (isPlayer) {
+            this.discovered = true; // Player always discovers trap when triggering
+            const actualDamage = entity.hitPlayer(this.damage);
+            game.addMessage(`A poison dart shoots out! You take ${actualDamage} damage.`);
+
+            // Additional poison effect - reduce max health temporarily (not implemented yet)
+            if (entity.isDead()) {
+                game.handlePlayerDeath();
+            }
+        } else {
+            // Monster triggered the trap
+            const actualDamage = Math.min(this.damage, entity.hp);
+            entity.takeDamage(this.damage);
+
+            if (isVisible) {
+                this.discovered = true;
+                const monsterName = entity.getDisplayName();
+                game.addMessage(`A poison dart hits a ${monsterName}!${entity.hp <= 0 ? ' It died.' : ''}`);
+            }
         }
     }
 
@@ -85,18 +133,34 @@ class PitTrap extends Trap {
         this.damage = Math.floor(Math.random() * 15) + 10; // 10-25 damage
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
-        super.trigger(game, player);
+        super.trigger(game, entity);
 
-        const actualDamage = player.hitPlayer(this.damage);
-        game.addMessage(`You fall into a pit! You take ${actualDamage} damage.`);
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
 
-        // Player takes time to climb out
-        game.consumeTurn(50);
+        if (isPlayer) {
+            this.discovered = true; // Player always discovers trap when triggering
+            const actualDamage = entity.hitPlayer(this.damage);
+            game.addMessage(`You fall into a pit! You take ${actualDamage} damage.`);
 
-        if (player.isDead()) {
-            game.handlePlayerDeath();
+            // Player takes time to climb out
+            game.consumeTurn(50);
+
+            if (entity.isDead()) {
+                game.handlePlayerDeath();
+            }
+        } else {
+            // Monster triggered the trap
+            const actualDamage = Math.min(this.damage, entity.hp);
+            entity.takeDamage(this.damage);
+
+            if (isVisible) {
+                this.discovered = true;
+                const monsterName = entity.getDisplayName();
+                game.addMessage(`A ${monsterName} falls into a pit!${entity.hp <= 0 ? ' It died.' : ''}`);
+            }
         }
     }
 
@@ -114,34 +178,67 @@ class TeleportTrap extends Trap {
         this.color = '#4444ff';
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
-        super.trigger(game, player);
+        super.trigger(game, entity);
 
-        // Find a random walkable location
-        let attempts = 0;
-        let newX, newY;
-        while (attempts < 100) {
-            newX = Math.floor(Math.random() * game.width);
-            newY = Math.floor(Math.random() * game.height);
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
 
-            if (game.dungeon.isValidMove(newX, newY)) {
-                // Make sure there's no monster there
-                const monsterHere = game.monsterManager.monsters.find(m => m.x === newX && m.y === newY);
-                if (!monsterHere) {
-                    break;
+        if (isPlayer) {
+            this.discovered = true; // Player always discovers trap when triggering
+            // Find a random walkable location
+            let attempts = 0;
+            let newX, newY;
+            while (attempts < 100) {
+                newX = Math.floor(Math.random() * game.width);
+                newY = Math.floor(Math.random() * game.height);
+
+                if (game.dungeon.isValidMove(newX, newY)) {
+                    // Make sure there's no monster there
+                    const monsterHere = game.monsterManager.monsters.find(m => m.x === newX && m.y === newY);
+                    if (!monsterHere) {
+                        break;
+                    }
+                }
+                attempts++;
+            }
+
+            if (attempts < 100) {
+                entity.x = newX;
+                entity.y = newY;
+                game.addMessage('You are teleported to a random location!');
+                game.computeFOV();
+            } else {
+                game.addMessage('The teleport trap fizzles...');
+            }
+        } else {
+            // Monster triggered the trap - teleport them too
+            let attempts = 0;
+            let newX, newY;
+            while (attempts < 100) {
+                newX = Math.floor(Math.random() * game.width);
+                newY = Math.floor(Math.random() * game.height);
+
+                if (game.dungeon.isValidMove(newX, newY)) {
+                    // Make sure there's no entity there
+                    const monsterHere = game.monsterManager.monsters.find(m => m.x === newX && m.y === newY);
+                    if (!monsterHere && !(newX === Game.player.x && newY === Game.player.y)) {
+                        break;
+                    }
+                }
+                attempts++;
+            }
+
+            if (attempts < 100) {
+                entity.x = newX;
+                entity.y = newY;
+                if (isVisible) {
+                    this.discovered = true;
+                    const monsterName = entity.getDisplayName();
+                    game.addMessage(`A ${monsterName} is teleported away!`);
                 }
             }
-            attempts++;
-        }
-
-        if (attempts < 100) {
-            player.x = newX;
-            player.y = newY;
-            game.addMessage('You are teleported to a random location!');
-            game.computeFOV();
-        } else {
-            game.addMessage('The teleport trap fizzles...');
         }
     }
 
@@ -159,26 +256,39 @@ class AlarmTrap extends Trap {
         this.color = '#ffff44';
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
-        super.trigger(game, player);
+        super.trigger(game, entity);
 
-        game.addMessage('You triggered an alarm! Monsters are alerted!');
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
 
-        // Wake up all monsters in range and make them aggressive
-        const alertRadius = 15;
-        game.monsterManager.monsters.forEach(monster => {
-            const dx = monster.x - player.x;
-            const dy = monster.y - player.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        if (isPlayer) {
+            this.discovered = true; // Player always discovers trap when triggering
+            game.addMessage('You triggered an alarm! Monsters are alerted!');
 
-            if (distance <= alertRadius) {
-                // Make monster aware and move towards player
-                monster.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
-                monster.lastSawPlayerMoves = 0;
-                monster.state = 'aggressive';
+            // Wake up all monsters in range and make them aggressive
+            const alertRadius = 15;
+            game.monsterManager.monsters.forEach(monster => {
+                const dx = monster.x - entity.x;
+                const dy = monster.y - entity.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance <= alertRadius) {
+                    // Make monster aware and move towards player
+                    monster.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
+                    monster.lastSawPlayerMoves = 0;
+                    monster.state = 'aggressive';
+                }
+            });
+        } else {
+            // Monster triggered alarm - no effect on other monsters
+            if (isVisible) {
+                this.discovered = true;
+                const monsterName = entity.getDisplayName();
+                game.addMessage(`A ${monsterName} triggered an alarm trap!`);
             }
-        });
+        }
     }
 
     getDetectionDifficulty() {
@@ -195,21 +305,42 @@ class WeakeningTrap extends Trap {
         this.color = '#ff44ff';
     }
 
-    trigger(game, player) {
+    trigger(game, entity) {
         if (this.triggered) return;
-        super.trigger(game, player);
+        super.trigger(game, entity);
 
-        // Temporarily reduce player stats
-        const statReduction = Math.floor(Math.random() * 5) + 3; // 3-8 stat reduction
-        player.strength = Math.max(1, player.strength - statReduction);
-        player.dexterity = Math.max(1, player.dexterity - statReduction);
-        game.timeManager.scheduleEvent(5000, this, () => {
-            player.strength += statReduction;
-            player.dexterity += statReduction;
-            game.addMessage('You feel your strength returning.');
-        });
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
 
-        game.addMessage(`You feel weakened! -${statReduction} to strength and dexterity.`);
+        if (isPlayer) {
+            this.discovered = true; // Player always discovers trap when triggering
+            // Temporarily reduce player stats
+            const statReduction = Math.floor(Math.random() * 5) + 3; // 3-8 stat reduction
+            entity.strength = Math.max(1, entity.strength - statReduction);
+            entity.dexterity = Math.max(1, entity.dexterity - statReduction);
+            game.timeManager.scheduleEvent(5000, this, () => {
+                entity.strength += statReduction;
+                entity.dexterity += statReduction;
+                game.addMessage('You feel your strength returning.');
+            });
+
+            game.addMessage(`You feel weakened! -${statReduction} to strength and dexterity.`);
+        } else {
+            // Monster triggered weakening trap - reduce their damage temporarily
+            const damageReduction = Math.floor(entity.dmg * 0.3); // 30% damage reduction
+            if (entity.dmg > 1) {
+                entity.dmg = Math.max(1, entity.dmg - damageReduction);
+                game.timeManager.scheduleEvent(5000, this, () => {
+                    entity.dmg += damageReduction;
+                });
+            }
+
+            if (isVisible) {
+                this.discovered = true;
+                const monsterName = entity.getDisplayName();
+                game.addMessage(`A ${monsterName} looks weakened by cursed runes!`);
+            }
+        }
     }
 
     getDetectionDifficulty() {
@@ -243,3 +374,18 @@ class TrapFactory {
         return new TrapClass(x, y);
     }
 }
+
+// Export for Node.js testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        Trap,
+        SpikeTrap,
+        PoisonDartTrap,
+        PitTrap,
+        TeleportTrap,
+        AlarmTrap,
+        WeakeningTrap,
+        TrapFactory
+    };
+}
+

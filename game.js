@@ -632,7 +632,7 @@ class Game {
         this.updateUI();
     }
 
-    useInventoryItem(category, index) {
+    async useInventoryItem(category, index) {
         const p = Game.player;
         const arr = p.inventory[category];
         if (!arr || !arr[index]) {
@@ -656,22 +656,10 @@ class Game {
             if (typeof item.use === 'function') {
                 this.addMessage(`You read the ${item.name}.`);
                 item.use(this);
-            } else {
-                const targets = this.monsterManager.monsters.filter(m => this.visible[m.y] && this.visible[m.y][m.x]);
-                if (targets.length) {
-                    const damage = item.damage || 10;
-                    let killed = 0;
-                    targets.forEach(m => {
-                        m.hp -= damage;
-                        if (m.hp <= 0) killed++;
-                    });
-                    if (killed) this.monsterManager.monsters = this.monsterManager.monsters.filter(m => m.hp > 0);
-                    this.addMessage(`You cast ${item.name}. ${targets.length} hit, ${killed} slain.`);
-                } else this.addMessage(`You cast ${item.name}, but there are no targets in sight.`);
             }
             item.count -= 1;
             if (item.count <= 0) arr.splice(index, 1);
-            this.consumeTurn(30);
+            await this.consumeTurn(30);
         }
         this.buildInventory();
         this.updateUI();
@@ -718,7 +706,7 @@ class Game {
         const trap = tile.trap;
 
         // If trap is already discovered or triggered, don't do anything
-        if (trap.discovered || trap.triggered) return;
+        if (trap.triggered) return;
 
         // Calculate detection chance based on intelligence and luck
         const baseChance = 5; // 5% base chance
@@ -838,7 +826,7 @@ class Game {
             for (let x = 0; x < this.width; x++) {
                 if (!this.explored[y][x]) continue;
                 const tile = this.dungeon.getTile(x, y);
-                if (tile && tile.trap && tile.trap.discovered && !tile.trap.triggered) {
+                if (tile && tile.trap && tile.trap.discovered ) {
                     const px = x * ts, py = y * ts;
                     this.ctx.font = '16px monospace';
                     this.ctx.textAlign = 'center';
