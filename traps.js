@@ -348,6 +348,179 @@ class WeakeningTrap extends Trap {
     }
 }
 
+class FireballTrap extends Trap {
+    constructor(x, y) {
+        super(x, y);
+        this.name = 'Fireball Trap';
+        this.description = 'A magical glyph that erupts in a massive explosion of flame';
+        this.damage = Math.floor(Math.random() * 15) + 15; // 15-30 damage
+        this.radius = 5;
+        this.symbol = '^';
+        this.color = '#ff6600';
+    }
+
+    async trigger(game, entity) {
+        if (this.triggered) return;
+        super.trigger(game, entity);
+
+        const isPlayer = this.isPlayer(entity);
+        const isVisible = this.isVisibleToPlayer(game);
+
+        // Always discover fireball traps when triggered (they're loud and bright!)
+        this.discovered = true;
+
+        if (isPlayer) {
+            game.addMessage('You triggered a fireball trap!');
+        } else if (isVisible) {
+            const monsterName = entity.getDisplayName();
+            game.addMessage(`A ${monsterName} triggered a fireball trap!`);
+        }
+
+        // Animate the explosion effect if visible
+        if (isVisible) {
+            await this.animateExplosion(game);
+        }
+
+        // Damage all entities in radius
+        const affectedEntities = this.getEntitiesInRadius(game);
+
+        for (const target of affectedEntities) {
+            const distance = Math.sqrt(
+                Math.pow(target.x - this.x, 2) +
+                Math.pow(target.y - this.y, 2)
+            );
+
+            // Damage falls off with distance (100% at center, ~40% at edge)
+            const damageFalloff = Math.max(0.4, 1 - (distance / this.radius) * 0.6);
+            const actualDamage = Math.floor(this.damage * damageFalloff);
+
+            if (target === Game.player) {
+                const damageDealt = target.hitPlayer(actualDamage);
+                game.addMessage(`The fireball hits you for ${damageDealt} damage!`);
+
+                if (target.isDead()) {
+                    game.handlePlayerDeath();
+                }
+            } else {
+                // It's a monster
+                target.takeDamage(actualDamage);
+
+                if (isVisible) {
+                    const monsterName = target.getDisplayName();
+                    if (target.hp <= 0) {
+                        game.addMessage(`The fireball incinerates a ${monsterName}!`);
+                    } else {
+                        game.addMessage(`The fireball hits a ${monsterName} for ${actualDamage} damage!`);
+                    }
+                }
+            }
+        }
+
+        // Clean up dead monsters after explosion
+        if (game.monsterManager) {
+            game.monsterManager.monsters = game.monsterManager.monsters.filter(m => m.isAlive());
+        }
+
+        if (isVisible) {
+            game.render();
+        }
+    }
+
+    getEntitiesInRadius(game) {
+        const entities = [];
+
+        // Check if player is in radius
+        const playerDist = Math.sqrt(
+            Math.pow(Game.player.x - this.x, 2) +
+            Math.pow(Game.player.y - this.y, 2)
+        );
+        if (playerDist <= this.radius) {
+            entities.push(Game.player);
+        }
+
+        // Check all monsters
+        if (game.monsterManager && game.monsterManager.monsters) {
+            for (const monster of game.monsterManager.monsters) {
+                const monsterDist = Math.sqrt(
+                    Math.pow(monster.x - this.x, 2) +
+                    Math.pow(monster.y - this.y, 2)
+                );
+                if (monsterDist <= this.radius) {
+                    entities.push(monster);
+                }
+            }
+        }
+
+        return entities;
+    }
+
+    async animateExplosion(game) {
+        // Animate expanding fireball effect
+        const frames = [
+            { radius: 1, color: '#ffff00', duration: 50 },  // Yellow flash
+            { radius: 2, color: '#ff9900', duration: 60 },  // Orange expansion
+            { radius: 3, color: '#ff6600', duration: 70 },  // Deep orange
+            { radius: 4, color: '#ff3300', duration: 80 },  // Red-orange
+            { radius: 5, color: '#ff0000', duration: 90 },  // Red at full radius
+            { radius: 4, color: '#cc0000', duration: 60 },  // Fade back
+            { radius: 3, color: '#990000', duration: 50 },  // Darker red
+            { radius: 2, color: '#660000', duration: 40 },  // Very dark
+        ];
+
+        for (const frame of frames) {
+            this.drawExplosionFrame(game, frame.radius, frame.color);
+            await game.sleep(frame.duration);
+        }
+    }
+
+    drawExplosionFrame(game, radius, color) {
+        const ts = game.tileSize;
+        const ctx = game.ctx;
+
+        // Draw explosion effect over the normal render
+        game.render();
+
+        // Draw fireball radius
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= radius) {
+                    const tx = this.x + dx;
+                    const ty = this.y + dy;
+
+                    // Only draw on visible tiles
+                    if (game.visible && game.visible[ty] && game.visible[ty][tx]) {
+                        const px = tx * ts;
+                        const py = ty * ts;
+
+                        // Calculate alpha based on distance from center
+                        const alpha = Math.max(0.3, 1 - (dist / radius) * 0.7);
+
+                        // Draw glowing effect
+                        ctx.fillStyle = color;
+                        ctx.globalAlpha = alpha;
+                        ctx.fillRect(px, py, ts, ts);
+                        ctx.globalAlpha = 1.0;
+
+                        // Add flame symbol at center
+                        if (dx === 0 && dy === 0) {
+                            ctx.fillStyle = '#ffff00';
+                            ctx.font = `bold ${ts}px monospace`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('*', px + ts / 2, py + ts / 2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    getDetectionDifficulty() {
+        return 75; // Very hard to spot - magical trap
+    }
+}
+
 // Trap factory for level-appropriate trap generation
 class TrapFactory {
     static trapTypes = [
@@ -356,7 +529,8 @@ class TrapFactory {
         PitTrap,
         TeleportTrap,
         AlarmTrap,
-        WeakeningTrap
+        WeakeningTrap,
+        FireballTrap
     ];
 
     static createRandomTrap(x, y, dungeonLevel = 1) {
@@ -368,6 +542,13 @@ class TrapFactory {
             availableTraps = [SpikeTrap, AlarmTrap];
         } else if (dungeonLevel <= 5) {
             availableTraps = [SpikeTrap, PoisonDartTrap, PitTrap, AlarmTrap];
+        } else if (dungeonLevel <= 10) {
+            // Mid-level dungeons can have weakening traps and occasional fireballs
+            availableTraps = [SpikeTrap, PoisonDartTrap, PitTrap, TeleportTrap, AlarmTrap, WeakeningTrap];
+            if (Math.random() < 0.3) availableTraps.push(FireballTrap); // 30% chance for fireball
+        } else {
+            // Deep dungeons have all traps, higher chance of fireballs
+            availableTraps = [...TrapFactory.trapTypes];
         }
 
         const TrapClass = availableTraps[Math.floor(Math.random() * availableTraps.length)];
@@ -385,6 +566,7 @@ if (typeof module !== 'undefined' && module.exports) {
         TeleportTrap,
         AlarmTrap,
         WeakeningTrap,
+        FireballTrap,
         TrapFactory
     };
 }
