@@ -268,30 +268,36 @@ class FireballScroll extends Scroll {
         return SCROLL_CONFIGS.fireball.color;
     }
 
-    use(game) {
+    async use(game) {
         const displayName = this.getDisplayName();
         this.identified = true;
         Game.player.identifyScrollType(this.name);
 
-        const px = Game.player.x, py = Game.player.y;
-        const affected = [];
-        game.monsterManager.monsters.forEach(m => {
-            const dx = m.x - px;
-            const dy = m.y - py;
-            if (dx * dx + dy * dy <= this.radius * this.radius) affected.push(m);
+        // Use shared fireball effect
+        const fireballEffect = new FireballEffect(
+            Game.player.x,
+            Game.player.y,
+            this.damage,
+            this.radius,
+            game
+        );
+
+        const affectedEntities = await fireballEffect.execute({
+            animate: true,
+            damagePlayer: false,  // Scroll doesn't hurt player
+            damageMonsters: true,
+            useFalloff: false,     // Scroll does full damage to all in radius
+            triggerMessage: `You read ${displayName}. A sphere of fire erupts!`
         });
-        if (!affected.length) {
-            game.addMessage(`You read ${displayName}. Flames curl harmlessly—no foes nearby. It was a ${this.name}!`);
-            return;
+
+        // Count monsters that were affected
+        const monstersAffected = affectedEntities.filter(e => e !== Game.player).length;
+
+        if (monstersAffected === 0) {
+            game.addMessage(`Flames curl harmlessly—no foes nearby. It was a ${this.name}!`);
+        } else {
+            game.addMessage(`It was a ${this.name}!`);
         }
-        let slain = 0;
-        affected.forEach(m => {
-            m.hp -= this.damage;
-            if (m.hp <= 0) slain++;
-        });
-        if (slain) game.monsterManager.monsters = game.monsterManager.monsters.filter(m => m.hp > 0);
-        game.addMessage(`You read ${displayName}. A sphere of fire erupts! ${affected.length} scorched, ${slain} slain. It was a ${this.name}!`);
-        game.render();
     }
 }
 

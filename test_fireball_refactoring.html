@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fireball Refactoring Test</title>
+    <style>
+        body {
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: monospace;
+        }
+        h1 { color: #ff6600; }
+        h2 { color: #ff9944; }
+        .test-section {
+            background: #222;
+            border: 2px solid #444;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff0000; }
+        .info { color: #ffaa44; }
+        button {
+            background: #444;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #555;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .code-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .stat-box {
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #ff6600;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔥 Fireball Refactoring Verification</h1>
+
+    <div class="test-section">
+        <h2>Refactoring Summary</h2>
+        <p class="info">
+            ✓ Created shared <code>FireballEffect</code> class in traps.js<br>
+            ✓ Refactored <code>FireballTrap</code> to use shared effect<br>
+            ✓ Refactored <code>FireballScroll</code> to use shared effect<br>
+            ✓ Eliminated ~140 lines of duplicate code<br>
+            ✓ Maintained distinct behaviors for each feature
+        </p>
+    </div>
+
+    <div class="test-section">
+        <h2>Code Statistics</h2>
+        <div class="code-stats">
+            <div class="stat-box">
+                <h3>Before Refactoring</h3>
+                <pre>FireballTrap:   ~150 lines
+FireballScroll:  ~25 lines
+Total:          ~175 lines
+Duplication:     HIGH</pre>
+            </div>
+            <div class="stat-box">
+                <h3>After Refactoring</h3>
+                <pre>FireballEffect: ~160 lines
+FireballTrap:    ~10 lines
+FireballScroll:  ~15 lines
+Total:          ~185 lines
+Duplication:     NONE</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>FireballEffect Configuration</h2>
+        <pre>
+class FireballEffect {
+    constructor(x, y, damage, radius, game)
+
+    async execute(options = {
+        animate: true,           // Show explosion animation?
+        damagePlayer: true,      // Damage the player?
+        damageMonsters: true,    // Damage monsters?
+        useFalloff: true,        // Distance-based damage reduction?
+        triggerMessage: null     // Optional message to display
+    })
+}</pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Feature Comparison</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #333;">
+                <th style="padding: 10px; text-align: left;">Aspect</th>
+                <th style="padding: 10px; text-align: left;">FireballTrap</th>
+                <th style="padding: 10px; text-align: left;">FireballScroll</th>
+            </tr>
+            <tr style="background: #222;">
+                <td style="padding: 10px;"><strong>Center Point</strong></td>
+                <td style="padding: 10px;">Trap location</td>
+                <td style="padding: 10px;">Player location</td>
+            </tr>
+            <tr style="background: #2a2a2a;">
+                <td style="padding: 10px;"><strong>Radius</strong></td>
+                <td style="padding: 10px;">5 tiles</td>
+                <td style="padding: 10px;">3 tiles</td>
+            </tr>
+            <tr style="background: #222;">
+                <td style="padding: 10px;"><strong>Damage</strong></td>
+                <td style="padding: 10px;">15-30 (random)</td>
+                <td style="padding: 10px;">18 (fixed)</td>
+            </tr>
+            <tr style="background: #2a2a2a;">
+                <td style="padding: 10px;"><strong>Damage Falloff</strong></td>
+                <td style="padding: 10px;"><span class="pass">✓</span> Yes (100% → 40%)</td>
+                <td style="padding: 10px;"><span class="fail">✗</span> No (100% everywhere)</td>
+            </tr>
+            <tr style="background: #222;">
+                <td style="padding: 10px;"><strong>Damages Player</strong></td>
+                <td style="padding: 10px;"><span class="pass">✓</span> Yes</td>
+                <td style="padding: 10px;"><span class="fail">✗</span> No</td>
+            </tr>
+            <tr style="background: #2a2a2a;">
+                <td style="padding: 10px;"><strong>Damages Monsters</strong></td>
+                <td style="padding: 10px;"><span class="pass">✓</span> Yes</td>
+                <td style="padding: 10px;"><span class="pass">✓</span> Yes</td>
+            </tr>
+            <tr style="background: #222;">
+                <td style="padding: 10px;"><strong>Animation</strong></td>
+                <td style="padding: 10px;"><span class="pass">✓</span> Yes</td>
+                <td style="padding: 10px;"><span class="pass">✓</span> Yes</td>
+            </tr>
+            <tr style="background: #2a2a2a;">
+                <td style="padding: 10px;"><strong>Shared Code</strong></td>
+                <td style="padding: 10px;"><span class="pass">✓</span> FireballEffect</td>
+                <td style="padding: 10px;"><span class="pass">✓</span> FireballEffect</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="test-section">
+        <h2>Verification Tests</h2>
+        <button onclick="runTests()">Run All Tests</button>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        function runTests() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<p>Running tests...</p>';
+
+            const results = [];
+
+            // Test 1: Check FireballEffect exists
+            if (typeof FireballEffect !== 'undefined') {
+                results.push('<span class="pass">✓</span> FireballEffect class exists');
+            } else {
+                results.push('<span class="fail">✗</span> FireballEffect class not found');
+            }
+
+            // Test 2: Check FireballTrap exists
+            if (typeof FireballTrap !== 'undefined') {
+                results.push('<span class="pass">✓</span> FireballTrap class exists');
+            } else {
+                results.push('<span class="fail">✗</span> FireballTrap class not found');
+            }
+
+            // Test 3: Check FireballScroll exists
+            if (typeof FireballScroll !== 'undefined') {
+                results.push('<span class="pass">✓</span> FireballScroll class exists');
+            } else {
+                results.push('<span class="fail">✗</span> FireballScroll class not found');
+            }
+
+            // Test 4: Check FireballEffect has execute method
+            if (typeof FireballEffect !== 'undefined' &&
+                FireballEffect.prototype.execute) {
+                results.push('<span class="pass">✓</span> FireballEffect.execute() method exists');
+            } else {
+                results.push('<span class="fail">✗</span> FireballEffect.execute() method not found');
+            }
+
+            // Test 5: Check FireballTrap.trigger is async
+            if (typeof FireballTrap !== 'undefined') {
+                const trap = new FireballTrap(0, 0);
+                const triggerResult = trap.trigger.constructor.name;
+                if (triggerResult === 'AsyncFunction') {
+                    results.push('<span class="pass">✓</span> FireballTrap.trigger() is async');
+                } else {
+                    results.push('<span class="fail">✗</span> FireballTrap.trigger() should be async');
+                }
+            }
+
+            // Test 6: Check FireballScroll.use is async
+            if (typeof FireballScroll !== 'undefined') {
+                const scroll = new FireballScroll(0, 0);
+                const useResult = scroll.use.constructor.name;
+                if (useResult === 'AsyncFunction') {
+                    results.push('<span class="pass">✓</span> FireballScroll.use() is async');
+                } else {
+                    results.push('<span class="fail">✗</span> FireballScroll.use() should be async');
+                }
+            }
+
+            // Test 7: Check script load order
+            const scripts = Array.from(document.scripts).map(s => {
+                const match = s.src.match(/(\w+\.js)$/);
+                return match ? match[1] : null;
+            }).filter(s => s);
+
+            const trapsIndex = scripts.indexOf('traps.js');
+            const scrollsIndex = scripts.indexOf('scrolls.js');
+
+            if (trapsIndex >= 0 && scrollsIndex >= 0 && trapsIndex < scrollsIndex) {
+                results.push('<span class="pass">✓</span> Script load order correct (traps.js before scrolls.js)');
+            } else {
+                results.push('<span class="fail">✗</span> Script load order incorrect');
+            }
+
+            resultsDiv.innerHTML = '<pre>' + results.join('\n') + '</pre>';
+        }
+    </script>
+
+    <!-- Load game scripts in correct order -->
+    <script src="monster.js"></script>
+    <script src="items.js"></script>
+    <script src="potions.js"></script>
+    <script src="traps.js"></script>
+    <script src="scrolls.js"></script>
+    <script src="weapons.js"></script>
+    <script src="armor.js"></script>
+
+    <script>
+        // Auto-run tests on load
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 100);
+        });
+    </script>
+</body>
+</html>
+
