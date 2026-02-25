@@ -5,6 +5,8 @@ class Game {
         initializePotionColors();
         // Initialize random magic phrase assignments for scrolls
         initializeScrollMagicPhrases();
+        // Initialize random material assignments for wands
+        initializeWandMaterials();
 
         // Set global game instance reference
         Game.instance = this;
@@ -27,6 +29,11 @@ class Game {
         // Examine / Inspect mode state
         this.examineMode = false;
         this.examineCursor = null; // {x,y}
+        // Targeting mode state (for wands and ranged attacks)
+        this.targetingMode = false;
+        this.targetingCursor = null; // {x,y}
+        this.targetingCallback = null; // Function to call when target is selected
+        this.targetingItem = null; // The wand/item being used
         // Running state
         this.running = false;
         this.generateDungeon();
@@ -279,6 +286,63 @@ class Game {
             const k = e.key.toLowerCase();
             const shiftHeld = e.shiftKey;
 
+            // Targeting mode key handling (for wands)
+            if (this.targetingMode) {
+                let dx = 0, dy = 0;
+                switch (k) {
+                    case 'arrowup':
+                    case 'k':
+                        dy = -1;
+                        break;
+                    case 'arrowdown':
+                    case 'j':
+                        dy = 1;
+                        break;
+                    case 'arrowleft':
+                    case 'h':
+                        dx = -1;
+                        break;
+                    case 'arrowright':
+                    case 'l':
+                        dx = 1;
+                        break;
+                    case 'y':
+                        dx = -1;
+                        dy = -1;
+                        break;
+                    case 'u':
+                        dx = 1;
+                        dy = -1;
+                        break;
+                    case 'b':
+                        dx = -1;
+                        dy = 1;
+                        break;
+                    case 'n':
+                        dx = 1;
+                        dy = 1;
+                        break;
+                    case 'enter':
+                        // Confirm target
+                        if (this.targetingCallback) {
+                            this.targetingCallback(this.targetingCursor.x, this.targetingCursor.y);
+                        }
+                        this.exitTargetingMode();
+                        return;
+                    case 'escape':
+                        this.addMessage('Targeting cancelled.');
+                        this.exitTargetingMode();
+                        return;
+                    default:
+                        return;
+                }
+                if (dx || dy) {
+                    this.moveTargetingCursor(dx, dy);
+                    e.preventDefault();
+                }
+                return; // Prevent normal mode handling while targeting
+            }
+
             // Examine mode key handling (non-turn consuming)
             if (this.examineMode) {
                 let dx = 0, dy = 0;
@@ -397,6 +461,24 @@ class Game {
                     this.addMessage('You wait a moment...');
                     await this.consumeTurn(100);
                     return;
+                case 't':
+                    if (Game.player.canTeleport() && Game.player.mana >= 20) {
+                        await this.activateTeleport();
+                    } else if (!Game.player.canTeleport()) {
+                        this.addMessage('You have no means to teleport!');
+                    } else {
+                        this.addMessage('Not enough mana to teleport! (Need 20)');
+                    }
+                    return;
+                case 'z':
+                    if (Game.player.canGoInvisible() && Game.player.mana >= 30) {
+                        await this.toggleInvisibility();
+                    } else if (!Game.player.canGoInvisible()) {
+                        this.addMessage('You have no means to become invisible!');
+                    } else {
+                        this.addMessage('Not enough mana to activate invisibility! (Need 30)');
+                    }
+                    return;
                 default:
                     return;
             }
@@ -424,6 +506,97 @@ class Game {
         this.examineCursor = null;
         this.addMessage('Examine mode ended.');
         this.render();
+    }
+
+    startTargetingMode(item, callback, initialTarget = null) {
+        this.targetingMode = true;
+        this.targetingItem = item;
+        this.targetingCallback = callback;
+
+        // Start cursor at initial target or nearest visible monster
+        if (initialTarget) {
+            this.targetingCursor = {x: initialTarget.x, y: initialTarget.y};
+        } else {
+            // Find nearest visible monster
+            let nearestMonster = null;
+            let nearestDist = Infinity;
+
+            for (const monster of this.monsterManager.monsters) {
+                if (!this.visible[monster.y] || !this.visible[monster.y][monster.x]) continue;
+
+                const dx = monster.x - Game.player.x;
+                const dy = monster.y - Game.player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestMonster = monster;
+                }
+            }
+
+            if (nearestMonster) {
+                this.targetingCursor = {x: nearestMonster.x, y: nearestMonster.y};
+            } else {
+                // Default to player position
+                this.targetingCursor = {x: Game.player.x, y: Game.player.y};
+            }
+        }
+
+        const itemName = item.getDisplayName ? item.getDisplayName() : item.name;
+        this.addMessage(`Targeting with ${itemName}. Move cursor, Enter to confirm, Esc to cancel.`);
+        this.render();
+    }
+
+    exitTargetingMode() {
+        this.targetingMode = false;
+        this.targetingCursor = null;
+        this.targetingCallback = null;
+        this.targetingItem = null;
+        this.render();
+    }
+
+    moveTargetingCursor(dx, dy) {
+        if (!this.targetingCursor) return;
+        const nx = this.targetingCursor.x + dx;
+        const ny = this.targetingCursor.y + dy;
+        if (!this.dungeon.inBounds(nx, ny)) return;
+
+        this.targetingCursor.x = nx;
+        this.targetingCursor.y = ny;
+
+        // Auto-describe target
+        this.describeTargetAt(nx, ny);
+        this.render();
+    }
+
+    describeTargetAt(x, y) {
+        if (!this.dungeon.inBounds(x, y)) {
+            this.addMessage('Out of bounds.');
+            return;
+        }
+
+        // Check for monster
+        const monster = this.monsterManager.monsters.find(m => m.x === x && m.y === y);
+        if (monster) {
+            if (this.visible[y] && this.visible[y][x]) {
+                this.addMessage(`Target: ${monster.getDisplayName()} (${monster.hp}/${monster.maxHp} HP)`);
+            } else {
+                this.addMessage(`Target: unknown (not visible)`);
+            }
+            return;
+        }
+
+        // Check for tile
+        const tile = this.dungeon.getTile(x, y);
+        if (tile) {
+            if (tile.type === '#') {
+                this.addMessage('Target: wall');
+            } else if (tile.type === '.') {
+                this.addMessage('Target: floor');
+            } else {
+                this.addMessage(`Target: ${tile.type}`);
+            }
+        }
     }
 
     moveExamineCursor(dx, dy) {
@@ -459,7 +632,8 @@ class Game {
         if (tile && tile.hasItems() && this.visible[y] && this.visible[y][x]) {
             const item = tile.getTopItem();
             if (item) {
-                this.addMessage(`${item.name}: ${item.description || 'An indescribable object.'}`);
+                const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+                this.addMessage(`${displayName}: ${item.description || 'An indescribable object.'}`);
                 return;
             }
         }
@@ -490,14 +664,22 @@ class Game {
                 const itemObject = p.body[bodyPartName];
                 const hasItem = itemObject && !(itemObject instanceof EmptyItem);
                 const slotClass = hasItem ? 'equipped-slot has-item' : 'equipped-slot';
-                let itemText = hasItem ? itemObject.name : 'None';
+                let itemText = hasItem ? (itemObject.getDisplayName ? itemObject.getDisplayName() : itemObject.name) : 'None';
                 const itemClass = hasItem ? 'slot-item' : 'slot-item slot-empty';
 
                 // Make equipped item name clickable
                 if (hasItem) {
                     itemText = `<span class="item-name-clickable" onclick="game.showEquippedItemInfo('${bodyPartName}')">${itemText}</span>`;
+
+                    // Add identification progress indicator for unidentified items
+                    if (!itemObject.identified && itemObject.equippedTime !== undefined) {
+                        const idTime = Game.player.getIdentificationTime();
+                        const progress = Math.min(100, Math.floor((itemObject.equippedTime / idTime) * 100));
+                        itemText += ` <span class="tag" style="background-color: #6666aa; font-size: 0.8em;">${progress}%</span>`;
+                    }
+
                     // Add cursed indicator
-                    if (itemObject.cursed) {
+                    if (itemObject.cursed && itemObject.identified) {
                         itemText += ' <span class="tag" style="background-color: #aa0000; color: #fff; font-size: 0.8em;">CURSED</span>';
                     }
                 }
@@ -527,6 +709,7 @@ class Game {
             lines.push(`<div class="in-pack">`);
             section('Potions', p.inventory.potions, (it, i) => this.renderInvRow('potions', it, i));
             section('Scrolls', p.inventory.scrolls, (it, i) => this.renderInvRow('scrolls', it, i));
+            section('Wands', p.inventory.wands, (it, i) => this.renderInvRow('wands', it, i));
             section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
             section('Armor', p.inventory.armor, (it, i) => this.renderInvRow('armor', it, i, p.equippedArmor().includes(it)));
             lines.push(`</div>`);
@@ -537,7 +720,15 @@ class Game {
     renderInvRow(category, item, index, equipped = false) {
         const tags = [];
         if (equipped) tags.push('<span class="tag">Eq</span>');
-        if (item.cursed) tags.push('<span class="tag" style="background-color: #aa0000; color: #fff;">CURSED</span>');
+
+        // Add identification progress for equipped unidentified items
+        if (equipped && !item.identified && item.equippedTime !== undefined && (category === 'weapons' || category === 'armor')) {
+            const idTime = Game.player.getIdentificationTime();
+            const progress = Math.min(100, Math.floor((item.equippedTime / idTime) * 100));
+            tags.push(`<span class="tag" style="background-color: #6666aa;">ID: ${progress}%</span>`);
+        }
+
+        if (item.cursed && item.identified) tags.push('<span class="tag" style="background-color: #aa0000; color: #fff;">CURSED</span>');
         if (category === 'weapons') tags.push(`<span class='tag'>+${item.identified ? item.getDamage() : "?"} atk</span>`);
         if (category === 'armor') tags.push(`<span class='tag'>+${item.identified ? item.defense : "?"} def</span>`);
         if (category === 'potions') {
@@ -546,6 +737,13 @@ class Game {
         }
         if (category === 'scrolls') {
             if (item.count > 1) tags.push(`<span class='tag'>x${item.count}</span>`);
+        }
+        if (category === 'wands') {
+            if (item.identified) {
+                tags.push(`<span class='tag'>${item.charges}/${item.maxCharges}</span>`);
+            } else {
+                tags.push(`<span class='tag'>?/?</span>`);
+            }
         }
         let actionButtons = '';
         if (category === 'weapons' && !(item instanceof Fists)) {
@@ -556,6 +754,7 @@ class Game {
         }
         if (category === 'potions') actionButtons += `<button onclick="game.useInventoryItem('potions',${index})">Drink</button>`;
         if (category === 'scrolls') actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
+        if (category === 'wands') actionButtons += `<button onclick="game.useInventoryItem('wands',${index})">Zap</button>`;
         actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
 
         // Make item name clickable to show details
@@ -570,12 +769,14 @@ class Game {
             const w = Game.player.inventory.weapons[index];
             if (!w) return;
             Game.player.equipWeapon(w);
-            this.addMessage(`You equip ${w.name}.`);
+            const displayName = w.getDisplayName ? w.getDisplayName() : w.name;
+            this.addMessage(`You equip ${displayName}.`);
         } else if (PlayerBody.armorLocations.includes(category)) {
             const a = Game.player.inventory.armor[index];
             if (!a) return;
             Game.player.equipArmor(a);
-            this.addMessage(`You don ${a.name}.`);
+            const displayName = a.getDisplayName ? a.getDisplayName() : a.name;
+            this.addMessage(`You don ${displayName}.`);
         }
         this.buildInventory();
         this.updateUI();
@@ -585,9 +786,12 @@ class Game {
         if (category === 'weapons' && Game.player.equippedWeapon()) {
             const result = Game.player.unEquipWeapon();
             if (result === 'cursed') {
-                this.addMessage(`The ${Game.player.equippedWeapon().name} is cursed! You cannot remove it!`);
+                const weapon = Game.player.equippedWeapon();
+                const displayName = weapon.getDisplayName ? weapon.getDisplayName() : weapon.name;
+                this.addMessage(`The ${displayName} is cursed! You cannot remove it!`);
             } else {
-                this.addMessage(`You stow ${result.name}.`);
+                const displayName = result.getDisplayName ? result.getDisplayName() : result.name;
+                this.addMessage(`You stow ${displayName}.`);
             }
         }
         if (category === 'armor') {
@@ -595,9 +799,11 @@ class Game {
             equipped.forEach(a => {
                 const result = Game.player.unEquipArmor(a);
                 if (result === 'cursed') {
-                    this.addMessage(`The ${a.name} is cursed! You cannot remove it!`);
+                    const displayName = a.getDisplayName ? a.getDisplayName() : a.name;
+                    this.addMessage(`The ${displayName} is cursed! You cannot remove it!`);
                 } else if (result) {
-                    this.addMessage(`You remove ${a.name}.`);
+                    const displayName = a.getDisplayName ? a.getDisplayName() : a.name;
+                    this.addMessage(`You remove ${displayName}.`);
                 }
             });
         }
@@ -611,20 +817,22 @@ class Game {
             const weapon = p.body.weapon;
             if (weapon && !(weapon instanceof EmptyItem) && !(weapon instanceof Fists)) {
                 const result = p.unEquipWeapon();
+                const displayName = weapon.getDisplayName ? weapon.getDisplayName() : weapon.name;
                 if (result === 'cursed') {
-                    this.addMessage(`The ${weapon.name} is cursed! You cannot remove it!`);
+                    this.addMessage(`The ${displayName} is cursed! You cannot remove it!`);
                 } else {
-                    this.addMessage(`You stow ${weapon.name}.`);
+                    this.addMessage(`You stow ${displayName}.`);
                 }
             }
         } else if (p.body[bodyPartName]) {
             const item = p.body[bodyPartName];
             if (item && !(item instanceof EmptyItem)) {
                 const result = p.unEquipArmor(item);
+                const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
                 if (result === 'cursed') {
-                    this.addMessage(`The ${item.name} is cursed! You cannot remove it!`);
+                    this.addMessage(`The ${displayName} is cursed! You cannot remove it!`);
                 } else if (result) {
-                    this.addMessage(`You remove ${item.name}.`);
+                    this.addMessage(`You remove ${displayName}.`);
                 }
             }
         }
@@ -647,19 +855,34 @@ class Game {
             } else {
                 const healAmount = item.healAmount || 20;
                 const actualHeal = p.heal(healAmount);
-                this.addMessage(`You drink ${item.name} (+${actualHeal} HP).`);
+                const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+                this.addMessage(`You drink ${displayName} (+${actualHeal} HP).`);
             }
             item.count -= 1;
             if (item.count <= 0) arr.splice(index, 1);
             this.consumeTurn(20);
         } else if (category === 'scrolls') {
             if (typeof item.use === 'function') {
-                this.addMessage(`You read the ${item.name}.`);
+                const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+                this.addMessage(`You read the ${displayName}.`);
                 item.use(this);
             }
             item.count -= 1;
             if (item.count <= 0) arr.splice(index, 1);
             await this.consumeTurn(30);
+        } else if (category === 'wands') {
+            if (typeof item.use === 'function') {
+                const result = await item.use(this);
+                if (result && result.success) {
+                    // Remove wand if empty
+                    if (item.charges <= 0) {
+                        const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+                        arr.splice(index, 1);
+                        this.addMessage(`The ${displayName} crumbles to dust.`);
+                    }
+                    await this.consumeTurn(item.speed || 15);
+                }
+            }
         }
         this.buildInventory();
         this.updateUI();
@@ -712,9 +935,10 @@ class Game {
         const baseChance = 5; // 5% base chance
         const intBonus = Math.floor((Game.player.intelligence - 50) / 10); // +1% per 10 int above 50
         const luckBonus = Math.floor((Game.player.luck - 50) / 20); // +1% per 20 luck above 50
+        const equipmentBonus = Game.player.getTrapDetectionBonus(); // From equipment like Ring of Searching
 
         const detectionDifficulty = trap.getDetectionDifficulty();
-        const detectionChance = Math.min(95, Math.max(1, baseChance + intBonus + luckBonus + (100 - detectionDifficulty) / 2));
+        const detectionChance = Math.min(95, Math.max(1, baseChance + intBonus + luckBonus + equipmentBonus + (100 - detectionDifficulty) / 2));
 
         const roll = Math.random() * 100;
         if (roll < detectionChance) {
@@ -727,6 +951,65 @@ class Game {
             trap.trigger(this, Game.player);
             trap.discovered = true; // Traps become visible after triggering
             this.running = false; // Stop running when trap triggers
+        }
+    }
+
+    async activateTeleport() {
+        // Teleport to random valid location
+        if (!Game.player.consumeMana(20)) {
+            this.addMessage('Not enough mana!');
+            return;
+        }
+
+        const attempts = 100;
+        for (let i = 0; i < attempts; i++) {
+            const x = Math.floor(Math.random() * this.width);
+            const y = Math.floor(Math.random() * this.height);
+
+            if (this.dungeon.isValidMove(x, y)) {
+                const hasMonster = this.monsterManager.monsters.some(m => m.x === x && m.y === y);
+                if (!hasMonster) {
+                    Game.player.x = x;
+                    Game.player.y = y;
+                    this.addMessage('You teleport through space!');
+                    this.computeFOV();
+                    this.render();
+                    await this.consumeTurn(100);
+                    return;
+                }
+            }
+        }
+        this.addMessage('Teleportation failed!');
+        await this.consumeTurn(50);
+    }
+
+    async toggleInvisibility() {
+        if (Game.player.invisible) {
+            // Already invisible, turn it off (free action)
+            Game.player.invisible = false;
+            this.addMessage('You become visible again.');
+            this.render();
+        } else {
+            // Activate invisibility
+            if (!Game.player.consumeMana(30)) {
+                this.addMessage('Not enough mana!');
+                return;
+            }
+
+            Game.player.invisible = true;
+            this.addMessage('You fade from sight...');
+
+            // Schedule invisibility to end after 50 turns (adjustable)
+            this.timeManager.scheduleEvent(5000, (game) => {
+                if (Game.player.invisible) {
+                    Game.player.invisible = false;
+                    game.addMessage('Your invisibility wears off.');
+                    game.render();
+                }
+            });
+
+            this.render();
+            await this.consumeTurn(50);
         }
     }
 
@@ -771,11 +1054,13 @@ class Game {
 
     async consumeTurn(ticksToConsume = 100) {
         for (let i = 0; i < ticksToConsume; i++) {
+            // advanceTime handles monster animation internally
             await this.timeManager.advanceTime();
-            this.computeFOV();
-            this.render();
-            this.updateUI();
         }
+        // Final update to ensure FOV and UI are current
+        this.computeFOV();
+        this.render();
+        this.updateUI();
     }
 
     render() {
@@ -896,6 +1181,25 @@ class Game {
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(cx + 1, cy + 1, ts - 2, ts - 2);
         }
+
+        // Targeting cursor highlight (for wands)
+        if (this.targetingMode && this.targetingCursor) {
+            const cx = this.targetingCursor.x * ts;
+            const cy = this.targetingCursor.y * ts;
+            this.ctx.strokeStyle = '#ff0000'; // Red for targeting
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(cx, cy, ts, ts);
+
+            // Draw crosshair
+            this.ctx.strokeStyle = '#ff0000';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(cx + ts/2, cy);
+            this.ctx.lineTo(cx + ts/2, cy + ts);
+            this.ctx.moveTo(cx, cy + ts/2);
+            this.ctx.lineTo(cx + ts, cy + ts/2);
+            this.ctx.stroke();
+        }
     }
 
 
@@ -923,6 +1227,8 @@ class Game {
                     return new EnchantmentScroll(x, y, item.enchantmentPower);
                 case 'UncurseScroll':
                     return new UncurseScroll(x, y);
+                case 'IdentifyScroll':
+                    return new IdentifyScroll(x, y);
                 case 'Scroll':
                     return new Scroll(x, y, item.name, item.damage);
                 default:
@@ -937,6 +1243,7 @@ class Game {
     updateUI() {
         document.getElementById('level').textContent = Game.player.level;
         document.getElementById('health').textContent = Game.player.health;
+        document.getElementById('mana').textContent = Math.floor(Game.player.mana);
         document.getElementById('gold').textContent = Game.player.inventory.gold;
         document.getElementById('exp').textContent = Game.player.experience;
         document.getElementById('weight').textContent = Game.player.carriedWeight();
@@ -1017,6 +1324,21 @@ class Game {
             if (item.speed !== undefined) {
                 stats.push({label: 'Attack Speed', value: isIdentified ? item.speed : '???'});
             }
+
+            // Show elemental damage if present
+            if (typeof item.getAllElementalDamage === 'function' && isIdentified) {
+                const elementalDamages = item.getAllElementalDamage();
+                for (const [type, amount] of Object.entries(elementalDamages)) {
+                    if (amount > 0) {
+                        const elementName = type.charAt(0).toUpperCase() + type.slice(1);
+                        stats.push({
+                            label: `${elementName} Damage`,
+                            value: `+${amount}`,
+                            positive: true
+                        });
+                    }
+                }
+            }
         } else if (category === 'armor') {
             // Set item description
             descEl.textContent = item.description || 'A mysterious item.';
@@ -1040,6 +1362,22 @@ class Game {
             }
             if (item.bodyLocation) {
                 stats.push({label: 'Slot', value: item.bodyLocation});
+            }
+
+            // Show elemental resistances if present
+            if (typeof item.getAllResistances === 'function' && isIdentified) {
+                const resistances = item.getAllResistances();
+                for (const [element, value] of Object.entries(resistances)) {
+                    if (value > 0) {
+                        const elementName = element.charAt(0).toUpperCase() + element.slice(1);
+                        const percentage = Math.round(value * 100);
+                        stats.push({
+                            label: `${elementName} Resistance`,
+                            value: `${percentage}%`,
+                            positive: true
+                        });
+                    }
+                }
             }
         } else if (category === 'potions') {
             // Set item description
@@ -1086,6 +1424,22 @@ class Game {
             }
             if (item.count !== undefined && item.count > 1) {
                 stats.push({label: 'Quantity', value: item.count});
+            }
+        } else if (category === 'wands') {
+            descEl.textContent = isIdentified ? item.description : 'A mysterious wand.';
+            if (isIdentified) {
+                stats.push({label: 'Charges', value: `${item.charges}/${item.maxCharges}`});
+                if (item.damage !== undefined) {
+                    stats.push({label: 'Damage', value: item.damage, positive: true});
+                }
+                if (item.radius !== undefined) {
+                    stats.push({label: 'Radius', value: item.radius});
+                }
+                if (item.slowDuration !== undefined) {
+                    stats.push({label: 'Slow Duration', value: `${item.slowDuration} turns`});
+                }
+            } else {
+                stats.push({label: 'Charges', value: '???'});
             }
         }
 
@@ -1166,6 +1520,8 @@ class Game {
             item = Game.player.inventory.potions[index];
         } else if (category === 'scrolls') {
             item = Game.player.inventory.scrolls[index];
+        } else if (category === 'wands') {
+            item = Game.player.inventory.wands[index];
         }
 
         if (item) {

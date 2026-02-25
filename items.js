@@ -122,6 +122,43 @@ class Item {
         return this.constructor.name.toLowerCase();
     }
 
+    // Get display name respecting identification status
+    getDisplayName() {
+        let displayName = this.baseName || this.name;
+
+        // Show elemental prefix if identified and has elemental damage (weapons)
+        if (this.identified && this instanceof Weapon && this.enchantments && this.enchantments.elemental) {
+            const elements = Object.keys(this.enchantments.elemental);
+            if (elements.length > 0) {
+                const primaryElement = elements[0];
+                const elementName = primaryElement.charAt(0).toUpperCase() + primaryElement.slice(1);
+                displayName = `${elementName} ${displayName}`;
+            }
+        }
+
+        // Show resistance prefix if identified and has resistances (armor)
+        if (this.identified && this instanceof Armor && this.enchantments && this.enchantments.resistances) {
+            const elements = Object.keys(this.enchantments.resistances);
+            if (elements.length > 0) {
+                const primaryElement = elements[0];
+                const elementName = primaryElement.charAt(0).toUpperCase() + primaryElement.slice(1);
+                displayName = `${elementName}-resistant ${displayName}`;
+            }
+        }
+
+        // Show quality bonus if identified
+        if (this.identified && this.qualityBonus && this.qualityBonus > 0) {
+            displayName = `${displayName} +${this.qualityBonus}`;
+        }
+
+        // Show cursed status if identified and cursed
+        if (this.identified && this.cursed) {
+            displayName = `${displayName} (Cursed)`;
+        }
+
+        return displayName;
+    }
+
     // Create a copy for inventory (without position)
     createInventoryCopy() {
         const copy = Object.create(Object.getPrototypeOf(this));
@@ -138,6 +175,14 @@ if (typeof require !== 'undefined' && typeof Scroll === 'undefined') {
     global.Item = Item;
     const scrolls = require('./scrolls.js');
     Object.assign(global, scrolls);
+}
+
+// Load wand classes in Node.js environment (after Item is defined)
+if (typeof require !== 'undefined' && typeof Wand === 'undefined') {
+    // Make Item available globally first so wands.js can use it
+    global.Item = Item;
+    const wands = require('./wands.js');
+    Object.assign(global, wands);
 }
 
 // Load potion classes in Node.js environment (after Item is defined)
@@ -206,8 +251,15 @@ class Gold extends Item {
     }
 
     onCollect(game) {
-        Game.player.addGold(this.amount);
-        game.addMessage(`Found ${this.amount} gold!`);
+        const baseAmount = this.amount;
+        const multiplier = Game.player.getGoldFindBonus();
+        const finalAmount = Math.floor(baseAmount * multiplier);
+        Game.player.addGold(finalAmount);
+        if (multiplier > 1.0) {
+            game.addMessage(`Found ${finalAmount} gold! (${baseAmount} base + ${Math.floor((multiplier - 1) * 100)}% bonus)`);
+        } else {
+            game.addMessage(`Found ${finalAmount} gold!`);
+        }
     }
 }
 
@@ -241,6 +293,26 @@ if (typeof require !== 'undefined') {
     Object.assign(global, armorModule);
 }
 
+// Item Rarity System
+const ItemRarity = {
+    COMMON: { name: 'Common', color: '#aaaaaa', enchantChance: 0.0, qualityRange: [0, 0] },
+    UNCOMMON: { name: 'Uncommon', color: '#00ff00', enchantChance: 0.1, qualityRange: [0, 1] },
+    RARE: { name: 'Rare', color: '#0088ff', enchantChance: 0.3, qualityRange: [1, 2] },
+    EPIC: { name: 'Epic', color: '#aa00ff', enchantChance: 0.6, qualityRange: [2, 3] },
+    LEGENDARY: { name: 'Legendary', color: '#ff8800', enchantChance: 1.0, qualityRange: [3, 5] }
+};
+
+// Item Categories for easier filtering
+const ItemCategory = {
+    WEAPON: 'weapon',
+    ARMOR: 'armor',
+    POTION: 'potion',
+    SCROLL: 'scroll',
+    WAND: 'wand',
+    GOLD: 'gold',
+    CONSUMABLE: 'consumable'
+};
+
 // Item factory for creating items
 class ItemFactory {
     // Helper method to calculate effective level with luck modifier
@@ -260,6 +332,172 @@ class ItemFactory {
             rand -= item.chance;
         }
         return items[0]; // fallback to first item
+    }
+
+    // Get item category from class
+    static getItemCategory(itemClass) {
+        if (itemClass.prototype instanceof Weapon || itemClass === Weapon) return ItemCategory.WEAPON;
+        if (itemClass.prototype instanceof Armor || itemClass === Armor) return ItemCategory.ARMOR;
+        if (itemClass.prototype instanceof Wand || itemClass === Wand) return ItemCategory.WAND;
+        if (itemClass.prototype instanceof Scroll || itemClass === Scroll) return ItemCategory.SCROLL;
+        if (itemClass.name && itemClass.name.includes('Potion')) return ItemCategory.POTION;
+        if (itemClass === Gold) return ItemCategory.GOLD;
+        return ItemCategory.CONSUMABLE;
+    }
+
+    // Scale drop chance based on level progression (makes rare items more common at higher levels)
+    static scaleDropChance(baseChance, itemLevelRange, currentLevel) {
+        if (!itemLevelRange) return baseChance;
+
+        const [minLevel, maxLevel] = itemLevelRange;
+        const levelMid = (minLevel + maxLevel) / 2;
+
+        // Items are most common around their mid-level
+        if (currentLevel < minLevel) {
+            return baseChance * 0.5; // Slightly reduce chance before level range
+        } else if (currentLevel > maxLevel) {
+            return baseChance * 0.7; // Reduce chance after level range
+        } else {
+            // Within range: increase chance as we approach mid-level
+            const progressInRange = (currentLevel - minLevel) / (maxLevel - minLevel);
+            const distanceFromMid = Math.abs(progressInRange - 0.5) * 2; // 0 at mid, 1 at edges
+            return baseChance * (1.0 + (1.0 - distanceFromMid) * 0.5); // Up to 1.5x at mid-level
+        }
+    }
+
+    // Apply random enchantment to an item based on rarity
+    static applyRandomEnchantment(item, rarity, currentLevel) {
+        if (!(item instanceof Weapon || item instanceof Armor)) return;
+        if (Math.random() > rarity.enchantChance) return;
+
+        const enchantPower = Math.floor(Math.random() * 3) + 1 + Math.floor(currentLevel / 10);
+
+        if (item instanceof Weapon) {
+            item.enchantments.damage = (item.enchantments.damage || 0) + enchantPower;
+
+            // Chance for elemental enchantment on higher rarity weapons
+            if (rarity === ItemRarity.RARE || rarity === ItemRarity.EPIC || rarity === ItemRarity.LEGENDARY) {
+                ItemFactory.applyElementalEnchantment(item, rarity, currentLevel);
+            }
+        } else if (item instanceof Armor) {
+            item.enchantments.defense = (item.enchantments.defense || 0) + enchantPower;
+
+            // Chance for elemental resistance on higher rarity armor
+            if (rarity === ItemRarity.RARE || rarity === ItemRarity.EPIC || rarity === ItemRarity.LEGENDARY) {
+                ItemFactory.applyResistanceEnchantment(item, rarity, currentLevel);
+            }
+        }
+    }
+
+    // Apply elemental enchantment to a weapon
+    static applyElementalEnchantment(weapon, rarity, currentLevel) {
+        if (!(weapon instanceof Weapon)) return;
+
+        // Chance for elemental damage based on rarity
+        let elementalChance = 0;
+        if (rarity === ItemRarity.RARE) elementalChance = 0.3;
+        if (rarity === ItemRarity.EPIC) elementalChance = 0.5;
+        if (rarity === ItemRarity.LEGENDARY) elementalChance = 0.8;
+
+        if (Math.random() > elementalChance) return;
+
+        // Choose random element
+        const elements = ['fire', 'ice', 'lightning', 'poison', 'holy', 'dark'];
+        const element = elements[Math.floor(Math.random() * elements.length)];
+
+        // Calculate elemental damage (scales with level and rarity)
+        let elementalDamage = Math.floor(Math.random() * 3) + 2; // 2-4 base
+        if (rarity === ItemRarity.EPIC) elementalDamage += 2;
+        if (rarity === ItemRarity.LEGENDARY) elementalDamage += 4;
+        elementalDamage += Math.floor(currentLevel / 5); // +1 per 5 levels
+
+        // Apply elemental enchantment
+        if (!weapon.enchantments.elemental) {
+            weapon.enchantments.elemental = {};
+        }
+        weapon.enchantments.elemental[element] = elementalDamage;
+
+        // Update weapon name to reflect element (only when identified)
+        if (!weapon.baseName) {
+            weapon.baseName = weapon.name;
+        }
+    }
+
+    // Apply resistance enchantment to armor
+    static applyResistanceEnchantment(armor, rarity, currentLevel) {
+        if (!(armor instanceof Armor)) return;
+
+        // Chance for resistance based on rarity
+        let resistanceChance = 0;
+        if (rarity === ItemRarity.RARE) resistanceChance = 0.3;
+        if (rarity === ItemRarity.EPIC) resistanceChance = 0.5;
+        if (rarity === ItemRarity.LEGENDARY) resistanceChance = 0.8;
+
+        if (Math.random() > resistanceChance) return;
+
+        // Choose random element to resist
+        const elements = ['fire', 'ice', 'lightning', 'poison', 'holy', 'dark'];
+        const element = elements[Math.floor(Math.random() * elements.length)];
+
+        // Calculate resistance value (percentage, scales with level and rarity)
+        let resistance = 0.10 + Math.random() * 0.10; // 10-20% base
+        if (rarity === ItemRarity.EPIC) resistance += 0.10; // +10%
+        if (rarity === ItemRarity.LEGENDARY) resistance += 0.20; // +20%
+        resistance += Math.floor(currentLevel / 10) * 0.05; // +5% per 10 levels
+
+        // Cap at reasonable values
+        resistance = Math.min(0.50, resistance); // Max 50% per piece
+
+        // Apply resistance enchantment
+        if (!armor.enchantments.resistances) {
+            armor.enchantments.resistances = {};
+        }
+        armor.enchantments.resistances[element] = resistance;
+
+        // Update armor name to reflect resistance (only when identified)
+        if (!armor.baseName) {
+            armor.baseName = armor.name;
+        }
+    }
+
+    // Apply quality modifier (+1, +2, etc.) to weapons and armor
+    static applyQualityModifier(item, rarity) {
+        if (!(item instanceof Weapon || item instanceof Armor)) return;
+
+        const [minQuality, maxQuality] = rarity.qualityRange;
+        const quality = Math.floor(Math.random() * (maxQuality - minQuality + 1)) + minQuality;
+
+        if (quality > 0) {
+            // Store the base name before modification
+            if (!item.baseName) {
+                item.baseName = item.name;
+            }
+
+            // Store quality as a bonus that will be added when identified
+            item.qualityBonus = quality;
+
+            if (item instanceof Weapon) {
+                item.damage += quality;
+            } else if (item instanceof Armor) {
+                item.defense += quality;
+            }
+
+            // Don't modify the name yet - it will be done when displayed/identified
+        }
+    }
+
+    // Determine rarity based on level and luck
+    static rollRarity(currentLevel, playerLuck = 50) {
+        const luckBonus = (playerLuck - 50) / 100; // -0.5 to +0.5
+        const levelBonus = Math.min(0.3, currentLevel / 100); // Up to +0.3 at level 30
+
+        const roll = Math.random() + luckBonus + levelBonus;
+
+        if (roll > 0.98) return ItemRarity.LEGENDARY;
+        if (roll > 0.92) return ItemRarity.EPIC;
+        if (roll > 0.80) return ItemRarity.RARE;
+        if (roll > 0.60) return ItemRarity.UNCOMMON;
+        return ItemRarity.COMMON;
     }
 
     // Lazy-initialized item types getter to ensure scroll classes are loaded
@@ -282,6 +520,16 @@ class ItemFactory {
                 {class: RegenerationScroll, chance: RegenerationScroll.dropChance},
                 {class: EnchantmentScroll, chance: EnchantmentScroll.dropChance},
                 {class: UncurseScroll, chance: UncurseScroll.dropChance},
+                {class: IdentifyScroll, chance: IdentifyScroll.dropChance},
+                // Wands
+                {class: MagicMissileWand, chance: MagicMissileWand.dropChance},
+                {class: LightningWand, chance: LightningWand.dropChance},
+                {class: FireWand, chance: FireWand.dropChance},
+                {class: IceWand, chance: IceWand.dropChance},
+                {class: PolymorphWand, chance: PolymorphWand.dropChance},
+                {class: SlowWand, chance: SlowWand.dropChance},
+                {class: TeleportationWand, chance: TeleportationWand.dropChance},
+                {class: DeathWand, chance: DeathWand.dropChance},
                 // Weapons - Light/Fast
                 {class: SmallDagger, chance: SmallDagger.dropChance},
                 {class: Shortsword, chance: Shortsword.dropChance},
@@ -317,6 +565,24 @@ class ItemFactory {
                 {class: IronGauntlets, chance: IronGauntlets.dropChance},
                 // Ring armor
                 {class: ProtectionRing, chance: ProtectionRing.dropChance},
+                {class: StrengthRing, chance: StrengthRing.dropChance},
+                {class: DexterityRing, chance: DexterityRing.dropChance},
+                {class: IntelligenceRing, chance: IntelligenceRing.dropChance},
+                {class: WisdomRing, chance: WisdomRing.dropChance},
+                {class: RegenerationRing, chance: RegenerationRing.dropChance},
+                {class: VampiricRing, chance: VampiricRing.dropChance},
+                {class: FireResistanceRing, chance: FireResistanceRing.dropChance},
+                {class: IceResistanceRing, chance: IceResistanceRing.dropChance},
+                {class: LightningResistanceRing, chance: LightningResistanceRing.dropChance},
+                {class: AccuracyRing, chance: AccuracyRing.dropChance},
+                {class: EvasionRing, chance: EvasionRing.dropChance},
+                {class: SearchingRing, chance: SearchingRing.dropChance},
+                {class: WealthRing, chance: WealthRing.dropChance},
+                {class: ExperienceRing, chance: ExperienceRing.dropChance},
+                {class: TeleportationRing, chance: TeleportationRing.dropChance},
+                {class: InvisibilityRing, chance: InvisibilityRing.dropChance},
+                {class: BerserkerRing, chance: BerserkerRing.dropChance},
+                {class: TurtleRing, chance: TurtleRing.dropChance},
             ];
         }
         return this._itemTypes;
@@ -331,31 +597,145 @@ class ItemFactory {
         return new Gold(x, y);
     }
 
-    static createLevelAppropriateItem(x, y, currentLevel, playerLuck = 50) {
+    static createLevelAppropriateItem(x, y, currentLevel, playerLuck = 50, options = {}) {
+        const {
+            forceRarity = null,
+            category = null,
+            guaranteeEnchantment = false,
+            bossDropBonus = false
+        } = options;
+
         const effectiveLevel = ItemFactory.calculateEffectiveLevel(currentLevel, playerLuck);
 
-        // Filter items that are appropriate for this level (with luck modifier)
-        const validItems = ItemFactory.itemTypes.filter(itemType => {
+        // Filter items that are appropriate for this level
+        let validItems = ItemFactory.itemTypes.filter(itemType => {
             const levelRange = itemType.class.levelRange;
-            if (!levelRange) return true; // Items without level range are always valid
-
-            // Item is valid if the effective level overlaps with its level range
+            if (!levelRange) return true;
             return effectiveLevel >= levelRange[0] && effectiveLevel <= levelRange[1];
         });
 
-        // If no valid items found (shouldn't happen), fall back to all items
+        // Filter by category if specified
+        if (category) {
+            validItems = validItems.filter(itemType =>
+                ItemFactory.getItemCategory(itemType.class) === category
+            );
+        }
+
         if (validItems.length === 0) {
             return ItemFactory.createRandomItem(x, y);
         }
 
-        // Use weighted random selection
-        const selectedItem = ItemFactory.selectWeightedRandom(validItems);
-        if (selectedItem) {
-            return new selectedItem.class(x, y);
+        // Scale drop chances based on level
+        const scaledItems = validItems.map(itemType => ({
+            class: itemType.class,
+            chance: ItemFactory.scaleDropChance(
+                itemType.chance,
+                itemType.class.levelRange,
+                effectiveLevel
+            )
+        }));
+
+        // Select item
+        const selectedItem = ItemFactory.selectWeightedRandom(scaledItems);
+        if (!selectedItem) {
+            return new validItems[0].class(x, y);
         }
 
-        // Fallback to first valid item
-        return new validItems[0].class(x, y);
+        const item = new selectedItem.class(x, y);
+
+        // Determine rarity (with boss drop bonus)
+        const rarity = forceRarity || ItemFactory.rollRarity(
+            currentLevel + (bossDropBonus ? 5 : 0),
+            playerLuck + (bossDropBonus ? 20 : 0)
+        );
+
+        // Apply rarity effects
+        if (item instanceof Weapon || item instanceof Armor) {
+            ItemFactory.applyQualityModifier(item, rarity);
+
+            if (guaranteeEnchantment || Math.random() < rarity.enchantChance) {
+                ItemFactory.applyRandomEnchantment(item, rarity, currentLevel);
+            }
+
+            // Store rarity info
+            item.rarity = rarity;
+        }
+
+        return item;
+    }
+
+    // Get items by category
+    static getItemsByCategory(category) {
+        return ItemFactory.itemTypes.filter(itemType =>
+            ItemFactory.getItemCategory(itemType.class) === category
+        );
+    }
+
+    // Generate a boss drop (guaranteed high quality)
+    static createBossDrop(x, y, currentLevel, playerLuck = 50) {
+        // Boss drops are always weapons or armor
+        const category = Math.random() < 0.5 ? ItemCategory.WEAPON : ItemCategory.ARMOR;
+
+        return ItemFactory.createLevelAppropriateItem(x, y, currentLevel, playerLuck, {
+            category: category,
+            bossDropBonus: true,
+            guaranteeEnchantment: true
+        });
+    }
+
+    // Generate a treasure chest drop (multiple items, higher quality)
+    static createTreasureChestLoot(x, y, currentLevel, playerLuck = 50) {
+        const items = [];
+        const numItems = Math.floor(Math.random() * 3) + 2; // 2-4 items
+
+        for (let i = 0; i < numItems; i++) {
+            // Higher chance of good items from chests
+            const item = ItemFactory.createLevelAppropriateItem(
+                x, y,
+                currentLevel + 2, // +2 level bonus
+                playerLuck + 10,  // +10 luck bonus
+                { bossDropBonus: Math.random() < 0.3 } // 30% chance of boss-quality
+            );
+            items.push(item);
+        }
+
+        // Always include gold
+        const goldAmount = Math.floor((Math.random() * 100 + 50) * (1 + currentLevel / 10));
+        items.push(new Gold(x, y, goldAmount));
+
+        return items;
+    }
+
+    // Apply curse chance to an item (called by ItemManager)
+    static rollCurse(item, currentLevel) {
+        if (!(item instanceof Weapon || item instanceof Armor)) return;
+
+        const curseChance = 0.05 + (currentLevel * 0.01); // 5% + 1% per level
+        if (Math.random() < curseChance) {
+            item.applyCurse();
+        }
+    }
+
+    // Get statistics about the item pool (useful for debugging)
+    static getItemPoolStats() {
+        const stats = {
+            total: ItemFactory.itemTypes.length,
+            byCategory: {},
+            byLevelRange: {}
+        };
+
+        ItemFactory.itemTypes.forEach(itemType => {
+            const category = ItemFactory.getItemCategory(itemType.class);
+            stats.byCategory[category] = (stats.byCategory[category] || 0) + 1;
+
+            const range = itemType.class.levelRange;
+            if (range) {
+                const rangeKey = `${range[0]}-${range[1]}`;
+                stats.byLevelRange[rangeKey] = (stats.byLevelRange[rangeKey] || 0) + 1;
+            }
+        });
+
+        return stats;
     }
 }
 
@@ -415,13 +795,8 @@ class ItemManager {
                     const playerLuck = Game.player.luck;
                     const item = ItemFactory.createLevelAppropriateItem(x, y, currentLevel, playerLuck);
 
-                    // Chance to curse weapons and armor (5% base chance, increases with level)
-                    if (item && (item instanceof Weapon || item instanceof Armor)) {
-                        const curseChance = 0.05 + (currentLevel * 0.01); // 5% + 1% per level
-                        if (Math.random() < curseChance) {
-                            item.applyCurse();
-                        }
-                    }
+                    // Chance to curse weapons and armor
+                    ItemFactory.rollCurse(item, currentLevel);
 
                     // Store item in the floor tile
                     tile.addItem(item);
@@ -531,6 +906,8 @@ if (typeof module !== 'undefined') {
         EquippableItem,
         Gold,
         EmptyItem,
+        ItemRarity,
+        ItemCategory,
         // Re-export weapon classes from weapons module for backward compatibility
         ...weaponsModule,
         // Re-export armor classes from armor module for backward compatibility

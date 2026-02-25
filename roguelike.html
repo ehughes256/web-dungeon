@@ -416,13 +416,14 @@
             margin-top: 3px;
         }
     </style>
-    <script src="monster.js"></script>
     <script src="items.js"></script>
     <script src="potions.js"></script>
-    <script src="traps.js"></script>
     <script src="scrolls.js"></script>
+    <script src="wands.js"></script>
     <script src="weapons.js"></script>
     <script src="armor.js"></script>
+    <script src="traps.js"></script>
+    <script src="monster.js"></script>
     <script src="player.js"></script>
     <script src="maze.js"></script>
     <script src="game.js"></script>
@@ -464,6 +465,7 @@
                 <div class="stat">Lv:<span id="level">1</span></div>
                 <div class="stat">Xp:<span id="exp">0</span></div>
                 <div class="stat">H:<span id="health">100</span></div>
+                <div class="stat">M:<span id="mana">100</span></div>
                 <div class="stat">$:<span id="gold">0</span></div>
                 <div class="stat">Wt:<span id="weight">0</span></div>
             </div>
@@ -480,25 +482,55 @@
             this.futureEvents = {};
         }
 
-        scheduleEvent(ticksFromNow, object, callback) {
+        scheduleEvent(ticksFromNow, callback) {
             const execTick = this.game.currentTick + ticksFromNow;
             if (!this.futureEvents[execTick]) this.futureEvents[execTick] = [];
-            const anEvent = {object: callback};
+            const anEvent = {callback: callback};
             this.futureEvents[execTick].push(anEvent);
         }
 
         async advanceTime() {
             this.game.currentTick++;
-            await this.game.monsterManager.processTimeIncrement();
+            const hadMonsterActivity = await this.game.monsterManager.processTimeIncrement();
+
+            let hadPlayerActivity = false;
+
+            // Natural healing
             if (Game.player.nextFreeHealTime <= this.game.currentTick) {
                 Game.player.nextFreeHealTime = this.game.currentTick + 3000;
-                Game.player.heal(1);
+                const baseHeal = 1;
+                const regenBonus = Game.player.getRegenerationBonus();
+                const totalHeal = baseHeal + regenBonus;
+                const healed = Game.player.heal(totalHeal);
+                if (healed > 0) hadPlayerActivity = true;
             }
+
+            // Mana regeneration (every 1000 ticks = ~10 seconds of real time)
+            if (this.game.currentTick % 1000 === 0) {
+                const baseManaRegen = 1;
+                const manaRegenBonus = Game.player.getManaRegenBonus();
+                const totalManaRegen = baseManaRegen + manaRegenBonus;
+                const restored = Game.player.restoreMana(totalManaRegen);
+                if (restored > 0) hadPlayerActivity = true;
+            }
+
+            // Update equipped item identification progress
+            const identifiedItem = Game.player.updateEquippedItemIdentification();
+            if (identifiedItem) hadPlayerActivity = true;
+
+            // Update player speed from equipment
+            Game.player.speed = Game.player.getCurrentSpeed();
+
+            let hadEventActivity = false;
             if (this.futureEvents[this.game.currentTick]) {
                 const events = this.futureEvents[this.game.currentTick];
                 delete this.futureEvents[this.game.currentTick];
-                events.forEach(cb => cb.object(this.game));
+                events.forEach(event => event.callback(this.game));
+                hadEventActivity = events.length > 0;
             }
+
+            // Return true if anything visually changed
+            return hadMonsterActivity || hadPlayerActivity || hadEventActivity;
         }
     }
 

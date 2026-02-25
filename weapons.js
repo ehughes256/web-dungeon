@@ -3,6 +3,28 @@
 // In browser: items.js loads before this file via script tags
 // In Node.js: items.js sets global.EquippableItem before requiring this module
 
+// Damage types for weapons
+const DamageType = {
+    PHYSICAL: 'physical',
+    FIRE: 'fire',
+    ICE: 'ice',
+    LIGHTNING: 'lightning',
+    POISON: 'poison',
+    HOLY: 'holy',
+    DARK: 'dark'
+};
+
+// Damage type colors for UI
+const DamageTypeColors = {
+    physical: '#cccccc',
+    fire: '#ff5522',
+    ice: '#5599ff',
+    lightning: '#ffff44',
+    poison: '#44ff44',
+    holy: '#ffddaa',
+    dark: '#aa44ff'
+};
+
 // Weapon spawning constants
 const WEAPON_SPAWN_MAX_ATTEMPTS = 60;
 const PRIMITIVE_WEAPON_PHASE_OUT_LEVEL = 3;
@@ -104,6 +126,8 @@ class Weapon extends EquippableItem {
         this.enchantments = {};
         this.damage = Weapon.baseDamage;
         this.attackBonus = 0;
+        this.damageType = DamageType.PHYSICAL; // Base damage type
+        this.elementalDamage = {}; // e.g., { fire: 5, ice: 3 }
 
         // Apply config if provided
         if (configKey && WEAPON_CONFIGS[configKey]) {
@@ -141,10 +165,37 @@ class Weapon extends EquippableItem {
         return (this.bonuses.attack || 0) + (this.enchantments.attack || 0) + this.attackBonus;
     }
 
+    // Get total elemental damage (base + enchantments)
+    getElementalDamage(type) {
+        const base = this.elementalDamage[type] || 0;
+        const enchant = (this.enchantments.elemental && this.enchantments.elemental[type]) || 0;
+        return base + enchant;
+    }
+
+    // Get all elemental damage types and amounts
+    getAllElementalDamage() {
+        const result = {};
+
+        // Combine base elemental damage
+        for (const [type, amount] of Object.entries(this.elementalDamage)) {
+            result[type] = amount;
+        }
+
+        // Add enchantment elemental damage
+        if (this.enchantments.elemental) {
+            for (const [type, amount] of Object.entries(this.enchantments.elemental)) {
+                result[type] = (result[type] || 0) + amount;
+            }
+        }
+
+        return result;
+    }
+
     onCollect(game) {
         const weaponCopy = this.createInventoryCopy();
         Game.player.addWeapon(weaponCopy);
-        game.addMessage(`Found a ${this.name}!`);
+        const displayName = weaponCopy.getDisplayName ? weaponCopy.getDisplayName() : weaponCopy.name;
+        game.addMessage(`Found a ${displayName}!`);
     }
 
     getType() {
@@ -402,6 +453,8 @@ class DragonSlayer extends Weapon {
 // Export for both Node.js and browser environments
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
+        DamageType,
+        DamageTypeColors,
         WEAPON_SPAWN_MAX_ATTEMPTS,
         PRIMITIVE_WEAPON_PHASE_OUT_LEVEL,
         BASIC_WEAPON_PHASE_OUT_LEVEL,

@@ -21,6 +21,16 @@ class Monster {
         this.lastKnownPlayerLocation = null; // For tracking player last seen position
         this.lastSawPlayerMoves = 0;
         this.type = this.getType();
+        // Elemental resistances: 0.0 = immune, 0.5 = half damage, 1.0 = normal, 1.5 = weakness, 2.0 = double damage
+        this.resistances = {
+            physical: 1.0,
+            fire: 1.0,
+            ice: 1.0,
+            lightning: 1.0,
+            poison: 1.0,
+            holy: 1.0,
+            dark: 1.0
+        };
 
         // Set stats - to be overridden by subclasses
         this.setStats();
@@ -56,8 +66,8 @@ class Monster {
             return;
         }
 
-        // Default behavior: move toward player if visible
-        if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x] && dist <= 10) {
+        // Default behavior: move toward player if visible (and not invisible)
+        if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x] && dist <= 10 && !Game.player.invisible) {
             this.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
             this.lastSawPlayerMoves = 0;
             const step =
@@ -111,9 +121,19 @@ class Monster {
         return this.hp > 0;
     }
 
-    takeDamage(amount) {
-        this.hp -= amount;
-        return this.hp <= 0;
+    takeDamage(amount, damageType = 'physical') {
+        // Apply elemental resistance/weakness
+        const resistance = this.resistances[damageType] || 1.0;
+        const actualDamage = Math.floor(amount * resistance);
+
+        this.hp -= actualDamage;
+        return {
+            died: this.hp <= 0,
+            actualDamage: actualDamage,
+            resistance: resistance,
+            wasResisted: resistance < 1.0,
+            wasWeak: resistance > 1.0
+        };
     }
 
     distanceTo(x, y) {
@@ -227,6 +247,11 @@ class Skeleton extends Monster {
     constructor(id, x, y) {
         super(id, x, y);
         this.description = 'Rattling bones bound by necromantic malice; empty sockets glow with cold, unwavering purpose.';
+        // Thematic resistances (undead)
+        this.resistances.poison = 0.0; // Immune to poison
+        this.resistances.ice = 0.5; // Resistant to cold
+        this.resistances.holy = 1.5; // Weak to holy
+        this.resistances.dark = 0.5; // Resistant to dark
     }
 
     getType() {
@@ -258,6 +283,9 @@ class Spider extends Monster {
     constructor(id, x, y) {
         super(id, x, y);
         this.description = 'A skittering cavern spider, chitin glistening while venom beads along its hooked fangs.';
+        // Thematic resistances
+        this.resistances.poison = 0.0; // Immune to poison (produces it)
+        this.resistances.fire = 1.5; // Weak to fire (chitin burns)
     }
 
     getType() {
@@ -538,6 +566,12 @@ class Ghost extends Monster {
     constructor(id, x, y) {
         super(id, x, y);
         this.description = 'A translucent remnant of a restless soul, its edges fraying into the chill air.';
+        // Thematic resistances (undead/incorporeal)
+        this.resistances.poison = 0.0; // Immune to poison
+        this.resistances.ice = 0.3; // Highly resistant to cold
+        this.resistances.physical = 0.5; // Resistant to physical (incorporeal)
+        this.resistances.holy = 1.5; // Weak to holy
+        this.resistances.dark = 0.5; // Resistant to dark
     }
 
     getType() {
@@ -600,9 +634,1672 @@ class Ghost extends Monster {
     }
 }
 
+// ============================================
+// ORC HIERARCHY (all use 'O' symbol)
+// ============================================
+
+// Uruk-hai - Elite orc warriors
+class UrukHai extends Monster {
+    static levelRange = [4, 9];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A towering orc-breed forged for war, armored in blackened steel and fear.';
+    }
+
+    getType() {
+        return 'uruk-hai';
+    }
+
+    setStats() {
+        this.hp = 22 + Math.floor(Math.random() * 7); // 22-28 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 120;
+        this.speed = 140; // Faster than regular orc
+        this.experience = 25;
+    }
+
+    getSymbol() {
+        return 'O';
+    }
+
+    getColor() {
+        return '#8B0000'; // Dark red
+    }
+}
+
+// Orc Berserker - Frenzied attacker
+class OrcBerserker extends Monster {
+    static levelRange = [5, 10];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Frothing with battle-lust, this orc warrior fights with reckless, devastating fury.';
+    }
+
+    getType() {
+        return 'orc berserker';
+    }
+
+    setStats() {
+        this.hp = 18 + Math.floor(Math.random() * 7); // 18-24 HP
+        this.maxHp = this.hp;
+        this.dmg = 12;
+        this.size = 115;
+        this.speed = 120;
+        this.experience = 30;
+    }
+
+    getSymbol() {
+        return 'O';
+    }
+
+    getColor() {
+        return '#FF0000'; // Bright red
+    }
+}
+
+// Orc Shaman - Magic-using orc
+class OrcShaman extends Monster {
+    static levelRange = [6, 11];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Bones and fetishes clatter as this orc witch-doctor channels dark, primal magic.';
+        this.spellCooldown = 0;
+    }
+
+    getType() {
+        return 'orc shaman';
+    }
+
+    setStats() {
+        this.hp = 16 + Math.floor(Math.random() * 5); // 16-20 HP
+        this.maxHp = this.hp;
+        this.dmg = 8;
+        this.size = 105;
+        this.speed = 160;
+        this.experience = 35;
+    }
+
+    getSymbol() {
+        return 'O';
+    }
+
+    getColor() {
+        return '#9932CC'; // Purple
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Cast spell at range
+        if (dist >= 2 && dist <= 5 && this.spellCooldown <= 0 && Math.random() < 0.4) {
+            const spellType = Math.floor(Math.random() * 2);
+
+            if (spellType === 0) {
+                // Dark bolt
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} hurls a dark bolt!`);
+                const boltDamage = Game.player.hitPlayer(9);
+                if (boltDamage > 0) {
+                    monsterManager.game.addMessage(`Dark magic strikes you for ${boltDamage} damage!`);
+                }
+            } else {
+                // Curse (weaken player temporarily)
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} curses you!`);
+                const curseDamage = Game.player.hitPlayer(5);
+                if (curseDamage > 0) {
+                    monsterManager.game.addMessage(`The curse drains ${curseDamage} HP!`);
+                }
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.spellCooldown = 6;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.spellCooldown = Math.max(0, this.spellCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// ============================================
+// GOBLIN HIERARCHY (all use 'g' symbol)
+// ============================================
+
+// Hobgoblin - Larger, disciplined goblins
+class Hobgoblin extends Monster {
+    static levelRange = [3, 7];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A disciplined goblinoid soldier, taller and crueler than its lesser kin.';
+    }
+
+    getType() {
+        return 'hobgoblin';
+    }
+
+    setStats() {
+        this.hp = 12 + Math.floor(Math.random() * 5); // 12-16 HP
+        this.maxHp = this.hp;
+        this.dmg = 7;
+        this.size = 95;
+        this.speed = 100;
+        this.experience = 12;
+    }
+
+    getSymbol() {
+        return 'g';
+    }
+
+    getColor() {
+        return '#FFA500'; // Orange
+    }
+}
+
+// Goblin Archer - Ranged attacker
+class GoblinArcher extends Monster {
+    static levelRange = [2, 6];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A sneering goblin with a crude bow, quick to loose poison-tipped arrows.';
+    }
+
+    getType() {
+        return 'goblin archer';
+    }
+
+    setStats() {
+        this.hp = 5 + Math.floor(Math.random() * 3); // 5-7 HP
+        this.maxHp = this.hp;
+        this.dmg = 6;
+        this.size = 75;
+        this.speed = 80;
+        this.experience = 8;
+    }
+
+    getSymbol() {
+        return 'g';
+    }
+
+    getColor() {
+        return '#00CC00'; // Lime green
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Shoot arrow at range 2-5
+        if (dist >= 2 && dist <= 5 && Math.random() < 0.6) {
+            monsterManager.game.running = false;
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} shoots an arrow!`);
+
+            const chanceToEvade = Game.player.chanceToEvade();
+            if ((Math.random() * 100) < chanceToEvade) {
+                monsterManager.game.addMessage('You dodge the arrow!');
+            } else {
+                const arrowDamage = Game.player.hitPlayer(this.dmg);
+                if (arrowDamage > 0) {
+                    monsterManager.game.addMessage(`The arrow hits for ${arrowDamage} damage!`);
+                } else {
+                    monsterManager.game.addMessage('Your armor deflects the arrow!');
+                }
+
+                if (Game.player.isDead()) {
+                    monsterManager.game.gameOver = true;
+                    monsterManager.game.addMessage('You die. Game over.');
+                }
+            }
+
+            this.scheduleNextAction(monsterManager.game.currentTick, this.attackSpeed);
+            return;
+        }
+
+        // Melee if adjacent
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        // Move toward player
+        super.performAction(monsterManager);
+    }
+}
+
+// Goblin King - Rare boss-type goblin
+class GoblinKing extends Monster {
+    static levelRange = [6, 10];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A bloated goblin chieftain draped in stolen gold and unearned arrogance.';
+    }
+
+    getType() {
+        return 'goblin king';
+    }
+
+    setStats() {
+        this.hp = 28 + Math.floor(Math.random() * 8); // 28-35 HP
+        this.maxHp = this.hp;
+        this.dmg = 9;
+        this.size = 105;
+        this.speed = 90;
+        this.experience = 40;
+    }
+
+    getSymbol() {
+        return 'g';
+    }
+
+    getColor() {
+        return '#FFD700'; // Gold
+    }
+}
+
+// ============================================
+// UNDEAD HIERARCHY (various symbols)
+// ============================================
+
+// Zombie - Slow, durable undead (use 'z')
+class Zombie extends Monster {
+    static levelRange = [1, 5];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Rotting flesh drips from shambling bones; hunger eternal drives each lurching step.';
+        // Thematic resistances (undead)
+        this.resistances.poison = 0.0; // Immune to poison
+        this.resistances.ice = 0.5; // Resistant to cold
+        this.resistances.holy = 1.5; // Weak to holy
+        this.resistances.dark = 0.5; // Resistant to dark
+        this.resistances.fire = 1.3; // Somewhat weak to fire (decaying flesh)
+    }
+
+    getType() {
+        return 'zombie';
+    }
+
+    setStats() {
+        this.hp = 16 + Math.floor(Math.random() * 5); // 16-20 HP
+        this.maxHp = this.hp;
+        this.dmg = 5;
+        this.size = 100;
+        this.speed = 250; // Very slow
+        this.experience = 8;
+    }
+
+    getSymbol() {
+        return 'z';
+    }
+
+    getColor() {
+        return '#556B2F'; // Dark olive
+    }
+}
+
+// Wight - Powerful undead warrior (use 'W')
+class Wight extends Monster {
+    static levelRange = [7, 12];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Once a warrior-king, now a hollow husk armored in ancient mail and deathless malice.';
+        // Thematic resistances (undead/armored)
+        this.resistances.poison = 0.0; // Immune to poison
+        this.resistances.ice = 0.4; // Highly resistant to cold
+        this.resistances.physical = 0.8; // Resistant (armored)
+        this.resistances.holy = 1.5; // Weak to holy
+        this.resistances.dark = 0.3; // Highly resistant to dark
+    }
+
+    getType() {
+        return 'wight';
+    }
+
+    setStats() {
+        this.hp = 20 + Math.floor(Math.random() * 7); // 20-26 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 105;
+        this.speed = 130;
+        this.experience = 45;
+    }
+
+    getSymbol() {
+        return 'W';
+    }
+
+    getColor() {
+        return '#4169E1'; // Royal blue
+    }
+}
+
+// Lich - Undead sorcerer with powerful magic
+class Lich extends Monster {
+    static levelRange = [10, 15];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A desiccated sorcerer wrapped in eldritch power, immortality\'s terrible price paid in full.';
+        this.spellCooldown = 0;
+        // Thematic resistances (undead/sorcerer)
+        this.resistances.poison = 0.0; // Immune to poison
+        this.resistances.ice = 0.3; // Highly resistant to cold
+        this.resistances.fire = 0.7; // Resistant (magical)
+        this.resistances.lightning = 0.7; // Resistant (magical)
+        this.resistances.holy = 1.5; // Weak to holy
+        this.resistances.dark = 0.0; // Immune to dark (source of power)
+    }
+
+    getType() {
+        return 'lich';
+    }
+
+    setStats() {
+        this.hp = 35 + Math.floor(Math.random() * 11); // 35-45 HP
+        this.maxHp = this.hp;
+        this.dmg = 15;
+        this.size = 100;
+        this.speed = 140;
+        this.experience = 80;
+    }
+
+    getSymbol() {
+        return 'L';
+    }
+
+    getColor() {
+        return '#9400D3'; // Dark violet
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Cast powerful spell at range
+        if (dist >= 2 && dist <= 7 && this.spellCooldown <= 0 && Math.random() < 0.5) {
+            const spellType = Math.floor(Math.random() * 3);
+
+            switch (spellType) {
+                case 0: // Death bolt
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()} casts a death bolt!`);
+                    const boltDamage = Game.player.hitPlayer(18);
+                    if (boltDamage > 0) {
+                        monsterManager.game.addMessage(`Necrotic energy sears you for ${boltDamage} damage!`);
+                    }
+                    break;
+
+                case 1: // Drain life
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()} drains your life force!`);
+                    const drainDamage = Game.player.hitPlayer(12);
+                    if (drainDamage > 0) {
+                        this.hp = Math.min(this.maxHp, this.hp + drainDamage);
+                        monsterManager.game.addMessage(`You lose ${drainDamage} HP and the ${this.getDisplayName()} heals!`);
+                    }
+                    break;
+
+                case 2: // Ice storm
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()} summons an ice storm!`);
+                    const iceDamage = Game.player.hitPlayer(14, 'ice');
+                    if (iceDamage > 0) {
+                        monsterManager.game.addMessage(`You are frozen for ${iceDamage} damage!`);
+                        Game.player.speed = Math.min(250, Game.player.speed + 75);
+                        monsterManager.game.timeManager.scheduleEvent(100, () => {
+                            Game.player.speed = Math.max(100, Game.player.speed - 75);
+                        });
+                    }
+                    break;
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.spellCooldown = 5;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.spellCooldown = Math.max(0, this.spellCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Vampire - Blood-draining undead (use 'V')
+class Vampire extends Monster {
+    static levelRange = [8, 13];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Aristocratic death incarnate; beauty, cruelty, and hunger wrapped in a velvet cloak.';
+        // Thematic resistances (undead/vampiric)
+        this.resistances.poison = 0.0; // Immune to poison
+        this.resistances.ice = 0.5; // Resistant to cold
+        this.resistances.physical = 0.8; // Resistant (supernatural resilience)
+        this.resistances.holy = 2.0; // Double damage from holy
+        this.resistances.dark = 0.0; // Immune to dark
+        this.resistances.fire = 1.3; // Somewhat weak to fire
+    }
+
+    getType() {
+        return 'vampire';
+    }
+
+    setStats() {
+        this.hp = 30 + Math.floor(Math.random() * 9); // 30-38 HP
+        this.maxHp = this.hp;
+        this.dmg = 12;
+        this.size = 100;
+        this.speed = 80; // Very fast
+        this.experience = 60;
+    }
+
+    getSymbol() {
+        return 'V';
+    }
+
+    getColor() {
+        return '#8B0000'; // Dark red
+    }
+
+    // Override attack to add life drain
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            // Life drain attack
+            monsterManager.game.running = false;
+
+            const chanceToEvade = Game.player.chanceToEvade();
+            if ((Math.random() * 100) < chanceToEvade) {
+                monsterManager.game.addMessage(`You evade the ${this.getDisplayName()}'s bite!`);
+                this.scheduleNextAction(monsterManager.game.currentTick, this.attackSpeed);
+                return;
+            }
+
+            const dmg = Math.max(1, this.getDamage());
+            const actualDamage = Game.player.hitPlayer(dmg);
+
+            if (actualDamage > 0) {
+                // Heal vampire for half the damage dealt
+                const healAmount = Math.ceil(actualDamage / 2);
+                this.hp = Math.min(this.maxHp, this.hp + healAmount);
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} drains your blood for ${actualDamage} damage and heals ${healAmount} HP!`);
+            } else {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} attacks but you block it!`);
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.scheduleNextAction(monsterManager.game.currentTick, this.attackSpeed);
+            return;
+        }
+
+        // Default movement behavior
+        super.performAction(monsterManager);
+    }
+}
+
+// ============================================
+// DRAGON HIERARCHY (all use 'D' symbol)
+// ============================================
+
+// Dragon Wyrmling - Baby dragon
+class DragonWyrmling extends Monster {
+    static levelRange = [4, 8];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A hatchling drake, scales still soft, but breath already smoldering with promise.';
+        this.breathCooldown = 0; // Cooldown for breath weapon
+        // Thematic resistances
+        this.resistances.fire = 0.5; // Resistant to fire
+        this.resistances.ice = 1.3; // Somewhat weak to ice
+    }
+
+    getType() {
+        return 'dragon wyrmling';
+    }
+
+    setStats() {
+        this.hp = 18 + Math.floor(Math.random() * 7); // 18-24 HP
+        this.maxHp = this.hp;
+        this.dmg = 8;
+        this.size = 90;
+        this.speed = 110;
+        this.experience = 20;
+    }
+
+    getSymbol() {
+        return 'D';
+    }
+
+    getColor() {
+        return '#FF6347'; // Tomato red
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Use fire breath if in range (2-3 tiles) and off cooldown
+        if (dist >= 2 && dist <= 3 && this.breathCooldown <= 0 && Math.random() < 0.4) {
+            this.useFireBreath(monsterManager, 6, 2); // 6 damage, 2 tile radius
+            this.breathCooldown = 8; // 8 turn cooldown
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.breathCooldown = Math.max(0, this.breathCooldown - 1);
+
+        // If adjacent, melee attack
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        // Otherwise use default movement
+        super.performAction(monsterManager);
+    }
+
+    useFireBreath(monsterManager, damage, radius) {
+        const game = monsterManager.game;
+        game.addMessage(`The ${this.getDisplayName()} breathes fire!`);
+
+        // Calculate distance to player
+        const distToPlayer = Math.sqrt(
+            Math.pow(Game.player.x - this.x, 2) + Math.pow(Game.player.y - this.y, 2)
+        );
+
+        if (distToPlayer <= radius) {
+            const actualDamage = Game.player.hitPlayer(damage, 'fire');
+            if (actualDamage > 0) {
+                game.addMessage(`You are burned for ${actualDamage} damage!`);
+            }
+
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('You die. Game over.');
+            }
+        }
+    }
+}
+
+// Young Dragon - Adolescent dragon
+class YoungDragon extends Monster {
+    static levelRange = [8, 13];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Wings spread wide, this drake has mastered flame and flight; only wisdom remains elusive.';
+        this.breathCooldown = 0;
+        // Thematic resistances
+        this.resistances.fire = 0.3; // Highly resistant to fire
+        this.resistances.ice = 1.3; // Somewhat weak to ice
+    }
+
+    getType() {
+        return 'young dragon';
+    }
+
+    setStats() {
+        this.hp = 40 + Math.floor(Math.random() * 11); // 40-50 HP
+        this.maxHp = this.hp;
+        this.dmg = 14;
+        this.size = 140;
+        this.speed = 130;
+        this.armor = 3;
+        this.experience = 70;
+    }
+
+    getSymbol() {
+        return 'D';
+    }
+
+    getColor() {
+        return '#FF4500'; // Orange-red
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Use fire breath if in range and off cooldown
+        if (dist >= 2 && dist <= 4 && this.breathCooldown <= 0 && Math.random() < 0.5) {
+            this.useFireBreath(monsterManager, 12, 3); // 12 damage, 3 tile radius
+            this.breathCooldown = 6;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.breathCooldown = Math.max(0, this.breathCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+
+    useFireBreath(monsterManager, damage, radius) {
+        const game = monsterManager.game;
+        game.addMessage(`The ${this.getDisplayName()} breathes a gout of flame!`);
+
+        const distToPlayer = Math.sqrt(
+            Math.pow(Game.player.x - this.x, 2) + Math.pow(Game.player.y - this.y, 2)
+        );
+
+        if (distToPlayer <= radius) {
+            const actualDamage = Game.player.hitPlayer(damage, 'fire');
+            if (actualDamage > 0) {
+                game.addMessage(`You are seared for ${actualDamage} damage!`);
+            }
+
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('You die. Game over.');
+            }
+        }
+    }
+}
+
+// Ancient Dragon - Boss-tier dragon
+class AncientDragon extends Monster {
+    static levelRange = [12, 20];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Centuries of hoarded gold gleam beneath scales harder than steel; this is death made flesh.';
+        this.breathCooldown = 0;
+        // Thematic resistances
+        this.resistances.fire = 0.1; // Nearly immune to fire
+        this.resistances.ice = 1.3; // Somewhat weak to ice
+        this.resistances.physical = 0.8; // Armored scales
+    }
+
+    getType() {
+        return 'ancient dragon';
+    }
+
+    setStats() {
+        this.hp = 80 + Math.floor(Math.random() * 21); // 80-100 HP
+        this.maxHp = this.hp;
+        this.dmg = 22;
+        this.size = 200;
+        this.speed = 150;
+        this.armor = 5;
+        this.experience = 150;
+    }
+
+    getSymbol() {
+        return 'D';
+    }
+
+    getColor() {
+        return '#DC143C'; // Crimson
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Use devastating fire breath if in range
+        if (dist >= 1.5 && dist <= 5 && this.breathCooldown <= 0 && Math.random() < 0.6) {
+            this.useFireBreath(monsterManager, 20, 4); // 20 damage, 4 tile radius
+            this.breathCooldown = 5;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.breathCooldown = Math.max(0, this.breathCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+
+    useFireBreath(monsterManager, damage, radius) {
+        const game = monsterManager.game;
+        game.addMessage(`The ${this.getDisplayName()} unleashes an inferno!`);
+
+        const distToPlayer = Math.sqrt(
+            Math.pow(Game.player.x - this.x, 2) + Math.pow(Game.player.y - this.y, 2)
+        );
+
+        if (distToPlayer <= radius) {
+            const actualDamage = Game.player.hitPlayer(damage, 'fire');
+            if (actualDamage > 0) {
+                game.addMessage(`You are engulfed in flames for ${actualDamage} damage!`);
+            }
+
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('You die. Game over.');
+            }
+        }
+    }
+}
+
+// ============================================
+// DEMON HIERARCHY (all use '&' symbol)
+// ============================================
+
+// Imp - Minor demon
+class Imp extends Monster {
+    static levelRange = [3, 7];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A cackling sprite of sulfur and spite, horned and winged, delighting in mischief and pain.';
+        // Thematic resistances (demon)
+        this.resistances.fire = 0.5; // Resistant to fire
+        this.resistances.poison = 0.5; // Resistant to poison
+        this.resistances.dark = 0.5; // Resistant to dark
+        this.resistances.holy = 1.5; // Weak to holy
+    }
+
+    getType() {
+        return 'imp';
+    }
+
+    setStats() {
+        this.hp = 8 + Math.floor(Math.random() * 5); // 8-12 HP
+        this.maxHp = this.hp;
+        this.dmg = 6;
+        this.size = 70;
+        this.speed = 70; // Very fast
+        this.experience = 15;
+    }
+
+    getSymbol() {
+        return '&';
+    }
+
+    getColor() {
+        return '#FF1493'; // Deep pink
+    }
+}
+
+// Demon - Mid-tier demon
+class Demon extends Monster {
+    static levelRange = [7, 12];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Corded muscle, burning eyes, and claws like obsidian razors—a lieutenant of the abyss.';
+        // Thematic resistances (demon)
+        this.resistances.fire = 0.3; // Highly resistant to fire
+        this.resistances.poison = 0.4; // Highly resistant to poison
+        this.resistances.dark = 0.3; // Highly resistant to dark
+        this.resistances.holy = 1.5; // Weak to holy
+    }
+
+    getType() {
+        return 'demon';
+    }
+
+    setStats() {
+        this.hp = 28 + Math.floor(Math.random() * 9); // 28-36 HP
+        this.maxHp = this.hp;
+        this.dmg = 13;
+        this.size = 120;
+        this.speed = 110;
+        this.armor = 2;
+        this.experience = 50;
+    }
+
+    getSymbol() {
+        return '&';
+    }
+
+    getColor() {
+        return '#8B0000'; // Dark red
+    }
+}
+
+// Demon Lord - Boss demon with area fire
+class DemonLord extends Monster {
+    static levelRange = [11, 16];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Ancient, terrible, and crowned in flame; a prince of perdition walks the mortal realm.';
+        this.fireCooldown = 0;
+        // Thematic resistances (demon lord)
+        this.resistances.fire = 0.0; // Immune to fire (crowned in flame)
+        this.resistances.poison = 0.2; // Highly resistant to poison
+        this.resistances.dark = 0.0; // Immune to dark (prince of perdition)
+        this.resistances.physical = 0.7; // Resistant (armored)
+        this.resistances.holy = 2.0; // Double damage from holy
+    }
+
+    getType() {
+        return 'demon lord';
+    }
+
+    setStats() {
+        this.hp = 55 + Math.floor(Math.random() * 16); // 55-70 HP
+        this.maxHp = this.hp;
+        this.dmg = 18;
+        this.size = 150;
+        this.speed = 120;
+        this.armor = 4;
+        this.experience = 120;
+    }
+
+    getSymbol() {
+        return '&';
+    }
+
+    getColor() {
+        return '#FF0000'; // Bright red
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Hellfire blast at range
+        if (dist >= 2 && dist <= 6 && this.fireCooldown <= 0 && Math.random() < 0.5) {
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} unleashes hellfire!`);
+
+            const distToPlayer = Math.sqrt(
+                Math.pow(Game.player.x - this.x, 2) + Math.pow(Game.player.y - this.y, 2)
+            );
+
+            if (distToPlayer <= 3) {
+                const fireDamage = Game.player.hitPlayer(16, 'fire');
+                if (fireDamage > 0) {
+                    monsterManager.game.addMessage(`Infernal flames engulf you for ${fireDamage} damage!`);
+                }
+
+                if (Game.player.isDead()) {
+                    monsterManager.game.gameOver = true;
+                    monsterManager.game.addMessage('You die. Game over.');
+                }
+            }
+
+            this.fireCooldown = 5;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.fireCooldown = Math.max(0, this.fireCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// ============================================
+// BEAST HIERARCHY (all use 'w' symbol for wolves)
+// ============================================
+
+// Wolf - Pack hunter
+class Wolf extends Monster {
+    static levelRange = [2, 6];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Lean and hungry, yellow eyes gleaming; the pack hunts as one.';
+    }
+
+    getType() {
+        return 'wolf';
+    }
+
+    setStats() {
+        this.hp = 10 + Math.floor(Math.random() * 5); // 10-14 HP
+        this.maxHp = this.hp;
+        this.dmg = 6;
+        this.size = 90;
+        this.speed = 90;
+        this.experience = 10;
+    }
+
+    getSymbol() {
+        return 'w';
+    }
+
+    getColor() {
+        return '#808080'; // Gray
+    }
+}
+
+// Dire Wolf - Giant wolf
+class DireWolf extends Monster {
+    static levelRange = [5, 10];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Twice the size of common wolves, jaws strong enough to snap bone like kindling.';
+    }
+
+    getType() {
+        return 'dire wolf';
+    }
+
+    setStats() {
+        this.hp = 22 + Math.floor(Math.random() * 7); // 22-28 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 120;
+        this.speed = 95;
+        this.experience = 28;
+    }
+
+    getSymbol() {
+        return 'w';
+    }
+
+    getColor() {
+        return '#2F4F4F'; // Dark slate
+    }
+}
+
+// Werewolf - Shapeshifter with regeneration
+class Werewolf extends Monster {
+    static levelRange = [8, 13];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Man and beast twisted into one cursed form; silver alone can end its rampage.';
+        this.regenTick = 0;
+    }
+
+    getType() {
+        return 'werewolf';
+    }
+
+    setStats() {
+        this.hp = 35 + Math.floor(Math.random() * 11); // 35-45 HP
+        this.maxHp = this.hp;
+        this.dmg = 14;
+        this.size = 110;
+        this.speed = 85; // Very fast
+        this.experience = 65;
+    }
+
+    getSymbol() {
+        return 'w';
+    }
+
+    getColor() {
+        return '#8B4513'; // Saddle brown
+    }
+
+    performAction(monsterManager) {
+        // Regenerate 2 HP every 3 turns
+        this.regenTick++;
+        if (this.regenTick >= 3 && this.hp < this.maxHp) {
+            this.hp = Math.min(this.maxHp, this.hp + 2);
+            if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} regenerates!`);
+            }
+            this.regenTick = 0;
+        }
+
+        // Normal behavior
+        super.performAction(monsterManager);
+    }
+}
+
+// ============================================
+// ELEMENTAL HIERARCHY (all use 'E' symbol)
+// ============================================
+
+// Fire Elemental - Burns on contact
+class FireElemental extends Monster {
+    static levelRange = [6, 11];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Living flame given rage and form, scorching all it touches.';
+        // Thematic resistances
+        this.resistances.fire = 0.0; // Immune to fire
+        this.resistances.ice = 1.5; // Weak to ice
+        this.resistances.poison = 0.0; // Immune to poison (no body)
+    }
+
+    getType() {
+        return 'fire elemental';
+    }
+
+    setStats() {
+        this.hp = 20 + Math.floor(Math.random() * 7); // 20-26 HP
+        this.maxHp = this.hp;
+        this.dmg = 12;
+        this.size = 100;
+        this.speed = 100;
+        this.experience = 38;
+    }
+
+    getSymbol() {
+        return 'E';
+    }
+
+    getColor() {
+        return '#FF4500'; // Orange-red
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Burn player if adjacent (in addition to regular attack)
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+
+            // Additional burn damage
+            const burnDamage = Game.player.hitPlayer(3, 'fire');
+            if (burnDamage > 0) {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()}'s flames burn you for ${burnDamage} additional damage!`);
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Ice Elemental - Slows on contact
+class IceElemental extends Monster {
+    static levelRange = [6, 11];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Crystalline and cruel, winter\'s wrath shaped into merciless purpose.';
+        // Thematic resistances
+        this.resistances.ice = 0.0; // Immune to ice
+        this.resistances.fire = 1.5; // Weak to fire
+        this.resistances.poison = 0.0; // Immune to poison (no body)
+    }
+
+    getType() {
+        return 'ice elemental';
+    }
+
+    setStats() {
+        this.hp = 24 + Math.floor(Math.random() * 7); // 24-30 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 100;
+        this.speed = 140;
+        this.experience = 38;
+    }
+
+    getSymbol() {
+        return 'E';
+    }
+
+    getColor() {
+        return '#00FFFF'; // Cyan
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+
+            // Slow player
+            if (Math.random() < 0.5) {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()}'s icy touch slows you down!`);
+                const oldSpeed = Game.player.speed;
+                Game.player.speed = Math.min(200, Game.player.speed + 50);
+
+                // Schedule return to normal speed
+                monsterManager.game.timeManager.scheduleEvent(100, () => {
+                    Game.player.speed = oldSpeed;
+                    monsterManager.game.addMessage('You shake off the chill.');
+                });
+            }
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Lightning Elemental - Chain lightning
+class LightningElemental extends Monster {
+    static levelRange = [7, 12];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Pure electricity arcing with lethal intent, faster than thought, deadly as a thunderbolt.';
+        this.shockCooldown = 0;
+        // Thematic resistances
+        this.resistances.lightning = 0.0; // Immune to lightning
+        this.resistances.ice = 1.3; // Somewhat weak to ice (conductivity)
+        this.resistances.poison = 0.0; // Immune to poison (no body)
+    }
+
+    getType() {
+        return 'lightning elemental';
+    }
+
+    setStats() {
+        this.hp = 18 + Math.floor(Math.random() * 7); // 18-24 HP
+        this.maxHp = this.hp;
+        this.dmg = 14;
+        this.size = 90;
+        this.speed = 60; // Very fast
+        this.experience = 42;
+    }
+
+    getSymbol() {
+        return 'E';
+    }
+
+    getColor() {
+        return '#FFFF00'; // Yellow
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Lightning bolt attack at range
+        if (dist >= 2 && dist <= 5 && this.shockCooldown <= 0 && Math.random() < 0.4) {
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} hurls a lightning bolt!`);
+
+            const shockDamage = Game.player.hitPlayer(10, 'lightning');
+            if (shockDamage > 0) {
+                monsterManager.game.addMessage(`You are shocked for ${shockDamage} damage!`);
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.shockCooldown = 5;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.shockCooldown = Math.max(0, this.shockCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// ============================================
+// CONSTRUCT HIERARCHY (all use 'G' symbol)
+// ============================================
+
+// Clay Golem
+class ClayGolem extends Monster {
+    static levelRange = [4, 9];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Mud and magic molded into a lumbering guardian, loyal unto dissolution.';
+        // Thematic resistances
+        this.resistances.poison = 0.0; // Immune to poison (construct)
+        this.resistances.lightning = 0.3; // Highly resistant (insulator)
+        this.resistances.fire = 0.7; // Resistant (baked clay)
+    }
+
+    getType() {
+        return 'clay golem';
+    }
+
+    setStats() {
+        this.hp = 25 + Math.floor(Math.random() * 11); // 25-35 HP
+        this.maxHp = this.hp;
+        this.dmg = 8;
+        this.size = 120;
+        this.speed = 170;
+        this.armor = 2;
+        this.experience = 25;
+    }
+
+    getSymbol() {
+        return 'G';
+    }
+
+    getColor() {
+        return '#D2691E'; // Chocolate
+    }
+}
+
+// Stone Golem
+class StoneGolem extends Monster {
+    static levelRange = [6, 11];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Carved from living rock and bound by ancient runes, unstoppable but ponderous.';
+        // Thematic resistances
+        this.resistances.poison = 0.0; // Immune to poison (construct)
+        this.resistances.physical = 0.7; // Resistant (stone)
+        this.resistances.fire = 0.5; // Resistant (stone)
+        this.resistances.ice = 0.7; // Resistant (stone)
+    }
+
+    getType() {
+        return 'stone golem';
+    }
+
+    setStats() {
+        this.hp = 40 + Math.floor(Math.random() * 11); // 40-50 HP
+        this.maxHp = this.hp;
+        this.dmg = 11;
+        this.size = 140;
+        this.speed = 200; // Very slow
+        this.armor = 4;
+        this.experience = 45;
+    }
+
+    getSymbol() {
+        return 'G';
+    }
+
+    getColor() {
+        return '#808080'; // Gray
+    }
+}
+
+// Iron Golem
+class IronGolem extends Monster {
+    static levelRange = [9, 14];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Forged in arcane furnaces, this metal titan knows neither fear nor mercy.';
+        // Thematic resistances
+        this.resistances.poison = 0.0; // Immune to poison (construct)
+        this.resistances.physical = 0.5; // Highly resistant (iron)
+        this.resistances.fire = 0.4; // Highly resistant (forged)
+        this.resistances.ice = 0.6; // Resistant (metal)
+        this.resistances.lightning = 1.5; // Weak (conductor)
+    }
+
+    getType() {
+        return 'iron golem';
+    }
+
+    setStats() {
+        this.hp = 60 + Math.floor(Math.random() * 16); // 60-75 HP
+        this.maxHp = this.hp;
+        this.dmg = 15;
+        this.size = 160;
+        this.speed = 180;
+        this.armor = 6;
+        this.experience = 75;
+    }
+
+    getSymbol() {
+        return 'G';
+    }
+
+    getColor() {
+        return '#C0C0C0'; // Silver
+    }
+}
+
+// ============================================
+// UNIQUE MONSTERS (each has unique symbol)
+// ============================================
+
+// Basilisk - Petrifying serpent
+class Basilisk extends Monster {
+    static levelRange = [8, 13];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Eyes like death itself; to meet its gaze is to become stone eternal.';
+        // Thematic resistances
+        this.resistances.poison = 0.0; // Immune to poison (venomous)
+        this.resistances.physical = 0.7; // Resistant (tough scales)
+    }
+
+    getType() {
+        return 'basilisk';
+    }
+
+    setStats() {
+        this.hp = 25 + Math.floor(Math.random() * 8); // 25-32 HP
+        this.maxHp = this.hp;
+        this.dmg = 11;
+        this.size = 110;
+        this.speed = 120;
+        this.experience = 55;
+    }
+
+    getSymbol() {
+        return 'B';
+    }
+
+    getColor() {
+        return '#9ACD32'; // Yellow-green
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Petrifying gaze attack at range 2-4
+        if (dist >= 2 && dist <= 4 && Math.random() < 0.3) {
+            monsterManager.game.addMessage(`The ${this.getDisplayName()}'s gaze finds you!`);
+
+            // 40% chance to be paralyzed (miss next 2 turns)
+            if (Math.random() < 0.4) {
+                monsterManager.game.addMessage('You feel your body turning to stone! You are paralyzed!');
+                // Slow player by making their next actions much slower
+                Game.player.speed = Math.min(500, Game.player.speed + 200);
+
+                // Schedule return to normal speed
+                monsterManager.game.timeManager.scheduleEvent(200, () => {
+                    Game.player.speed = Math.max(100, Game.player.speed - 200);
+                    monsterManager.game.addMessage('You break free from the paralysis!');
+                });
+            } else {
+                monsterManager.game.addMessage('You avert your eyes just in time!');
+            }
+
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Beholder - Many-eyed aberration with random eye rays
+class Beholder extends Monster {
+    static levelRange = [10, 15];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A floating nightmare of eyes and teeth; each gaze brings a different doom.';
+        this.eyeRayCooldown = 0;
+        // Thematic resistances (magical aberration)
+        this.resistances.poison = 0.5; // Resistant to poison
+        this.resistances.fire = 0.6; // Resistant to fire (magical)
+        this.resistances.ice = 0.6; // Resistant to ice (magical)
+        this.resistances.lightning = 0.6; // Resistant to lightning (magical)
+    }
+
+    getType() {
+        return 'beholder';
+    }
+
+    setStats() {
+        this.hp = 32 + Math.floor(Math.random() * 11); // 32-42 HP
+        this.maxHp = this.hp;
+        this.dmg = 13;
+        this.size = 120;
+        this.speed = 110;
+        this.armor = 3;
+        this.experience = 85;
+    }
+
+    getSymbol() {
+        return 'e';
+    }
+
+    getColor() {
+        return '#FF00FF'; // Magenta
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Fire random eye ray at range
+        if (dist >= 2 && dist <= 6 && this.eyeRayCooldown <= 0 && Math.random() < 0.5) {
+            const rayType = Math.floor(Math.random() * 4);
+
+            switch (rayType) {
+                case 0: // Disintegration ray
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()}'s disintegration ray strikes!`);
+                    const disDamage = Game.player.hitPlayer(15);
+                    if (disDamage > 0) {
+                        monsterManager.game.addMessage(`You take ${disDamage} disintegration damage!`);
+                    }
+                    break;
+
+                case 1: // Slow ray
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()}'s slow ray hits you!`);
+                    Game.player.speed = Math.min(300, Game.player.speed + 100);
+                    monsterManager.game.timeManager.scheduleEvent(150, () => {
+                        Game.player.speed = Math.max(100, Game.player.speed - 100);
+                        monsterManager.game.addMessage('You recover from the slow effect.');
+                    });
+                    break;
+
+                case 2: // Fear ray
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()}'s fear ray terrifies you!`);
+                    const fearDamage = Game.player.hitPlayer(8);
+                    if (fearDamage > 0) {
+                        monsterManager.game.addMessage(`Fear racks your body for ${fearDamage} damage!`);
+                    }
+                    break;
+
+                case 3: // Telekinetic ray
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()}'s telekinetic ray batters you!`);
+                    const tkDamage = Game.player.hitPlayer(10);
+                    if (tkDamage > 0) {
+                        monsterManager.game.addMessage(`You take ${tkDamage} force damage!`);
+                    }
+                    break;
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.eyeRayCooldown = 4;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.eyeRayCooldown = Math.max(0, this.eyeRayCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Hydra - Multi-headed serpent
+class Hydra extends Monster {
+    static levelRange = [9, 14];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Seven heads writhe on serpentine necks; sever one and two more shall rise.';
+    }
+
+    getType() {
+        return 'hydra';
+    }
+
+    setStats() {
+        this.hp = 45 + Math.floor(Math.random() * 16); // 45-60 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 150;
+        this.speed = 130;
+        this.armor = 2;
+        this.experience = 70;
+    }
+
+    getSymbol() {
+        return 'H';
+    }
+
+    getColor() {
+        return '#006400'; // Dark green
+    }
+
+    // Multiple attacks per turn (3 heads strike)
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            monsterManager.game.running = false;
+
+            // Hydra attacks 3 times per turn (multiple heads)
+            let totalDamage = 0;
+            let hitCount = 0;
+
+            for (let i = 0; i < 3; i++) {
+                const chanceToEvade = Game.player.chanceToEvade();
+                if ((Math.random() * 100) < chanceToEvade) {
+                    continue; // This head misses
+                }
+
+                const dmg = Math.max(1, this.getDamage());
+                const actualDamage = Game.player.hitPlayer(dmg);
+                totalDamage += actualDamage;
+                if (actualDamage > 0) hitCount++;
+            }
+
+            if (hitCount > 0) {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()}'s ${hitCount} head${hitCount > 1 ? 's' : ''} strike for ${totalDamage} total damage!`);
+            } else {
+                monsterManager.game.addMessage(`You dodge all of the ${this.getDisplayName()}'s heads!`);
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.scheduleNextAction(monsterManager.game.currentTick, this.attackSpeed);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Manticore - Hybrid beast with tail spikes
+class Manticore extends Monster {
+    static levelRange = [7, 12];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Lion\'s body, dragon\'s wings, scorpion\'s tail, and human face twisted in eternal hunger.';
+        this.spikeCooldown = 0;
+    }
+
+    getType() {
+        return 'manticore';
+    }
+
+    setStats() {
+        this.hp = 28 + Math.floor(Math.random() * 9); // 28-36 HP
+        this.maxHp = this.hp;
+        this.dmg = 12;
+        this.size = 130;
+        this.speed = 100;
+        this.armor = 2;
+        this.experience = 48;
+    }
+
+    getSymbol() {
+        return 'M';
+    }
+
+    getColor() {
+        return '#8B4513'; // Saddle brown
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Fire tail spikes at range
+        if (dist >= 3 && dist <= 6 && this.spikeCooldown <= 0 && Math.random() < 0.4) {
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} launches tail spikes!`);
+
+            // Fire 3 spikes
+            let totalDamage = 0;
+            for (let i = 0; i < 3; i++) {
+                if (Math.random() < 0.7) { // 70% hit chance per spike
+                    const spikeDamage = Game.player.hitPlayer(4);
+                    totalDamage += spikeDamage;
+                }
+            }
+
+            if (totalDamage > 0) {
+                monsterManager.game.addMessage(`The spikes pierce you for ${totalDamage} total damage!`);
+            } else {
+                monsterManager.game.addMessage('The spikes miss!');
+            }
+
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+
+            this.spikeCooldown = 5;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.spikeCooldown = Math.max(0, this.spikeCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
 // Monster factory for creating monsters
 class MonsterFactory {
     static monsterTypes = [
+        // Original monsters
         {class: Goblin, weight: 4},
         {class: Orc, weight: 2},
         {class: Skeleton, weight: 2},
@@ -612,6 +2309,53 @@ class MonsterFactory {
         {class: Wizard, weight: 2},
         {class: Minotaur, weight: 1},
         {class: Ghost, weight: 2},
+
+        // Orc hierarchy
+        {class: UrukHai, weight: 2},
+        {class: OrcBerserker, weight: 2},
+        {class: OrcShaman, weight: 1},
+
+        // Goblin hierarchy
+        {class: Hobgoblin, weight: 3},
+        {class: GoblinArcher, weight: 3},
+        {class: GoblinKing, weight: 1}, // Rare
+
+        // Undead hierarchy
+        {class: Zombie, weight: 4},
+        {class: Wight, weight: 2},
+        {class: Lich, weight: 1}, // Rare boss
+        {class: Vampire, weight: 1},
+
+        // Dragon hierarchy
+        {class: DragonWyrmling, weight: 2},
+        {class: YoungDragon, weight: 1},
+        {class: AncientDragon, weight: 0.5}, // Very rare boss
+
+        // Demon hierarchy
+        {class: Imp, weight: 3},
+        {class: Demon, weight: 2},
+        {class: DemonLord, weight: 0.5}, // Very rare boss
+
+        // Beast hierarchy
+        {class: Wolf, weight: 4},
+        {class: DireWolf, weight: 2},
+        {class: Werewolf, weight: 1},
+
+        // Elemental hierarchy
+        {class: FireElemental, weight: 2},
+        {class: IceElemental, weight: 2},
+        {class: LightningElemental, weight: 2},
+
+        // Construct hierarchy
+        {class: ClayGolem, weight: 2},
+        {class: StoneGolem, weight: 1.5},
+        {class: IronGolem, weight: 1},
+
+        // Unique monsters
+        {class: Basilisk, weight: 1},
+        {class: Beholder, weight: 0.5}, // Very rare
+        {class: Hydra, weight: 1},
+        {class: Manticore, weight: 1.5},
     ];
 
     static createRandomMonster(id, x, y, currentLevel = 1) {
@@ -831,12 +2575,8 @@ class MonsterManager {
             }
         }
 
-        // Final render if monsters acted (to update any non-visible changes)
-        if (actingMonsters.length > 0) {
-            this.game.render();
-        }
-
-        return actingMonsters.length > 0;
+        // Return whether any monster actually moved (for conditional rendering)
+        return anyMovement;
     }
 
     // Combat methods
@@ -867,19 +2607,222 @@ class MonsterManager {
     async attackMonster(monster) {
         // Player attacks a monster
         const attack = Game.player.getAttack();
-        const damage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus) + 1;
+        const physicalDamage = Math.floor((Math.random() * attack.baseDamage) + attack.bonus + attack.strengthBonus) + 1;
 
-        const died = monster.takeDamage(damage);
-        this.game.addMessage(`You hit ${monster.getDisplayName()} for ${damage} damage.`);
+        // Apply physical damage with resistance
+        const physicalResult = monster.takeDamage(physicalDamage, 'physical');
+        let totalActualDamage = physicalResult.actualDamage;
+        const damageBreakdown = [{
+            type: 'physical',
+            intended: physicalDamage,
+            actual: physicalResult.actualDamage,
+            resistance: physicalResult.resistance
+        }];
+
+        // Calculate and apply elemental damage
+        const weapon = attack.weapon;
+        const elementalDamages = weapon.getAllElementalDamage();
+
+        for (const [type, amount] of Object.entries(elementalDamages)) {
+            if (amount > 0) {
+                // Apply to current HP (don't kill with elemental if already dead)
+                if (monster.hp > 0) {
+                    const elementalResult = monster.takeDamage(amount, type);
+                    totalActualDamage += elementalResult.actualDamage;
+                    damageBreakdown.push({
+                        type: type,
+                        intended: amount,
+                        actual: elementalResult.actualDamage,
+                        resistance: elementalResult.resistance
+                    });
+                }
+            }
+        }
+
+        const died = monster.hp <= 0;
+
+        // Build damage message with resistance indicators
+        let damageMsg = `You hit ${monster.getDisplayName()} for `;
+        const damageParts = [];
+
+        for (const part of damageBreakdown) {
+            let partMsg = `${part.actual}`;
+            if (part.resistance < 0.75) {
+                partMsg += ' resisted';
+            } else if (part.resistance > 1.25) {
+                partMsg += ' CRITICAL';
+            }
+            if (part.type !== 'physical') {
+                partMsg += ` ${part.type}`;
+            }
+            damageParts.push(partMsg);
+        }
+
+        damageMsg += damageParts.join(' + ') + ` damage (${totalActualDamage} total).`;
+        this.game.addMessage(damageMsg);
+
+        // Apply lifesteal
+        const lifestealBonus = Game.player.getLifestealBonus();
+        if (lifestealBonus > 0) {
+            const lifestealAmount = Math.floor(totalActualDamage * lifestealBonus);
+            if (lifestealAmount > 0) {
+                const healed = Game.player.heal(lifestealAmount);
+                if (healed > 0) {
+                    this.game.addMessage(`You drain ${healed} health from ${monster.getDisplayName()}.`);
+                }
+            }
+        }
 
         if (died) {
             this.game.addMessage(`${monster.getDisplayName()} dies.`);
             Game.player.gainExperience(monster.experience);
+
+            // Check for loot drops
+            this.rollMonsterLoot(monster);
+
             this.monsters = this.monsters.filter((m) => m !== monster);
             this.game.render();
         }
 
         await this.game.consumeTurn(Game.player.equippedWeapon().speed || 50);
+    }
+
+    // Roll for loot when a monster dies
+    rollMonsterLoot(monster) {
+        // Base drop chance: 20% for weak monsters, up to 80% for powerful ones
+        const experienceThreshold = Math.max(1, monster.experience);
+        const baseDropChance = Math.min(0.80, 0.20 + (experienceThreshold / 100) * 0.6);
+
+        // Wealth ring bonus to drop chance
+        const wealthBonus = Game.player.getGoldFindBonus() - 1.0; // Convert multiplier to bonus
+        const finalDropChance = Math.min(0.95, baseDropChance + (wealthBonus * 0.2));
+
+        if (Math.random() > finalDropChance) {
+            return; // No drop
+        }
+
+        // Determine monster's effective level for loot quality
+        const monsterLevel = this.estimateMonsterLevel(monster);
+        const playerLuck = Game.player.luck;
+
+        // Determine number of drops (rare chance for multiple items from tough monsters)
+        let numDrops = 1;
+        if (experienceThreshold > 50 && Math.random() < 0.15) {
+            numDrops = 2; // 15% chance for 2 items from tough monsters
+        }
+        if (experienceThreshold > 100 && Math.random() < 0.05) {
+            numDrops = 3; // 5% chance for 3 items from very tough monsters
+        }
+
+        const tile = this.game.dungeon.getTile(monster.x, monster.y);
+        if (!tile) return;
+
+        // Generate drops
+        for (let i = 0; i < numDrops; i++) {
+            const lootType = this.determineMonsterLootType(monster);
+            let item;
+
+            if (lootType === 'gold') {
+                // Gold drop scales with monster difficulty
+                const goldAmount = Math.floor((10 + experienceThreshold * 2) * (0.8 + Math.random() * 0.4));
+                item = new Gold(monster.x, monster.y, goldAmount);
+            } else if (lootType === 'boss') {
+                // Boss-quality drop
+                item = ItemFactory.createBossDrop(monster.x, monster.y, monsterLevel, playerLuck);
+            } else {
+                // Regular item with potential quality boost for tough monsters
+                const options = {};
+                if (lootType !== 'any') {
+                    options.category = lootType;
+                }
+                if (experienceThreshold > 50) {
+                    options.bossDropBonus = true; // Tough monsters drop better loot
+                }
+
+                item = ItemFactory.createLevelAppropriateItem(
+                    monster.x,
+                    monster.y,
+                    monsterLevel,
+                    playerLuck,
+                    options
+                );
+            }
+
+            if (item) {
+                tile.addItem(item);
+                if (i === 0) { // Only show message for first drop
+                    const itemName = item instanceof Gold ? `${item.amount} gold` : (item.getDisplayName ? item.getDisplayName() : item.name);
+                    this.game.addMessage(`${monster.getDisplayName()} dropped ${itemName}!`);
+                }
+            }
+        }
+
+        this.game.itemManager.updateItemMemory();
+    }
+
+    // Estimate a monster's level based on its stats
+    estimateMonsterLevel(monster) {
+        // Use experience as primary indicator, with bounds checking
+        const levelFromExp = Math.max(1, Math.floor(monster.experience / 10));
+
+        // Also check the monster's levelRange if available
+        if (monster.constructor.levelRange) {
+            const [minLevel, maxLevel] = monster.constructor.levelRange;
+            const avgLevel = Math.floor((minLevel + maxLevel) / 2);
+            // Average the two estimates
+            return Math.floor((levelFromExp + avgLevel) / 2);
+        }
+
+        return levelFromExp;
+    }
+
+    // Determine what type of loot a monster should drop
+    determineMonsterLootType(monster) {
+        const experience = monster.experience;
+        const monsterName = monster.getDisplayName().toLowerCase();
+
+        // Boss monsters (very high experience) drop boss-quality loot
+        if (experience > 100) {
+            return 'boss';
+        }
+
+        // Monster-specific loot preferences
+        if (monsterName.includes('dragon')) {
+            // Dragons prefer dropping weapons, armor, or gold
+            const roll = Math.random();
+            if (roll < 0.3) return ItemCategory.WEAPON;
+            if (roll < 0.5) return ItemCategory.ARMOR;
+            return 'gold';
+        }
+
+        if (monsterName.includes('lich') || monsterName.includes('demon') || monsterName.includes('shaman')) {
+            // Spellcasters prefer dropping scrolls, wands, or potions
+            const roll = Math.random();
+            if (roll < 0.4) return ItemCategory.SCROLL;
+            if (roll < 0.7) return ItemCategory.WAND;
+            return ItemCategory.POTION;
+        }
+
+        if (monsterName.includes('orc') || monsterName.includes('warrior') || monsterName.includes('berserker')) {
+            // Warriors prefer dropping weapons or armor
+            return Math.random() < 0.6 ? ItemCategory.WEAPON : ItemCategory.ARMOR;
+        }
+
+        if (monsterName.includes('goblin') || monsterName.includes('kobold')) {
+            // Weaker monsters mostly drop gold or consumables
+            const roll = Math.random();
+            if (roll < 0.6) return 'gold';
+            return ItemCategory.POTION;
+        }
+
+        // Default: random weighted drop
+        const roll = Math.random();
+        if (roll < 0.3) return 'gold';
+        if (roll < 0.5) return ItemCategory.WEAPON;
+        if (roll < 0.65) return ItemCategory.ARMOR;
+        if (roll < 0.80) return ItemCategory.POTION;
+        if (roll < 0.90) return ItemCategory.SCROLL;
+        return ItemCategory.WAND;
     }
 }
 

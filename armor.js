@@ -155,6 +155,204 @@ const ARMOR_CONFIGS = {
         color: '#ffaa00',
         bodyLocation: 'ring',
         bonuses: {defense: 5}
+    },
+    strengthRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.03,
+        levelRange: [2, 8],
+        color: '#ff4444',
+        bodyLocation: 'ring',
+        bonuses: {damage: 3}
+    },
+    dexterityRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.03,
+        levelRange: [2, 8],
+        color: '#44ff44',
+        bodyLocation: 'ring',
+        bonuses: {speed: -20} // Negative = faster
+    },
+    intelligenceRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.02,
+        levelRange: [3, 10],
+        color: '#4444ff',
+        bodyLocation: 'ring',
+        bonuses: {intelligence: 15}
+    },
+    wisdomRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.02,
+        levelRange: [3, 10],
+        color: '#ffff44',
+        bodyLocation: 'ring',
+        bonuses: {wisdom: 15}
+    },
+    regenerationRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.02,
+        levelRange: [4, 12],
+        color: '#ff88ff',
+        bodyLocation: 'ring',
+        bonuses: {regeneration: 1} // Heals 1 HP every few turns
+    },
+    vampiricRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.015,
+        levelRange: [6, 14],
+        color: '#aa0000',
+        bodyLocation: 'ring',
+        bonuses: {lifesteal: 0.15} // 15% lifesteal
+    },
+    fireResistanceRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.025,
+        levelRange: [3, 10],
+        color: '#ff6600',
+        bodyLocation: 'ring',
+        bonuses: {fireResist: 0.5} // 50% fire damage reduction
+    },
+    iceResistanceRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.025,
+        levelRange: [3, 10],
+        color: '#00ffff',
+        bodyLocation: 'ring',
+        bonuses: {iceResist: 0.5} // 50% ice damage reduction
+    },
+    lightningResistanceRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.025,
+        levelRange: [3, 10],
+        color: '#ffff00',
+        bodyLocation: 'ring',
+        bonuses: {lightningResist: 0.5}
+    },
+    accuracyRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.03,
+        levelRange: [2, 8],
+        color: '#00ff00',
+        bodyLocation: 'ring',
+        bonuses: {accuracy: 10} // +10% hit chance
+    },
+    evasionRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.03,
+        levelRange: [2, 8],
+        color: '#aaaaff',
+        bodyLocation: 'ring',
+        bonuses: {evasion: 10} // +10% dodge chance
+    },
+    searchingRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.02,
+        levelRange: [1, 6],
+        color: '#ffaa88',
+        bodyLocation: 'ring',
+        bonuses: {trapDetection: 25} // +25% trap detection
+    },
+    wealthRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.015,
+        levelRange: [3, 12],
+        color: '#ffdd00',
+        bodyLocation: 'ring',
+        bonuses: {goldFind: 0.5} // 50% more gold
+    },
+    experienceRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.015,
+        levelRange: [4, 14],
+        color: '#88ff88',
+        bodyLocation: 'ring',
+        bonuses: {experience: 0.25} // 25% more XP
+    },
+    teleportationRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.01,
+        levelRange: [5, 15],
+        color: '#ff00ff',
+        bodyLocation: 'ring',
+        bonuses: {teleport: 1} // Can teleport occasionally
+    },
+    invisibilityRing: {
+        defense: 0,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.008,
+        levelRange: [6, 16],
+        color: '#cccccc',
+        bodyLocation: 'ring',
+        bonuses: {invisibility: 1} // Monsters less likely to detect
+    },
+    berserkerRing: {
+        defense: -5,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.02,
+        levelRange: [4, 12],
+        color: '#ff0000',
+        bodyLocation: 'ring',
+        bonuses: {damage: 8, defense: -5} // More damage, less defense
+    },
+    turtleRing: {
+        defense: 8,
+        speed: 5,
+        weight: 1,
+        size: 1,
+        dropChance: 0.02,
+        levelRange: [4, 12],
+        color: '#44aa44',
+        bodyLocation: 'ring',
+        bonuses: {defense: 8, speed: 30} // More defense, slower
     }
 };
 
@@ -168,6 +366,7 @@ class Armor extends EquippableItem {
         this.bonuses = {};
         this.enchantments = {};
         this.defense = 0;
+        this.resistances = {}; // e.g., { fire: 0.2, ice: 0.15 }
 
         // Apply config if provided
         if (configKey && ARMOR_CONFIGS[configKey]) {
@@ -197,6 +396,32 @@ class Armor extends EquippableItem {
         return (this.bonuses.defense || 0) + (this.enchantments.defense || 0);
     }
 
+    // Get total resistance for a specific element
+    getResistance(element) {
+        const base = this.resistances[element] || 0;
+        const enchant = (this.enchantments.resistances && this.enchantments.resistances[element]) || 0;
+        return base + enchant;
+    }
+
+    // Get all resistances
+    getAllResistances() {
+        const result = {};
+
+        // Combine base resistances
+        for (const [element, value] of Object.entries(this.resistances)) {
+            result[element] = value;
+        }
+
+        // Add enchantment resistances
+        if (this.enchantments.resistances) {
+            for (const [element, value] of Object.entries(this.enchantments.resistances)) {
+                result[element] = (result[element] || 0) + value;
+            }
+        }
+
+        return result;
+    }
+
     getEncumbrance() {
         return this.weight / Math.max(1, this.size);
     }
@@ -212,7 +437,8 @@ class Armor extends EquippableItem {
     onCollect(game) {
         const copy = this.createInventoryCopy();
         Game.player.addArmor(copy);
-        game.addMessage(`Found a ${this.name}!`);
+        const displayName = copy.getDisplayName ? copy.getDisplayName() : copy.name;
+        game.addMessage(`Found a ${displayName}!`);
     }
 
     getType() {
@@ -477,6 +703,258 @@ class ProtectionRing extends Ring {
     }
 }
 
+class StrengthRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.strengthRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.strengthRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Strength', 'strengthRing');
+        this.description = 'Crimson metal pulsing with raw power—each blow lands with brutal certainty.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.strengthRing.color;
+    }
+}
+
+class DexterityRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.dexterityRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.dexterityRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Dexterity', 'dexterityRing');
+        this.description = 'A quicksilver band that grants the grace of a dancer and the speed of a striking viper.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.dexterityRing.color;
+    }
+}
+
+class IntelligenceRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.intelligenceRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.intelligenceRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Intelligence', 'intelligenceRing');
+        this.description = 'Sapphire-set circlet that sharpens the mind and illuminates hidden truths.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.intelligenceRing.color;
+    }
+}
+
+class WisdomRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.wisdomRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.wisdomRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Wisdom', 'wisdomRing');
+        this.description = 'Golden band inscribed with ancient runes—clarity and insight made tangible.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.wisdomRing.color;
+    }
+}
+
+class RegenerationRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.regenerationRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.regenerationRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Regeneration', 'regenerationRing');
+        this.description = 'Pink gemstone that pulses in rhythm with your heartbeat, knitting wounds with each throb.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.regenerationRing.color;
+    }
+}
+
+class VampiricRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.vampiricRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.vampiricRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Vampirism', 'vampiricRing');
+        this.description = 'Dark crimson stone that drinks deeply from your foes—their life becomes yours.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.vampiricRing.color;
+    }
+}
+
+class FireResistanceRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.fireResistanceRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.fireResistanceRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Fire Resistance', 'fireResistanceRing');
+        this.description = 'Orange-red gem cool to the touch—flames slide off your skin like water.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.fireResistanceRing.color;
+    }
+}
+
+class IceResistanceRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.iceResistanceRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.iceResistanceRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Ice Resistance', 'iceResistanceRing');
+        this.description = 'Frozen aquamarine that never melts—cold cannot touch one who wears winter\'s heart.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.iceResistanceRing.color;
+    }
+}
+
+class LightningResistanceRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.lightningResistanceRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.lightningResistanceRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Lightning Resistance', 'lightningResistanceRing');
+        this.description = 'Yellow topaz crackling with static—lightning bends around you seeking easier prey.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.lightningResistanceRing.color;
+    }
+}
+
+class AccuracyRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.accuracyRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.accuracyRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Accuracy', 'accuracyRing');
+        this.description = 'Emerald-set band that guides your hand true—every strike finds its mark.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.accuracyRing.color;
+    }
+}
+
+class EvasionRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.evasionRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.evasionRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Evasion', 'evasionRing');
+        this.description = 'Pale blue stone that whispers warnings—you twist away from blows unseen.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.evasionRing.color;
+    }
+}
+
+class SearchingRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.searchingRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.searchingRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Searching', 'searchingRing');
+        this.description = 'Amber band that tingles when danger lurks—hidden traps reveal themselves.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.searchingRing.color;
+    }
+}
+
+class WealthRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.wealthRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.wealthRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Wealth', 'wealthRing');
+        this.description = 'Gilded band studded with diamonds—fortune smiles upon the bearer.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.wealthRing.color;
+    }
+}
+
+class ExperienceRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.experienceRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.experienceRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Experience', 'experienceRing');
+        this.description = 'Jade circlet that sharpens the lessons of battle—wisdom gained from every victory.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.experienceRing.color;
+    }
+}
+
+class TeleportationRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.teleportationRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.teleportationRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Teleportation', 'teleportationRing');
+        this.description = 'Amethyst band that bends space itself—escape is always an option.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.teleportationRing.color;
+    }
+}
+
+class InvisibilityRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.invisibilityRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.invisibilityRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of Invisibility', 'invisibilityRing');
+        this.description = 'Translucent crystal that bends light—you become shadow and whisper.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.invisibilityRing.color;
+    }
+}
+
+class BerserkerRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.berserkerRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.berserkerRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of the Berserker', 'berserkerRing');
+        this.description = 'Blood-red iron that ignites rage—defense forsaken for overwhelming fury.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.berserkerRing.color;
+    }
+}
+
+class TurtleRing extends Ring {
+    static dropChance = ARMOR_CONFIGS.turtleRing.dropChance;
+    static levelRange = ARMOR_CONFIGS.turtleRing.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Ring of the Turtle', 'turtleRing');
+        this.description = 'Green jade carved like a shell—steady and unbreakable, though ponderous.';
+    }
+
+    getColor() {
+        return ARMOR_CONFIGS.turtleRing.color;
+    }
+}
+
 // Export for both Node.js and browser environments
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -501,7 +979,25 @@ if (typeof module !== 'undefined' && module.exports) {
         IronBoots,
         LeatherGloves,
         IronGauntlets,
-        ProtectionRing
+        ProtectionRing,
+        StrengthRing,
+        DexterityRing,
+        IntelligenceRing,
+        WisdomRing,
+        RegenerationRing,
+        VampiricRing,
+        FireResistanceRing,
+        IceResistanceRing,
+        LightningResistanceRing,
+        AccuracyRing,
+        EvasionRing,
+        SearchingRing,
+        WealthRing,
+        ExperienceRing,
+        TeleportationRing,
+        InvisibilityRing,
+        BerserkerRing,
+        TurtleRing
     };
 }
 

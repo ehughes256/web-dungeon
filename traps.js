@@ -46,7 +46,7 @@ class FireballEffect {
             const actualDamage = Math.floor(this.damage * damageFalloff);
 
             if (target === Game.player) {
-                const damageDealt = target.hitPlayer(actualDamage);
+                const damageDealt = target.hitPlayer(actualDamage, 'fire');
                 this.game.addMessage(`The fireball hits you for ${damageDealt} damage!`);
 
                 if (target.isDead()) {
@@ -54,14 +54,18 @@ class FireballEffect {
                 }
             } else {
                 // It's a monster
-                target.takeDamage(actualDamage);
+                const result = target.takeDamage(actualDamage, 'fire');
 
                 if (isVisible) {
                     const monsterName = target.getDisplayName();
                     if (target.hp <= 0) {
                         this.game.addMessage(`The fireball incinerates a ${monsterName}!`);
                     } else {
-                        this.game.addMessage(`The fireball hits a ${monsterName} for ${actualDamage} damage!`);
+                        let msg = `The fireball hits a ${monsterName} for ${result.actualDamage} damage`;
+                        if (result.wasResisted) msg += ' (resisted)';
+                        else if (result.wasWeak) msg += ' (CRITICAL)';
+                        msg += '!';
+                        this.game.addMessage(msg);
                     }
                 }
             }
@@ -233,7 +237,7 @@ class SpikeTrap extends Trap {
 
         if (isPlayer) {
             this.discovered = true; // Player always discovers trap when triggering
-            const actualDamage = entity.hitPlayer(this.damage);
+            const actualDamage = entity.hitPlayer(this.damage, 'physical');
             game.addMessage(`You triggered a spike trap! You take ${actualDamage} damage.`);
 
             if (entity.isDead()) {
@@ -241,13 +245,20 @@ class SpikeTrap extends Trap {
             }
         } else {
             // Monster triggered the trap
-            const actualDamage = Math.min(this.damage, entity.hp);
-            entity.takeDamage(this.damage);
+            const result = entity.takeDamage(this.damage, 'physical');
 
             if (isVisible) {
                 this.discovered = true;
                 const monsterName = entity.getDisplayName();
-                game.addMessage(`A ${monsterName} triggered a spike trap!${entity.hp <= 0 ? ' It died.' : ''}`);
+                let msg = `A ${monsterName} triggered a spike trap!`;
+                if (entity.hp <= 0) {
+                    msg += ' It died.';
+                } else if (result.wasResisted) {
+                    msg += ' (resisted)';
+                } else if (result.wasWeak) {
+                    msg += ' (CRITICAL)';
+                }
+                game.addMessage(msg);
             }
         }
     }
@@ -276,7 +287,7 @@ class PoisonDartTrap extends Trap {
 
         if (isPlayer) {
             this.discovered = true; // Player always discovers trap when triggering
-            const actualDamage = entity.hitPlayer(this.damage);
+            const actualDamage = entity.hitPlayer(this.damage, 'poison');
             game.addMessage(`A poison dart shoots out! You take ${actualDamage} damage.`);
 
             // Additional poison effect - reduce max health temporarily (not implemented yet)
@@ -285,13 +296,20 @@ class PoisonDartTrap extends Trap {
             }
         } else {
             // Monster triggered the trap
-            const actualDamage = Math.min(this.damage, entity.hp);
-            entity.takeDamage(this.damage);
+            const result = entity.takeDamage(this.damage, 'poison');
 
             if (isVisible) {
                 this.discovered = true;
                 const monsterName = entity.getDisplayName();
-                game.addMessage(`A poison dart hits a ${monsterName}!${entity.hp <= 0 ? ' It died.' : ''}`);
+                let msg = `A poison dart hits a ${monsterName}!`;
+                if (entity.hp <= 0) {
+                    msg += ' It died.';
+                } else if (result.wasResisted) {
+                    msg += ' (resisted)';
+                } else if (result.wasWeak) {
+                    msg += ' (CRITICAL)';
+                }
+                game.addMessage(msg);
             }
         }
     }
@@ -318,7 +336,7 @@ class PitTrap extends Trap {
 
         if (isPlayer) {
             this.discovered = true; // Player always discovers trap when triggering
-            const actualDamage = entity.hitPlayer(this.damage);
+            const actualDamage = entity.hitPlayer(this.damage, 'physical');
             game.addMessage(`You fall into a pit! You take ${actualDamage} damage.`);
 
             // Player takes time to climb out
@@ -329,13 +347,20 @@ class PitTrap extends Trap {
             }
         } else {
             // Monster triggered the trap
-            const actualDamage = Math.min(this.damage, entity.hp);
-            entity.takeDamage(this.damage);
+            const result = entity.takeDamage(this.damage, 'physical');
 
             if (isVisible) {
                 this.discovered = true;
                 const monsterName = entity.getDisplayName();
-                game.addMessage(`A ${monsterName} falls into a pit!${entity.hp <= 0 ? ' It died.' : ''}`);
+                let msg = `A ${monsterName} falls into a pit!`;
+                if (entity.hp <= 0) {
+                    msg += ' It died.';
+                } else if (result.wasResisted) {
+                    msg += ' (resisted)';
+                } else if (result.wasWeak) {
+                    msg += ' (CRITICAL)';
+                }
+                game.addMessage(msg);
             }
         }
     }

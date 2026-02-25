@@ -26,7 +26,8 @@ function initializeScrollMagicPhrases() {
         'Fireball Scroll',
         'Regeneration Scroll',
         'Enchantment Scroll',
-        'Uncurse Scroll'
+        'Uncurse Scroll',
+        'Identify Scroll'
     ];
     const shuffledPhrases = [...SCROLL_MAGIC_PHRASES].sort(() => Math.random() - 0.5);
 
@@ -69,7 +70,8 @@ const SCROLL_CONFIGS = {
         weight: 1,
         size: 1
     },
-    uncurse: {dropChance: 0.06, levelRange: [1, 15], color: '#ffddaa', speed: 30, weight: 1, size: 1}
+    uncurse: {dropChance: 0.06, levelRange: [1, 15], color: '#ffddaa', speed: 30, weight: 1, size: 1},
+    identify: {dropChance: 0.08, levelRange: [1, 20], color: '#88ddff', speed: 30, weight: 1, size: 1}
 };
 
 // Base Scroll class
@@ -371,12 +373,13 @@ class EnchantmentScroll extends Scroll {
         }
         const power = this.enchantmentPower || 1;
         // Apply enchantment
+        const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
         if (item instanceof Weapon) {
             item.enchantments.damage = (item.enchantments.damage || 0) + power;
-            game.addMessage(`${item.name} glows with power! +${power} damage enchantment applied.`);
+            game.addMessage(`${displayName} glows with power! +${power} damage enchantment applied.`);
         } else if (item instanceof Armor) {
             item.enchantments.defense = (item.enchantments.defense || 0) + power;
-            game.addMessage(`${item.name} shimmers with protective magic! +${power} defense enchantment applied.`);
+            game.addMessage(`${displayName} shimmers with protective magic! +${power} defense enchantment applied.`);
         }
     }
 }
@@ -411,10 +414,66 @@ class UncurseScroll extends Scroll {
 
     onSelectItem(game, item) {
         if (item && item.cursed && typeof item.removeCurse === 'function') {
+            const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
             item.removeCurse();
-            game.addMessage(`Holy light washes over you! ${item.name} is freed from the curse!`);
+            game.addMessage(`Holy light washes over you! ${displayName} is freed from the curse!`);
         } else {
             game.addMessage('The scroll glows faintly, but that item isn\'t cursed.');
+        }
+    }
+}
+
+class IdentifyScroll extends Scroll {
+    static dropChance = SCROLL_CONFIGS.identify.dropChance;
+    static levelRange = SCROLL_CONFIGS.identify.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Identify Scroll', 'identify');
+        this.description = 'Azure runes of revelation—their power unveils the true nature of mysterious items.';
+    }
+
+    getColor() {
+        return SCROLL_CONFIGS.identify.color;
+    }
+
+    use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
+        // Trigger the item selection UI
+        game.startItemSelection(this);
+        return {
+            success: true,
+            message: `You read ${displayName}. Select an item to identify... It was a ${this.name}!`,
+            scroll: this,
+        };
+    }
+
+    onSelectItem(game, item) {
+        if (item && !item.identified) {
+            item.identified = true;
+            const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+            game.addMessage(`The scroll glows brightly! You now know this item: ${displayName}!`);
+
+            // Show detailed info about the newly identified item
+            if (item.qualityBonus && item.qualityBonus > 0) {
+                game.addMessage(`  It has a quality bonus of +${item.qualityBonus}!`);
+            }
+            if (item.enchantments && Object.keys(item.enchantments).length > 0) {
+                const enchantText = Object.entries(item.enchantments)
+                    .filter(([k, v]) => v !== 0)
+                    .map(([k, v]) => `+${v} ${k}`)
+                    .join(', ');
+                game.addMessage(`  Enchantments: ${enchantText}`);
+            }
+            if (item.cursed) {
+                game.addMessage(`  WARNING: This item is CURSED!`);
+            }
+        } else if (item && item.identified) {
+            game.addMessage('The scroll glows faintly... you already know this item.');
+        } else {
+            game.addMessage('The scroll fizzles. Choose a valid item to identify.');
         }
     }
 }
@@ -432,6 +491,7 @@ if (typeof module !== 'undefined') {
         FireballScroll,
         RegenerationScroll,
         EnchantmentScroll,
+        IdentifyScroll,
         UncurseScroll
     };
 }
