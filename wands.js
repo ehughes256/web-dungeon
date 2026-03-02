@@ -271,6 +271,19 @@ class MagicMissileWand extends Wand {
             return { success: false };
         }
 
+        if (this.cursed) {
+            this.consumeCharge(game);
+            const damage = Game.player.hitPlayer(this.damage);
+            game.addMessage(`The cursed wand backfires! A magic missile strikes you for ${damage} damage!`);
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('Killed by your own wand. Game over.');
+            }
+            game.render();
+            await game.consumeTurn(this.speed);
+            return { success: true };
+        }
+
         // Start targeting mode
         const wand = this;
         game.startTargetingMode(this, async (targetX, targetY) => {
@@ -329,11 +342,14 @@ class MagicMissileWand extends Wand {
             const tileSize = game.tileSize;
 
             game.render();
+            // Convert world coordinates to screen coordinates using camera
+            const screenX = (x - game.cameraX) * tileSize;
+            const screenY = (y - game.cameraY) * tileSize;
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(
-                x * tileSize + tileSize / 2,
-                y * tileSize + tileSize / 2,
+                screenX + tileSize / 2,
+                screenY + tileSize / 2,
                 tileSize / 4,
                 0,
                 Math.PI * 2
@@ -363,6 +379,19 @@ class LightningWand extends Wand {
         if (this.charges <= 0) {
             game.addMessage(`The ${this.getDisplayName()} is empty.`);
             return { success: false };
+        }
+
+        if (this.cursed) {
+            this.consumeCharge(game);
+            const damage = Game.player.hitPlayer(this.damage, 'lightning');
+            game.addMessage(`The cursed wand electrocutes you for ${damage} damage!`);
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('Electrocuted by your own wand. Game over.');
+            }
+            game.render();
+            await game.consumeTurn(this.speed);
+            return { success: true };
         }
 
         // Start targeting mode to determine direction
@@ -436,18 +465,24 @@ class LightningWand extends Wand {
             ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = 3;
             ctx.beginPath();
+            // Convert player position to screen coordinates
+            const playerScreenX = (Game.player.x - game.cameraX) * tileSize;
+            const playerScreenY = (Game.player.y - game.cameraY) * tileSize;
             ctx.moveTo(
-                Game.player.x * tileSize + tileSize / 2,
-                Game.player.y * tileSize + tileSize / 2
+                playerScreenX + tileSize / 2,
+                playerScreenY + tileSize / 2
             );
 
             positions.forEach(pos => {
                 // Add slight randomness for lightning effect
                 const jitterX = (Math.random() - 0.5) * tileSize * 0.3;
                 const jitterY = (Math.random() - 0.5) * tileSize * 0.3;
+                // Convert world coordinates to screen coordinates
+                const screenX = (pos.x - game.cameraX) * tileSize;
+                const screenY = (pos.y - game.cameraY) * tileSize;
                 ctx.lineTo(
-                    pos.x * tileSize + tileSize / 2 + jitterX,
-                    pos.y * tileSize + tileSize / 2 + jitterY
+                    screenX + tileSize / 2 + jitterX,
+                    screenY + tileSize / 2 + jitterY
                 );
             });
             ctx.stroke();
@@ -475,6 +510,32 @@ class FireWand extends Wand {
         if (this.charges <= 0) {
             game.addMessage(`The ${this.getDisplayName()} is empty.`);
             return { success: false };
+        }
+
+        if (this.cursed) {
+            this.consumeCharge(game);
+            // Fireball on player
+            if (typeof FireballEffect !== 'undefined') {
+                const fireballEffect = new FireballEffect(
+                    Game.player.x, Game.player.y,
+                    this.damage, this.radius || 2, game
+                );
+                await fireballEffect.execute({
+                    animate: true, damagePlayer: true, damageMonsters: true,
+                    useFalloff: true,
+                    triggerMessage: 'The cursed wand explodes in your hands!'
+                });
+            } else {
+                const damage = Game.player.hitPlayer(this.damage, 'fire');
+                game.addMessage(`The cursed wand explodes! You take ${damage} fire damage!`);
+            }
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('Immolated by your own wand. Game over.');
+            }
+            game.render();
+            await game.consumeTurn(this.speed);
+            return { success: true };
         }
 
         // Start targeting mode - can target any visible tile
@@ -549,6 +610,23 @@ class IceWand extends Wand {
             return { success: false };
         }
 
+        if (this.cursed) {
+            this.consumeCharge(game);
+            const damage = Game.player.hitPlayer(this.damage, 'ice');
+            Game.player.speed += 50;
+            game.timeManager.scheduleEvent(this.slowDuration * 100, this, () => {
+                Game.player.speed -= 50;
+                game.addMessage('The freezing effect wears off.');
+            });
+            game.addMessage(`The cursed wand freezes you! ${damage} ice damage and slowed!`);
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('Frozen solid by your own wand. Game over.');
+            }
+            game.render();
+            return { success: true };
+        }
+
         const target = this.getNearestVisibleMonster(game);
         if (!target) {
             game.addMessage(`You zap the wand but find no target.`);
@@ -598,13 +676,17 @@ class IceWand extends Wand {
 
             game.render();
 
+            // Convert world coordinates to screen coordinates
+            const screenX = (x - game.cameraX) * tileSize;
+            const screenY = (y - game.cameraY) * tileSize;
+
             // Draw icy bolt
             ctx.fillStyle = '#88ddff';
             ctx.beginPath();
-            ctx.moveTo(x * tileSize + tileSize / 2, y * tileSize + tileSize / 4);
-            ctx.lineTo(x * tileSize + tileSize * 3 / 4, y * tileSize + tileSize / 2);
-            ctx.lineTo(x * tileSize + tileSize / 2, y * tileSize + tileSize * 3 / 4);
-            ctx.lineTo(x * tileSize + tileSize / 4, y * tileSize + tileSize / 2);
+            ctx.moveTo(screenX + tileSize / 2, screenY + tileSize / 4);
+            ctx.lineTo(screenX + tileSize * 3 / 4, screenY + tileSize / 2);
+            ctx.lineTo(screenX + tileSize / 2, screenY + tileSize * 3 / 4);
+            ctx.lineTo(screenX + tileSize / 4, screenY + tileSize / 2);
             ctx.closePath();
             ctx.fill();
 
@@ -641,6 +723,30 @@ class PolymorphWand extends Wand {
 
         this.consumeCharge(game);
 
+        if (this.cursed) {
+            // Cursed: randomize player stats temporarily
+            this.identified = true;
+            Game.player.identifyWandType(this.name);
+            await this.animatePolymorph(game, Game.player.x, Game.player.y);
+
+            const stats = ['strength', 'dexterity', 'constitution', 'intelligence', 'luck'];
+            const originalStats = {};
+            stats.forEach(stat => {
+                originalStats[stat] = Game.player[stat];
+                Game.player[stat] = 20 + Math.floor(Math.random() * 61); // 20-80
+            });
+
+            game.addMessage(`The cursed wand backfires! Your body warps and shifts!`);
+            game.timeManager.scheduleEvent(2000, this, () => {
+                stats.forEach(stat => {
+                    Game.player[stat] = originalStats[stat];
+                });
+                game.addMessage('Your body returns to normal as the polymorph fades.');
+            });
+            game.render();
+            return { success: true };
+        }
+
         // Animate transformation
         await this.animatePolymorph(game, target.x, target.y);
 
@@ -667,12 +773,16 @@ class PolymorphWand extends Wand {
         for (let i = 0; i < 10; i++) {
             game.render();
 
+            // Convert world coordinates to screen coordinates
+            const screenX = (targetX - game.cameraX) * tileSize;
+            const screenY = (targetY - game.cameraY) * tileSize;
+
             ctx.strokeStyle = `hsl(${280 + i * 10}, 100%, 60%)`;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(
-                targetX * tileSize + tileSize / 2,
-                targetY * tileSize + tileSize / 2,
+                screenX + tileSize / 2,
+                screenY + tileSize / 2,
                 tileSize / 2 * (1 - i / 10),
                 0,
                 Math.PI * 2
@@ -712,6 +822,19 @@ class SlowWand extends Wand {
 
         this.consumeCharge(game);
 
+        if (this.cursed) {
+            // Cursed: speeds up the monster instead
+            this.identified = true;
+            Game.player.identifyWandType(this.name);
+            const originalSpeed = target.speed || 100;
+            target.speed = Math.max(10, Math.floor(originalSpeed / 2)); // Halve move time = much faster
+            target.slowedUntil = game.currentTick + (this.slowDuration * 100);
+
+            game.addMessage(`The cursed wand backfires! ${target.getDisplayName()} surges with unnatural speed!`);
+            game.render();
+            return { success: true };
+        }
+
         // Apply slow effect
         const originalSpeed = target.speed || 100;
         target.speed = Math.floor(originalSpeed * 3); // Triple move time = much slower
@@ -750,6 +873,37 @@ class TeleportationWand extends Wand {
         }
 
         this.consumeCharge(game);
+
+        if (this.cursed) {
+            // Cursed: teleports player randomly instead of monster
+            this.identified = true;
+            Game.player.identifyWandType(this.name);
+
+            const validPositions = [];
+            for (let y = 0; y < game.height; y++) {
+                for (let x = 0; x < game.width; x++) {
+                    if (!game.dungeon.inBounds(x, y)) continue;
+                    const tile = game.dungeon.getTile(x, y);
+                    if (!tile) continue;
+                    const t = tile.type;
+                    if (!(t === '.' || t === '/' || t === '<' || t === '>')) continue;
+                    if (game.monsterManager.monsters.some(m => m.x === x && m.y === y)) continue;
+                    validPositions.push([x, y]);
+                }
+            }
+
+            if (validPositions.length > 0) {
+                const [nx, ny] = validPositions[Math.floor(Math.random() * validPositions.length)];
+                Game.player.x = nx;
+                Game.player.y = ny;
+                game.computeFOV();
+                game.addMessage(`The cursed wand backfires! You are teleported randomly!`);
+            } else {
+                game.addMessage(`The cursed wand fizzles—nowhere to go!`);
+            }
+            game.render();
+            return { success: true };
+        }
 
         // Find valid positions
         const validPositions = [];
@@ -810,6 +964,23 @@ class DeathWand extends Wand {
 
         this.consumeCharge(game);
 
+        if (this.cursed) {
+            // Cursed: damages player heavily instead
+            this.identified = true;
+            Game.player.identifyWandType(this.name);
+            await this.animateDeathRay(game, Game.player.x, Game.player.y);
+
+            const damage = this.damage;
+            Game.player.health -= damage;
+            game.addMessage(`The cursed wand backfires! A death ray strikes you for ${damage} damage!`);
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('The cursed death wand kills you. Game over.');
+            }
+            game.render();
+            return { success: true };
+        }
+
         // Animate death ray
         await this.animateDeathRay(game, target.x, target.y);
 
@@ -848,16 +1019,22 @@ class DeathWand extends Wand {
         for (let pulse = 0; pulse < 5; pulse++) {
             game.render();
 
+            // Convert world coordinates to screen coordinates
+            const startScreenX = (startX - game.cameraX) * tileSize;
+            const startScreenY = (startY - game.cameraY) * tileSize;
+            const targetScreenX = (targetX - game.cameraX) * tileSize;
+            const targetScreenY = (targetY - game.cameraY) * tileSize;
+
             ctx.strokeStyle = pulse % 2 === 0 ? '#440044' : '#220022';
             ctx.lineWidth = 4 + pulse;
             ctx.beginPath();
             ctx.moveTo(
-                startX * tileSize + tileSize / 2,
-                startY * tileSize + tileSize / 2
+                startScreenX + tileSize / 2,
+                startScreenY + tileSize / 2
             );
             ctx.lineTo(
-                targetX * tileSize + tileSize / 2,
-                targetY * tileSize + tileSize / 2
+                targetScreenX + tileSize / 2,
+                targetScreenY + tileSize / 2
             );
             ctx.stroke();
 
@@ -865,8 +1042,8 @@ class DeathWand extends Wand {
             ctx.fillStyle = `rgba(68, 0, 68, ${0.3 + pulse * 0.1})`;
             ctx.beginPath();
             ctx.arc(
-                targetX * tileSize + tileSize / 2,
-                targetY * tileSize + tileSize / 2,
+                targetScreenX + tileSize / 2,
+                targetScreenY + tileSize / 2,
                 tileSize * (0.5 + pulse * 0.2),
                 0,
                 Math.PI * 2

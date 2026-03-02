@@ -468,6 +468,7 @@
                 <div class="stat">M:<span id="mana">100</span></div>
                 <div class="stat">$:<span id="gold">0</span></div>
                 <div class="stat">Wt:<span id="weight">0</span></div>
+                <div class="stat" id="poison-status" style="color: #44ff44; display: none;">POISONED</div>
             </div>
         </div>
         <div id="messages">
@@ -495,14 +496,30 @@
 
             let hadPlayerActivity = false;
 
-            // Natural healing
+            // Natural healing - constitution affects regeneration speed
+            // CON 50 = 3000 ticks, CON 100 = 1500 ticks (2x faster), CON 10 = 4200 ticks (slower)
+            const conBonus = Math.floor((Game.player.constitution - 50) / 10);
+            const healInterval = Math.max(1500, Math.min(6000, 3000 - conBonus * 300));
             if (Game.player.nextFreeHealTime <= this.game.currentTick) {
-                Game.player.nextFreeHealTime = this.game.currentTick + 3000;
+                Game.player.nextFreeHealTime = this.game.currentTick + healInterval;
                 const baseHeal = 1;
                 const regenBonus = Game.player.getRegenerationBonus();
                 const totalHeal = baseHeal + regenBonus;
                 const healed = Game.player.heal(totalHeal);
                 if (healed > 0) hadPlayerActivity = true;
+            }
+
+            // Poison damage (every 500 ticks)
+            if (Game.player.poisoned && this.game.currentTick % 500 === 0) {
+                const poisonDmg = Game.player.processPoisonTick(this.game);
+                if (poisonDmg > 0) {
+                    this.game.addMessage(`Poison courses through your veins! (${poisonDmg} damage)`);
+                    hadPlayerActivity = true;
+                    if (Game.player.isDead()) {
+                        this.game.gameOver = true;
+                        this.game.addMessage('You succumb to the poison. Game over.');
+                    }
+                }
             }
 
             // Mana regeneration (every 1000 ticks = ~10 seconds of real time)

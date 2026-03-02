@@ -4,6 +4,7 @@ class FloorTile {
         this.items = [];
         this.trap = null;
         this.discovered = false;
+        this.locked = false;
     }
 
     isWalkable() {
@@ -99,7 +100,7 @@ class Dungeon {
             const x = playerX + dx, y = playerY + dy;
             if (!this.inBounds(x, y)) continue;
             const tile = this.getTile(x, y);
-            if (tile && tile.type === '+') {
+            if (tile && tile.type === '+' && !tile.locked) {
                 this.setTileType(x, y, '/');
                 opened++;
             }
@@ -137,7 +138,9 @@ class Dungeon {
                 description = 'Open dungeon floor, strewn with dust and echoes.';
                 break;
             case '+':
-                description = 'A closed wooden door; hinges creak with potential.';
+                description = tile.locked
+                    ? 'A heavy locked door blocks your path.'
+                    : 'A closed wooden door; hinges creak with potential.';
                 break;
             case '/':
                 description = 'An open doorway leading into shadow.';
@@ -182,7 +185,7 @@ class MazeGenerator {
 
     generateDungeon() {
         const dungeon = new Dungeon(this.width, this.height);
-        const numRooms = Math.floor(Math.random() * 8) + 6;
+        const numRooms = Math.floor(Math.random() * 12) + 10;
         const maxAttempts = 50;
 
         // Generate rooms
@@ -365,6 +368,19 @@ class MazeGenerator {
             x: downRoom.x + Math.floor(Math.random() * downRoom.width),
             y: downRoom.y + Math.floor(Math.random() * downRoom.height),
         };
+    }
+
+    lockDoors(dungeon, dungeonLevel = 1) {
+        // ~20% base chance, scaling with level (up to ~40% at level 10)
+        const lockChance = 0.20 + Math.min(0.20, dungeonLevel * 0.02);
+        for (let y = 0; y < dungeon.height; y++) {
+            for (let x = 0; x < dungeon.width; x++) {
+                const tile = dungeon.getTile(x, y);
+                if (tile && tile.type === '+' && Math.random() < lockChance) {
+                    tile.locked = true;
+                }
+            }
+        }
     }
 
     placeTraps(dungeon, dungeonLevel = 1) {

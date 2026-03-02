@@ -58,9 +58,13 @@ class Item {
             // Invert any existing bonuses
             if (this.bonuses.defense) this.bonuses.defense = -Math.abs(this.bonuses.defense);
         }
+        // Consumables (potions, scrolls, wands) just get the cursed flag;
+        // inverted behavior is handled in each use() method
 
-        // Increase speed penalty
-        this.speed = Math.abs(this.speed) * 1.5;
+        // Increase speed penalty for equippables
+        if (this instanceof Weapon || this instanceof Armor) {
+            this.speed = Math.abs(this.speed) * 1.5;
+        }
     }
 
     // Remove curse from an item - restores original values
@@ -265,6 +269,46 @@ class Gold extends Item {
 
 // Potion classes have been moved to potions.js
 // Weapon classes have been moved to weapons.js
+
+// Key item class
+class Key extends Item {
+    static dropChance = 0.06;
+    static levelRange = [1, 10];
+
+    constructor(x, y) {
+        super(x, y, 'Key');
+        this.weight = 0;
+        this.description = 'A brass skeleton key, worn smooth by countless hands.';
+    }
+
+    getSymbol() { return '}'; }
+    getColor() { return '#FFD700'; }
+
+    onCollect(game) {
+        Game.player.addKey(this);
+        game.addMessage('Found a key!');
+    }
+}
+
+// Lockpick item class
+class Lockpick extends Item {
+    static dropChance = 0.04;
+    static levelRange = [2, 12];
+
+    constructor(x, y) {
+        super(x, y, 'Lockpick');
+        this.weight = 0;
+        this.description = 'A slender steel pick for coaxing stubborn locks.';
+    }
+
+    getSymbol() { return '}'; }
+    getColor() { return '#C0C0C0'; }
+
+    onCollect(game) {
+        Game.player.addLockpick(this);
+        game.addMessage('Found a lockpick!');
+    }
+}
 
 class EquippableItem extends Item {
     constructor(x, y, name, bodyLocation = null) {
@@ -505,6 +549,8 @@ class ItemFactory {
         if (!this._itemTypes) {
             this._itemTypes = [
                 {class: Gold, chance: Gold.dropChance}, // move Gold to top again for clarity
+                {class: Key, chance: Key.dropChance},
+                {class: Lockpick, chance: Lockpick.dropChance},
                 // Low-level weapons (reduced chances)
                 {class: Stick, chance: Stick.dropChance},
                 {class: RustyKnife, chance: RustyKnife.dropChance},
@@ -513,6 +559,7 @@ class ItemFactory {
                 // Core consumables & scrolls
                 {class: HealthPotion, chance: HealthPotion.dropChance},
                 {class: SpeedPotion, chance: SpeedPotion.dropChance},
+                {class: AntidotePotion, chance: AntidotePotion.dropChance},
                 {class: PsionicScroll, chance: PsionicScroll.dropChance},
                 {class: TeleportScroll, chance: TeleportScroll.dropChance},
                 {class: MappingScroll, chance: MappingScroll.dropChance},
@@ -521,6 +568,7 @@ class ItemFactory {
                 {class: EnchantmentScroll, chance: EnchantmentScroll.dropChance},
                 {class: UncurseScroll, chance: UncurseScroll.dropChance},
                 {class: IdentifyScroll, chance: IdentifyScroll.dropChance},
+                {class: PoisonEnchantmentScroll, chance: PoisonEnchantmentScroll.dropChance},
                 // Wands
                 {class: MagicMissileWand, chance: MagicMissileWand.dropChance},
                 {class: LightningWand, chance: LightningWand.dropChance},
@@ -708,9 +756,9 @@ class ItemFactory {
 
     // Apply curse chance to an item (called by ItemManager)
     static rollCurse(item, currentLevel) {
-        if (!(item instanceof Weapon || item instanceof Armor)) return;
-
-        const curseChance = 0.05 + (currentLevel * 0.01); // 5% + 1% per level
+        const playerLuck = (typeof Game !== 'undefined' && Game.player) ? Game.player.luck : 50;
+        const luckModifier = (50 - playerLuck) / 500; // Luck 0 = +10%, Luck 50 = 0%, Luck 100 = -10%
+        const curseChance = Math.max(0.01, 0.05 + (currentLevel * 0.01) + luckModifier);
         if (Math.random() < curseChance) {
             item.applyCurse();
         }
@@ -906,6 +954,8 @@ if (typeof module !== 'undefined') {
         EquippableItem,
         Gold,
         EmptyItem,
+        Key,
+        Lockpick,
         ItemRarity,
         ItemCategory,
         // Re-export weapon classes from weapons module for backward compatibility

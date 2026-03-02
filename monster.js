@@ -32,6 +32,11 @@ class Monster {
             dark: 1.0
         };
 
+        // Poison status effect
+        this.poisoned = false;
+        this.poisonDamage = 0;
+        this.poisonTicksRemaining = 0;
+
         // Set stats - to be overridden by subclasses
         this.setStats();
     }
@@ -134,6 +139,38 @@ class Monster {
             wasResisted: resistance < 1.0,
             wasWeak: resistance > 1.0
         };
+    }
+
+    applyPoison(damagePerTick, ticks) {
+        // Poison-immune monsters (resistance 0.0) can't be poisoned
+        if (this.resistances.poison === 0.0) return;
+        if (this.poisoned) {
+            // Stack: add damage, take longer duration
+            this.poisonDamage += damagePerTick;
+            this.poisonTicksRemaining = Math.max(this.poisonTicksRemaining, ticks);
+        } else {
+            this.poisoned = true;
+            this.poisonDamage = damagePerTick;
+            this.poisonTicksRemaining = ticks;
+        }
+    }
+
+    processPoisonTick(game) {
+        if (!this.poisoned || this.poisonTicksRemaining <= 0) {
+            this.poisoned = false;
+            return 0;
+        }
+
+        const resistance = this.resistances.poison || 1.0;
+        const damage = Math.max(1, Math.floor(this.poisonDamage * resistance));
+        this.hp -= damage;
+        this.poisonTicksRemaining--;
+
+        if (this.poisonTicksRemaining <= 0) {
+            this.poisoned = false;
+        }
+
+        return damage;
     }
 
     distanceTo(x, y) {
@@ -286,6 +323,10 @@ class Spider extends Monster {
         // Thematic resistances
         this.resistances.poison = 0.0; // Immune to poison (produces it)
         this.resistances.fire = 1.5; // Weak to fire (chitin burns)
+        // Venomous bite
+        this.poisonChance = 0.4;
+        this.poisonDmgPerTick = 1;
+        this.poisonDuration = 4;
     }
 
     getType() {
@@ -708,6 +749,10 @@ class OrcShaman extends Monster {
         super(id, x, y);
         this.description = 'Bones and fetishes clatter as this orc witch-doctor channels dark, primal magic.';
         this.spellCooldown = 0;
+        // Toxic curse
+        this.poisonChance = 0.25;
+        this.poisonDmgPerTick = 2;
+        this.poisonDuration = 6;
     }
 
     getType() {
@@ -1990,6 +2035,10 @@ class Basilisk extends Monster {
         // Thematic resistances
         this.resistances.poison = 0.0; // Immune to poison (venomous)
         this.resistances.physical = 0.7; // Resistant (tough scales)
+        // Venomous bite
+        this.poisonChance = 0.5;
+        this.poisonDmgPerTick = 3;
+        this.poisonDuration = 6;
     }
 
     getType() {
@@ -2172,7 +2221,7 @@ class Hydra extends Monster {
     }
 
     getSymbol() {
-        return 'H';
+        return 'Y';
     }
 
     getColor() {
@@ -2296,6 +2345,519 @@ class Manticore extends Monster {
     }
 }
 
+// Bandit - Common human thief
+class Bandit extends Monster {
+    static levelRange = [1, 6];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A desperate outlaw in patched leather, eyes darting for an opening to strike.';
+    }
+
+    getType() {
+        return 'bandit';
+    }
+
+    setStats() {
+        this.hp = 8 + Math.floor(Math.random() * 4); // 8-11 HP
+        this.maxHp = this.hp;
+        this.dmg = 6;
+        this.size = 100;
+        this.speed = 90;
+        this.experience = 8;
+    }
+
+    getSymbol() {
+        return 'H';
+    }
+
+    getColor() {
+        return '#D2B48C'; // Tan
+    }
+}
+
+// Rogue - Stealthy human assassin
+class Rogue extends Monster {
+    static levelRange = [4, 9];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A shadow-cloaked killer who strikes from blind spots with poisoned steel.';
+        this.resistances.dark = 0.5; // Comfortable in darkness
+        // Poisoned blade
+        this.poisonChance = 0.3;
+        this.poisonDmgPerTick = 2;
+        this.poisonDuration = 5;
+    }
+
+    getType() {
+        return 'rogue';
+    }
+
+    setStats() {
+        this.hp = 12 + Math.floor(Math.random() * 5); // 12-16 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 95;
+        this.speed = 80; // Fast
+        this.experience = 22;
+    }
+
+    getSymbol() {
+        return 'H';
+    }
+
+    getColor() {
+        return '#2F4F4F'; // Dark slate gray
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            // 25% chance of backstab for double damage
+            if (Math.random() < 0.25) {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} backstabs you!`);
+                const baseDmg = this.getDamage();
+                Game.player.hitPlayer(baseDmg); // Extra hit on top of normal attack
+            }
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Knight - Armored human warrior
+class Knight extends Monster {
+    static levelRange = [6, 12];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A fallen knight in dented plate armor, sworn oath long forgotten, blade still sharp.';
+    }
+
+    getType() {
+        return 'knight';
+    }
+
+    setStats() {
+        this.hp = 25 + Math.floor(Math.random() * 8); // 25-32 HP
+        this.maxHp = this.hp;
+        this.dmg = 12;
+        this.size = 110;
+        this.speed = 120; // Slow due to heavy armor
+        this.armor = 4;
+        this.experience = 40;
+    }
+
+    getSymbol() {
+        return 'H';
+    }
+
+    getColor() {
+        return '#C0C0C0'; // Silver
+    }
+}
+
+// Necromancer - Dark human spellcaster
+class Necromancer extends Monster {
+    static levelRange = [8, 14];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Robed in funereal black, whispering words that make the dead twitch and the living weep.';
+        this.resistances.dark = 0.5;
+        this.resistances.holy = 1.5;
+        this.summonCooldown = 0;
+    }
+
+    getType() {
+        return 'necromancer';
+    }
+
+    setStats() {
+        this.hp = 20 + Math.floor(Math.random() * 6); // 20-25 HP
+        this.maxHp = this.hp;
+        this.dmg = 8;
+        this.size = 100;
+        this.speed = 110;
+        this.experience = 55;
+    }
+
+    getSymbol() {
+        return 'H';
+    }
+
+    getColor() {
+        return '#800080'; // Purple
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Try to summon a skeleton if player is visible and cooldown is ready
+        if (dist <= 8 && dist > 2 && this.summonCooldown <= 0 && Math.random() < 0.3) {
+            // Find an empty adjacent tile to summon on
+            const offsets = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+            for (const [dx, dy] of offsets) {
+                const sx = this.x + dx;
+                const sy = this.y + dy;
+                const tile = monsterManager.game.dungeon.getTile(sx, sy);
+                if (tile && tile.type === 'floor' && !monsterManager.getMonsterAt(sx, sy)) {
+                    const skeleton = new Skeleton(monsterManager.monsterIdCounter++, sx, sy);
+                    skeleton.scheduleNextAction(monsterManager.game.currentTick);
+                    monsterManager.monsters.push(skeleton);
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()} raises a skeleton from the ground!`);
+                    this.summonCooldown = 8;
+                    this.scheduleNextAction(monsterManager.game.currentTick);
+                    return;
+                }
+            }
+        }
+
+        this.summonCooldown = Math.max(0, this.summonCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Gelatinous Cube - Transparent ooze that dissolves adventurers
+class GelatinousCube extends Monster {
+    static levelRange = [3, 9];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A ten-foot cube of transparent jelly. You can see half-digested bones and a rusty helmet floating inside.';
+        this.resistances.physical = 0.5;
+        this.resistances.poison = 0.0; // Immune
+    }
+
+    getType() {
+        return 'gelatinous cube';
+    }
+
+    setStats() {
+        this.hp = 30 + Math.floor(Math.random() * 10); // 30-39 HP
+        this.maxHp = this.hp;
+        this.dmg = 5;
+        this.size = 140;
+        this.speed = 200; // Very slow
+        this.armor = 1;
+        this.experience = 25;
+    }
+
+    getSymbol() {
+        return 'c';
+    }
+
+    getColor() {
+        return '#7FFFD4'; // Aquamarine - semi-transparent look
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            // Engulf attack - acid damage
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} engulfs you in acidic jelly!`);
+            const acidDmg = Game.player.hitPlayer(this.getDamage());
+            if (acidDmg > 0) {
+                monsterManager.game.addMessage(`The acid burns for ${acidDmg} damage!`);
+            }
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You are slowly dissolved. Game over.');
+            }
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Rust Monster - Corrodes your equipment
+class RustMonster extends Monster {
+    static levelRange = [3, 8];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'An insectoid creature with feathery antennae that twitch eagerly at the scent of metal. Every warrior\'s nightmare.';
+    }
+
+    getType() {
+        return 'rust monster';
+    }
+
+    setStats() {
+        this.hp = 10 + Math.floor(Math.random() * 4); // 10-13 HP
+        this.maxHp = this.hp;
+        this.dmg = 3; // Weak attack
+        this.size = 90;
+        this.speed = 100;
+        this.experience = 20;
+    }
+
+    getSymbol() {
+        return 'r';
+    }
+
+    getColor() {
+        return '#B7410E'; // Rust color
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            // Try to corrode equipped weapon
+            const weapon = Game.player.body.weapon;
+            if (weapon && weapon.name !== 'Fists' && !weapon.isCursed && Math.random() < 0.3) {
+                // Reduce weapon damage by 1
+                if (weapon.damage > 1) {
+                    weapon.damage -= 1;
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()}'s antennae corrode your ${weapon.name}! (-1 damage)`);
+                } else {
+                    monsterManager.game.addMessage(`The ${this.getDisplayName()} gnaws on your ${weapon.name} but it can't get any worse.`);
+                }
+            } else {
+                monsterManager.monsterAttackPlayer(this);
+            }
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Flumph - Comically weak floating jellyfish
+class Flumph extends Monster {
+    static levelRange = [1, 4];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A small floating jellyfish-like creature that bobs gently in the air. It seems more confused than threatening.';
+    }
+
+    getType() {
+        return 'flumph';
+    }
+
+    setStats() {
+        this.hp = 4 + Math.floor(Math.random() * 3); // 4-6 HP
+        this.maxHp = this.hp;
+        this.dmg = 1; // Pathetically weak
+        this.size = 60;
+        this.speed = 70; // Fast but useless
+        this.experience = 2;
+    }
+
+    getSymbol() {
+        return 'f';
+    }
+
+    getColor() {
+        return '#FFB6C1'; // Light pink
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Flumphs try to run away 50% of the time when close
+        if (dist < 4 && Math.random() < 0.5) {
+            // Move away from player
+            const dx = this.x - Game.player.x;
+            const dy = this.y - Game.player.y;
+            const moveX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+            const moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+            const newX = this.x + moveX;
+            const newY = this.y + moveY;
+            const tile = monsterManager.game.dungeon.getTile(newX, newY);
+            if (tile && tile.type === 'floor' && !monsterManager.getMonsterAt(newX, newY)) {
+                this.x = newX;
+                this.y = newY;
+                this.scheduleNextAction(monsterManager.game.currentTick);
+                return;
+            }
+        }
+
+        if (dist < 1.5) {
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} flails at you ineffectually.`);
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Mimic - Disguises as a treasure chest
+class Mimic extends Monster {
+    static levelRange = [4, 10];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'What you thought was a treasure chest has grown teeth, a tongue, and a very bad attitude.';
+        this.disguised = true;
+    }
+
+    getType() {
+        return this.disguised ? 'chest' : 'mimic';
+    }
+
+    setStats() {
+        this.hp = 20 + Math.floor(Math.random() * 8); // 20-27 HP
+        this.maxHp = this.hp;
+        this.dmg = 10;
+        this.size = 100;
+        this.speed = 110;
+        this.armor = 2;
+        this.experience = 35;
+    }
+
+    getSymbol() {
+        return this.disguised ? '$' : 'm';
+    }
+
+    getColor() {
+        return this.disguised ? '#FFD700' : '#8B4513'; // Gold when disguised, brown when revealed
+    }
+
+    takeDamage(amount) {
+        if (this.disguised) {
+            this.disguised = false;
+        }
+        return super.takeDamage(amount);
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Stay still when disguised, waiting for prey
+        if (this.disguised) {
+            if (dist < 1.5) {
+                // Surprise attack!
+                this.disguised = false;
+                monsterManager.game.addMessage('The chest springs to life and bites you! It\'s a Mimic!');
+                const surpriseDmg = Game.player.hitPlayer(this.getDamage() * 1.5);
+                if (surpriseDmg > 0) {
+                    monsterManager.game.addMessage(`The Mimic's surprise bite deals ${surpriseDmg} damage!`);
+                }
+                if (Game.player.isDead()) {
+                    monsterManager.game.gameOver = true;
+                    monsterManager.game.addMessage('Eaten by furniture. Game over.');
+                }
+                this.scheduleNextAction(monsterManager.game.currentTick);
+                return;
+            }
+            // Stay still when disguised
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Owlbear - It's an owl. And a bear. At the same time.
+class Owlbear extends Monster {
+    static levelRange = [5, 10];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Eight feet of feathered fury — the body of a bear with the head of an owl. It hoots menacingly.';
+    }
+
+    getType() {
+        return 'owlbear';
+    }
+
+    setStats() {
+        this.hp = 30 + Math.floor(Math.random() * 10); // 30-39 HP
+        this.maxHp = this.hp;
+        this.dmg = 13;
+        this.size = 130;
+        this.speed = 100;
+        this.armor = 2;
+        this.experience = 45;
+    }
+
+    getSymbol() {
+        return 'Q';
+    }
+
+    getColor() {
+        return '#8B6914'; // Dark goldenrod
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            // Bear hug: if both claw and bite hit, bonus damage
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} hoots and mauls you!`);
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
+// Gazebo - The legendary immovable menace
+class Gazebo extends Monster {
+    static levelRange = [1, 20];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'It is a gazebo. It sits there ominously. You are likely to be eaten by it.';
+        this.resistances.physical = 0.5;
+        this.resistances.fire = 0.5;
+        this.resistances.ice = 0.0; // Immune
+        this.resistances.lightning = 0.5;
+        this.resistances.poison = 0.0; // Immune
+    }
+
+    getType() {
+        return 'gazebo';
+    }
+
+    setStats() {
+        this.hp = 1; // One HP but doesn't move or attack
+        this.maxHp = this.hp;
+        this.dmg = 0;
+        this.size = 200;
+        this.speed = 9999; // Never acts
+        this.experience = 1;
+    }
+
+    getSymbol() {
+        return 'n';
+    }
+
+    getColor() {
+        return '#F5F5DC'; // Beige
+    }
+
+    performAction(monsterManager) {
+        // The gazebo does nothing. It is a gazebo.
+        this.scheduleNextAction(monsterManager.game.currentTick);
+    }
+}
+
 // Monster factory for creating monsters
 class MonsterFactory {
     static monsterTypes = [
@@ -2356,6 +2918,20 @@ class MonsterFactory {
         {class: Beholder, weight: 0.5}, // Very rare
         {class: Hydra, weight: 1},
         {class: Manticore, weight: 1.5},
+
+        // Human hierarchy
+        {class: Bandit, weight: 3},
+        {class: Rogue, weight: 2},
+        {class: Knight, weight: 1.5},
+        {class: Necromancer, weight: 1},
+
+        // Silly D&D classics
+        {class: GelatinousCube, weight: 1.5},
+        {class: RustMonster, weight: 2},
+        {class: Flumph, weight: 3},
+        {class: Mimic, weight: 1.5},
+        {class: Owlbear, weight: 2},
+        {class: Gazebo, weight: 0.3}, // Rare and pointless
     ];
 
     static createRandomMonster(id, x, y, currentLevel = 1) {
@@ -2575,6 +3151,29 @@ class MonsterManager {
             }
         }
 
+        // Process poison ticks (every 500 ticks, same rate as player)
+        if (this.game.currentTick % 500 === 0) {
+            for (const monster of this.monsters) {
+                if (monster.isAlive() && monster.poisoned) {
+                    const poisonDmg = monster.processPoisonTick(this.game);
+                    if (poisonDmg > 0) {
+                        const isVisible = this.game.visible[monster.y] && this.game.visible[monster.y][monster.x];
+                        if (isVisible) {
+                            this.game.addMessage(`The ${monster.getDisplayName()} takes ${poisonDmg} poison damage!`);
+                            anyMovement = true;
+                        }
+                        if (!monster.isAlive()) {
+                            if (isVisible) {
+                                this.game.addMessage(`The ${monster.getDisplayName()} dies from poison!`);
+                            }
+                            Game.player.experience += monster.experience;
+                        }
+                    }
+                }
+            }
+            this.monsters = this.monsters.filter((m) => m.isAlive());
+        }
+
         // Return whether any monster actually moved (for conditional rendering)
         return anyMovement;
     }
@@ -2596,6 +3195,14 @@ class MonsterManager {
             this.game.addMessage(`The ${monster.getDisplayName()} attacks but you block it!`);
         } else {
             this.game.addMessage(`The ${monster.getDisplayName()} hits you for ${actualDamage} damage.`);
+        }
+
+        // Monster poison attack
+        if (actualDamage > 0 && monster.poisonChance && Math.random() < monster.poisonChance) {
+            const poisonDmg = monster.poisonDmgPerTick || 2;
+            const poisonTicks = monster.poisonDuration || 5;
+            Game.player.applyPoison(poisonDmg, poisonTicks);
+            this.game.addMessage(`The ${monster.getDisplayName()}'s attack poisons you!`);
         }
 
         if (Game.player.isDead()) {
@@ -2636,6 +3243,15 @@ class MonsterManager {
                         resistance: elementalResult.resistance
                     });
                 }
+            }
+        }
+
+        // Apply poison DoT if weapon has poison damage and monster survived
+        if (monster.hp > 0) {
+            const poisonAmount = weapon.getElementalDamage('poison');
+            if (poisonAmount > 0 && monster.resistances.poison !== 0.0) {
+                monster.applyPoison(Math.ceil(poisonAmount / 2), 5);
+                this.game.addMessage(`${monster.getDisplayName()} is poisoned!`);
             }
         }
 

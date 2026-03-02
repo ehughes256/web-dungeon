@@ -11,11 +11,13 @@ class Game {
         // Set global game instance reference
         Game.instance = this;
         Game.player = new Player(this, 0, 0);
+        Game.player.giveStartingEquipment();
         this.canvas = document.getElementById('dungeon');
         this.ctx = this.canvas.getContext('2d');
         this.tileSize = 20;
-        this.width = Math.floor(this.canvas.width / this.tileSize);
-        this.height = Math.floor(this.canvas.height / this.tileSize);
+        // Make dungeon twice as large as the viewport
+        this.width = Math.floor(this.canvas.width / this.tileSize) * 2;
+        this.height = Math.floor(this.canvas.height / this.tileSize) * 2;
         this.explored = [];
         this.visible = [];
         this.levelCache = {};
@@ -29,6 +31,8 @@ class Game {
         // Examine / Inspect mode state
         this.examineMode = false;
         this.examineCursor = null; // {x,y}
+        // Direction select mode (for force/lockpick)
+        this.directionSelectMode = null;
         // Targeting mode state (for wands and ranged attacks)
         this.targetingMode = false;
         this.targetingCursor = null; // {x,y}
@@ -180,6 +184,9 @@ class Game {
 
         // Place traps after dungeon generation
         mazeGenerator.placeTraps(this.dungeon, this.dungeonLevel);
+
+        // Lock some doors
+        mazeGenerator.lockDoors(this.dungeon, this.dungeonLevel);
 
         if (this.dungeon.rooms.length && !this.levelCache[this.dungeonLevel]) {
             const r = this.dungeon.rooms[0];
@@ -396,6 +403,31 @@ class Game {
                 return; // Prevent normal mode handling while examining
             }
 
+            // Direction select mode (for force / lockpick)
+            if (this.directionSelectMode) {
+                let ddx = 0, ddy = 0;
+                switch (k) {
+                    case 'arrowup': case 'k': ddy = -1; break;
+                    case 'arrowdown': case 'j': ddy = 1; break;
+                    case 'arrowleft': case 'h': ddx = -1; break;
+                    case 'arrowright': case 'l': ddx = 1; break;
+                    case 'y': ddx = -1; ddy = -1; break;
+                    case 'u': ddx = 1; ddy = -1; break;
+                    case 'b': ddx = -1; ddy = 1; break;
+                    case 'n': ddx = 1; ddy = 1; break;
+                    case 'escape':
+                        this.directionSelectMode = null;
+                        this.addMessage('Cancelled.');
+                        return;
+                    default: return;
+                }
+                if (ddx || ddy) {
+                    await this.handleDirectionSelect(ddx, ddy);
+                    e.preventDefault();
+                }
+                return;
+            }
+
             let dx = 0, dy = 0;
             switch (k) {
                 // Movement and actions
@@ -469,6 +501,9 @@ class Game {
                     } else {
                         this.addMessage('Not enough mana to teleport! (Need 20)');
                     }
+                    return;
+                case 'f':
+                    this.startForceMode();
                     return;
                 case 'z':
                     if (Game.player.canGoInvisible() && Game.player.mana >= 30) {
@@ -712,6 +747,8 @@ class Game {
             section('Wands', p.inventory.wands, (it, i) => this.renderInvRow('wands', it, i));
             section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
             section('Armor', p.inventory.armor, (it, i) => this.renderInvRow('armor', it, i, p.equippedArmor().includes(it)));
+            section('Keys', p.inventory.keys, (it, i) => this.renderInvRow('keys', it, i));
+            section('Lockpicks', p.inventory.lockpicks, (it, i) => this.renderInvRow('lockpicks', it, i));
             lines.push(`</div>`);
         }
         container.innerHTML = lines.join('');
@@ -745,6 +782,9 @@ class Game {
                 tags.push(`<span class='tag'>?/?</span>`);
             }
         }
+        if (category === 'keys' || category === 'lockpicks') {
+            if (item.count > 1) tags.push(`<span class='tag'>x${item.count}</span>`);
+        }
         let actionButtons = '';
         if (category === 'weapons' && !(item instanceof Fists)) {
             actionButtons += equipped ? `<button onclick="game.unequipInventoryItem('weapons')">Unequip</button>` : `<button onclick="game.equipInventoryItem('weapons',${index})">Equip</button>`;
@@ -755,6 +795,7 @@ class Game {
         if (category === 'potions') actionButtons += `<button onclick="game.useInventoryItem('potions',${index})">Drink</button>`;
         if (category === 'scrolls') actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
         if (category === 'wands') actionButtons += `<button onclick="game.useInventoryItem('wands',${index})">Zap</button>`;
+        if (category === 'lockpicks') actionButtons += `<button onclick="game.useInventoryItem('lockpicks',${index})">Use</button>`;
         actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
 
         // Make item name clickable to show details
@@ -883,6 +924,9 @@ class Game {
                     await this.consumeTurn(item.speed || 15);
                 }
             }
+        } else if (category === 'lockpicks') {
+            this.startLockpickMode();
+            return; // Don't consume turn yet - direction select will handle it
         }
         this.buildInventory();
         this.updateUI();
@@ -894,9 +938,21 @@ class Game {
         if (nx < 0 || ny < 0 || nx >= this.width || ny >= this.height) return;
         const tile = this.dungeon.getTile(nx, ny);
         if (tile && tile.type === '+') {
-            this.dungeon.setTileType(nx, ny, '/');
-            this.addMessage('You open the door.');
-            await this.consumeTurn(20);
+            if (tile.locked) {
+                if (Game.player.hasKey()) {
+                    Game.player.useKey();
+                    tile.locked = false;
+                    this.dungeon.setTileType(nx, ny, '/');
+                    this.addMessage('You unlock the door with a key.');
+                    await this.consumeTurn(20);
+                } else {
+                    this.addMessage('The door is locked.');
+                }
+            } else {
+                this.dungeon.setTileType(nx, ny, '/');
+                this.addMessage('You open the door.');
+                await this.consumeTurn(20);
+            }
             return;
         }
         const monster = this.monsterManager.monsters.find(m => m.x === nx && m.y === ny);
@@ -1024,6 +1080,61 @@ class Game {
         }
     }
 
+    startForceMode() {
+        this.addMessage('Force in which direction? (movement key)');
+        this.directionSelectMode = 'force';
+    }
+
+    startLockpickMode() {
+        if (!Game.player.hasLockpick()) {
+            this.addMessage('You have no lockpicks!');
+            return;
+        }
+        this.addMessage('Pick lock in which direction? (movement key)');
+        this.directionSelectMode = 'lockpick';
+    }
+
+    async handleDirectionSelect(dx, dy) {
+        const mode = this.directionSelectMode;
+        this.directionSelectMode = null;
+
+        const tx = Game.player.x + dx;
+        const ty = Game.player.y + dy;
+        const tile = this.dungeon.getTile(tx, ty);
+
+        if (!tile || tile.type !== '+') {
+            this.addMessage('There is no door there.');
+            return;
+        }
+
+        if (!tile.locked) {
+            this.addMessage('That door is not locked.');
+            return;
+        }
+
+        if (mode === 'force') {
+            const successChance = Math.min(80, Math.floor(Game.player.strength / 2) + Game.player.level * 2);
+            if (Math.random() * 100 < successChance) {
+                tile.locked = false;
+                this.dungeon.setTileType(tx, ty, '/');
+                this.addMessage('You force the door open!');
+            } else {
+                this.addMessage('You fail to force the door open.');
+            }
+            await this.consumeTurn(50);
+        } else if (mode === 'lockpick') {
+            const successChance = Math.min(95, 60 + Math.floor(Game.player.dexterity / 5));
+            Game.player.useLockpick();
+            if (Math.random() * 100 < successChance) {
+                tile.locked = false;
+                this.addMessage('You pick the lock!');
+            } else {
+                this.addMessage('The lockpick snaps!');
+            }
+            await this.consumeTurn(30);
+        }
+    }
+
     async closeAdjacentDoors() {
         const closed = this.dungeon.closeAdjacentDoors(Game.player.x, Game.player.y);
         if (closed) {
@@ -1066,13 +1177,30 @@ class Game {
     render() {
         const ts = this.tileSize;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
+
+        // Calculate camera offset to center player
+        const viewportTilesX = Math.floor(this.canvas.width / ts);
+        const viewportTilesY = Math.floor(this.canvas.height / ts);
+        const cameraX = Game.player.x - Math.floor(viewportTilesX / 2);
+        const cameraY = Game.player.y - Math.floor(viewportTilesY / 2);
+
+        // Store camera offset for mouse coordinate conversion
+        this.cameraX = cameraX;
+        this.cameraY = cameraY;
+
+        // Only render tiles visible in viewport
+        const startX = Math.max(0, cameraX);
+        const startY = Math.max(0, cameraY);
+        const endX = Math.min(this.width, cameraX + viewportTilesX + 1);
+        const endY = Math.min(this.height, cameraY + viewportTilesY + 1);
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
                 if (!this.explored[y][x]) continue;
                 const tile = this.dungeon.getTile(x, y);
                 if (!tile) continue;
                 const tileType = tile.type;
-                const px = x * ts, py = y * ts;
+                const px = (x - cameraX) * ts, py = (y - cameraY) * ts;
                 this.ctx.fillStyle = '#000';
                 this.ctx.fillRect(px, py, ts, ts);
                 this.ctx.font = '16px monospace';
@@ -1081,7 +1209,7 @@ class Game {
                 let char = tileType, color = '#888';
                 if (tileType === '#') color = '#777'; else if (tileType === '.') color = '#555'; else if (tileType === '+') {
                     char = '+';
-                    color = '#aa7722';
+                    color = tile.locked ? '#aa6600' : '#aa7722';
                 } else if (tileType === '/') {
                     char = '/';
                     color = '#ddbb77';
@@ -1094,7 +1222,7 @@ class Game {
             if (!stair) return;
             const {x, y} = stair;
             if (!this.explored[y][x]) return;
-            const px = x * ts, py = y * ts;
+            const px = (x - cameraX) * ts, py = (y - cameraY) * ts;
             this.ctx.fillStyle = '#000';
             this.ctx.fillRect(px, py, ts, ts);
             this.ctx.font = '16px monospace';
@@ -1107,12 +1235,12 @@ class Game {
         drawStair(this.dungeon.downStair, '>', '#ff8888');
 
         // Draw discovered traps
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
                 if (!this.explored[y][x]) continue;
                 const tile = this.dungeon.getTile(x, y);
                 if (tile && tile.trap && tile.trap.discovered ) {
-                    const px = x * ts, py = y * ts;
+                    const px = (x - cameraX) * ts, py = (y - cameraY) * ts;
                     this.ctx.font = '16px monospace';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
@@ -1123,14 +1251,14 @@ class Game {
         }
 
         // Draw items from floor tiles
-        for (let y = 0; y < this.height; y++) {
-            for (let x = 0; x < this.width; x++) {
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
                 if (!this.visible[y][x]) continue;
                 const tile = this.dungeon.getTile(x, y);
                 if (tile && tile.hasItems()) {
                     const it = tile.getTopItem(); // Show top item
                     if (it) {
-                        const px = x * ts, py = y * ts;
+                        const px = (x - cameraX) * ts, py = (y - cameraY) * ts;
                         this.ctx.font = '16px monospace';
                         this.ctx.textAlign = 'center';
                         this.ctx.textBaseline = 'middle';
@@ -1144,7 +1272,9 @@ class Game {
             const [xs, ys] = key.split(',').map(Number);
             if (this.visible[ys] && this.visible[ys][xs]) return;
             if (!this.explored[ys][xs]) return;
-            const px = xs * ts, py = ys * ts;
+            // Only draw if in viewport
+            if (xs < startX || xs >= endX || ys < startY || ys >= endY) return;
+            const px = (xs - cameraX) * ts, py = (ys - cameraY) * ts;
             this.ctx.font = '16px monospace';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
@@ -1160,14 +1290,17 @@ class Game {
         });
         for (const m of this.monsterManager.monsters) {
             if (!this.visible[m.y] || !this.visible[m.y][m.x]) continue;
-            const px = m.x * ts, py = m.y * ts;
+            // Only draw if in viewport
+            if (m.x < startX || m.x >= endX || m.y < startY || m.y >= endY) continue;
+            const px = (m.x - cameraX) * ts, py = (m.y - cameraY) * ts;
             this.ctx.font = '16px monospace';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            this.ctx.fillStyle = m.getColor();
+            this.ctx.fillStyle = m.poisoned ? '#44ff44' : m.getColor();
             this.ctx.fillText(m.getSymbol(), px + ts / 2, py + ts / 2);
         }
-        const ppx = Game.player.x * ts, ppy = Game.player.y * ts;
+        // Draw player at center of screen (relative to camera)
+        const ppx = (Game.player.x - cameraX) * ts, ppy = (Game.player.y - cameraY) * ts;
         this.ctx.font = '16px monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
@@ -1175,8 +1308,8 @@ class Game {
         this.ctx.fillText('@', ppx + ts / 2, ppy + ts / 2);
         // Examine cursor highlight
         if (this.examineMode && this.examineCursor) {
-            const cx = this.examineCursor.x * ts;
-            const cy = this.examineCursor.y * ts;
+            const cx = (this.examineCursor.x - cameraX) * ts;
+            const cy = (this.examineCursor.y - cameraY) * ts;
             this.ctx.strokeStyle = '#ffff00';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(cx + 1, cy + 1, ts - 2, ts - 2);
@@ -1184,8 +1317,8 @@ class Game {
 
         // Targeting cursor highlight (for wands)
         if (this.targetingMode && this.targetingCursor) {
-            const cx = this.targetingCursor.x * ts;
-            const cy = this.targetingCursor.y * ts;
+            const cx = (this.targetingCursor.x - cameraX) * ts;
+            const cy = (this.targetingCursor.y - cameraY) * ts;
             this.ctx.strokeStyle = '#ff0000'; // Red for targeting
             this.ctx.lineWidth = 3;
             this.ctx.strokeRect(cx, cy, ts, ts);
@@ -1246,7 +1379,15 @@ class Game {
         document.getElementById('mana').textContent = Math.floor(Game.player.mana);
         document.getElementById('gold').textContent = Game.player.inventory.gold;
         document.getElementById('exp').textContent = Game.player.experience;
-        document.getElementById('weight').textContent = Game.player.carriedWeight();
+        const carried = Game.player.carriedWeight();
+        const capacity = Game.player.strength * 2;
+        const weightEl = document.getElementById('weight');
+        weightEl.textContent = `${carried}/${capacity}`;
+        weightEl.style.color = carried > capacity ? '#ff4444' : '';
+        const poisonEl = document.getElementById('poison-status');
+        if (poisonEl) {
+            poisonEl.style.display = Game.player.poisoned ? '' : 'none';
+        }
         this.buildInventory();
     }
 

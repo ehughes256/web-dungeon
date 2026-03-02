@@ -71,7 +71,7 @@ class Player {
         this.maxMana = 100;
         this.mana = this.maxMana;
         this.level = 1;
-        this.inventory = {gold: 0, potions: [], scrolls: [], wands: [], weapons: [], armor: []};
+        this.inventory = {gold: 0, potions: [], scrolls: [], wands: [], weapons: [], armor: [], keys: [], lockpicks: []};
         this.body = new PlayerBody(this);
 
         // Attributes (1-100 scale)
@@ -87,6 +87,48 @@ class Player {
         this.class = 'Adventurer'; // Player class
         this.nextFreeHealTime = 3000; // Next time the player can heal
         this.invisible = false; // Invisibility state
+        this.poisoned = false; // Poison status effect
+        this.poisonDamage = 0; // Damage per poison tick
+        this.poisonTicksRemaining = 0; // How many poison ticks left
+    }
+
+    giveStartingEquipment() {
+        // Always give a random low-level weapon
+        const starterWeapons = [Stick, RustyKnife, Club, BoneShard, SmallDagger];
+        const WeaponClass = starterWeapons[Math.floor(Math.random() * starterWeapons.length)];
+        const weapon = new WeaponClass(0, 0);
+        this.addWeapon(weapon);
+        this.equipWeapon(weapon);
+
+        // 60% chance of a health potion
+        if (Math.random() < 0.6) {
+            const potion = new HealthPotion(0, 0);
+            potion.identified = true;
+            this.addPotion(potion);
+        }
+
+        // 40% chance of a second health potion
+        if (Math.random() < 0.4) {
+            const potion = new HealthPotion(0, 0);
+            potion.identified = true;
+            this.addPotion(potion);
+        }
+
+        // 30% chance of a piece of armor (helmet or body armor)
+        if (Math.random() < 0.3) {
+            const armor = new Helmet(0, 0, 'Leather Cap');
+            armor.defense = 1;
+            armor.weight = 3;
+            this.addArmor(armor);
+            this.equipArmor(armor);
+        }
+
+        // 20% chance of a speed potion
+        if (Math.random() < 0.2) {
+            const potion = new SpeedPotion(0, 0);
+            potion.identified = true;
+            this.addPotion(potion);
+        }
     }
 
     equippedWeapon() {
@@ -118,9 +160,20 @@ class Player {
         return total;
     }
 
-    // Get current speed with equipment modifiers
+    // Get current speed with equipment modifiers and encumbrance
     getCurrentSpeed() {
-        return this.baseSpeed + this.getEquipmentBonus('speed');
+        let speed = this.baseSpeed + this.getEquipmentBonus('speed');
+
+        // Encumbrance: weight beyond strength capacity slows you down
+        const carried = this.carriedWeight();
+        const capacity = this.strength * 2;
+        if (carried > capacity) {
+            const overload = carried - capacity;
+            // +1 speed (slower) per 5 weight over capacity, up to +50
+            speed += Math.min(50, Math.floor(overload / 5));
+        }
+
+        return speed;
     }
 
     // Get regeneration bonus from equipment
@@ -286,12 +339,63 @@ class Player {
             actualDamage = Math.floor(actualDamage * (1 - this.getLightningResistance()));
         }
 
+        // Constitution: poison resistance/vulnerability
+        // CON 50 = neutral, CON 100 = 50% resist, CON 10 = 40% extra poison damage
+        if (damageType === 'poison') {
+            const poisonResist = Math.min(0.5, (this.constitution - 50) / 100);
+            actualDamage = Math.max(0, Math.floor(actualDamage * (1 - poisonResist)));
+        }
+
+        // Constitution: flat damage reduction (toughness)
+        // CON 50 = neutral, high CON reduces, low CON does NOT add damage
+        const conReduction = Math.max(0, Math.floor((this.constitution - 50) / 10));
+        actualDamage = Math.max(0, actualDamage - conReduction);
+
         this.health -= actualDamage;
         return actualDamage;
     }
 
     isDead() {
         return this.health <= 0;
+    }
+
+    // Poison status effect
+    applyPoison(damagePerTick, ticks) {
+        if (this.poisoned) {
+            // Stack: add damage, take longer duration
+            this.poisonDamage += damagePerTick;
+            this.poisonTicksRemaining = Math.max(this.poisonTicksRemaining, ticks);
+        } else {
+            this.poisoned = true;
+            this.poisonDamage = damagePerTick;
+            this.poisonTicksRemaining = ticks;
+        }
+    }
+
+    processPoisonTick(game) {
+        if (!this.poisoned || this.poisonTicksRemaining <= 0) {
+            this.poisoned = false;
+            return 0;
+        }
+
+        // CON reduces poison tick damage (same formula as hitPlayer poison resist)
+        const poisonResist = Math.min(0.5, (this.constitution - 50) / 100);
+        const damage = Math.max(1, Math.floor(this.poisonDamage * (1 - poisonResist)));
+        this.health -= damage;
+        this.poisonTicksRemaining--;
+
+        if (this.poisonTicksRemaining <= 0) {
+            this.poisoned = false;
+            game.addMessage('The poison wears off.');
+        }
+
+        return damage;
+    }
+
+    curePoison() {
+        this.poisoned = false;
+        this.poisonDamage = 0;
+        this.poisonTicksRemaining = 0;
     }
 
     // Equipment management
@@ -366,7 +470,7 @@ class Player {
 
     addPotion(potion) {
         if (!this.inventory.potions) this.inventory.potions = [];
-        const match = this.inventory.potions.find((p) => p.name === potion.name && p.healAmount === potion.healAmount);
+        const match = this.inventory.potions.find((p) => p.name === potion.name && p.healAmount === potion.healAmount && !!p.cursed === !!potion.cursed);
         if (match) match.count += 1;
         else {
             potion.count = 1;
@@ -442,7 +546,7 @@ class Player {
 
     addScroll(scroll) {
         if (!this.inventory.scrolls) this.inventory.scrolls = [];
-        const match = this.inventory.scrolls.find((s) => s.name === scroll.name && s.damage === scroll.damage);
+        const match = this.inventory.scrolls.find((s) => s.name === scroll.name && s.damage === scroll.damage && !!s.cursed === !!scroll.cursed);
         if (match) match.count += 1;
         else {
             scroll.count = 1;
@@ -487,6 +591,50 @@ class Player {
                 }
             }
         }
+    }
+
+    addKey(key) {
+        if (!this.inventory.keys) this.inventory.keys = [];
+        const match = this.inventory.keys.find(k => k.name === key.name);
+        if (match) match.count += 1;
+        else {
+            key.count = 1;
+            this.inventory.keys.push(key);
+        }
+    }
+
+    hasKey() {
+        return this.inventory.keys && this.inventory.keys.length > 0 && this.inventory.keys[0].count > 0;
+    }
+
+    useKey() {
+        if (!this.hasKey()) return false;
+        const key = this.inventory.keys[0];
+        key.count -= 1;
+        if (key.count <= 0) this.inventory.keys.splice(0, 1);
+        return true;
+    }
+
+    addLockpick(lockpick) {
+        if (!this.inventory.lockpicks) this.inventory.lockpicks = [];
+        const match = this.inventory.lockpicks.find(l => l.name === lockpick.name);
+        if (match) match.count += 1;
+        else {
+            lockpick.count = 1;
+            this.inventory.lockpicks.push(lockpick);
+        }
+    }
+
+    hasLockpick() {
+        return this.inventory.lockpicks && this.inventory.lockpicks.length > 0 && this.inventory.lockpicks[0].count > 0;
+    }
+
+    useLockpick() {
+        if (!this.hasLockpick()) return false;
+        const lockpick = this.inventory.lockpicks[0];
+        lockpick.count -= 1;
+        if (lockpick.count <= 0) this.inventory.lockpicks.splice(0, 1);
+        return true;
     }
 
     addWeapon(weapon) {
@@ -561,7 +709,21 @@ class Player {
             this.game.addMessage('Cannot drop here.');
             return;
         }
-        if (category === 'potions' || category === 'scrolls') {
+        if (category === 'keys') {
+            const stack = arr[index];
+            const single = new Key(this.x, this.y);
+            tile.addItem(single);
+            stack.count -= 1;
+            if (stack.count <= 0) arr.splice(index, 1);
+            this.game.addMessage('You drop a key.');
+        } else if (category === 'lockpicks') {
+            const stack = arr[index];
+            const single = new Lockpick(this.x, this.y);
+            tile.addItem(single);
+            stack.count -= 1;
+            if (stack.count <= 0) arr.splice(index, 1);
+            this.game.addMessage('You drop a lockpick.');
+        } else if (category === 'potions' || category === 'scrolls') {
             const stack = arr[index];
             const single = this.game.instantiateDroppedItem(stack, this.x, this.y);
             if (!single) {

@@ -27,7 +27,8 @@ function initializeScrollMagicPhrases() {
         'Regeneration Scroll',
         'Enchantment Scroll',
         'Uncurse Scroll',
-        'Identify Scroll'
+        'Identify Scroll',
+        'Poison Enchantment Scroll'
     ];
     const shuffledPhrases = [...SCROLL_MAGIC_PHRASES].sort(() => Math.random() - 0.5);
 
@@ -71,7 +72,8 @@ const SCROLL_CONFIGS = {
         size: 1
     },
     uncurse: {dropChance: 0.06, levelRange: [1, 15], color: '#ffddaa', speed: 30, weight: 1, size: 1},
-    identify: {dropChance: 0.08, levelRange: [1, 20], color: '#88ddff', speed: 30, weight: 1, size: 1}
+    identify: {dropChance: 0.08, levelRange: [1, 20], color: '#88ddff', speed: 30, weight: 1, size: 1},
+    poisonEnchantment: {poisonPower: 3, dropChance: 0.03, levelRange: [3, 12], color: '#44ff44', speed: 30, weight: 1, size: 1}
 };
 
 // Base Scroll class
@@ -161,6 +163,17 @@ class PsionicScroll extends Scroll {
         this.identified = true;
         Game.player.identifyScrollType(this.name);
 
+        if (this.cursed) {
+            const dmg = this.damage || 10;
+            const actualDamage = Game.player.hitPlayer(dmg);
+            game.addMessage(`You read ${displayName}. Psychic energy rebounds into your mind! ${actualDamage} damage. It was a cursed ${this.name}!`);
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('Your mind shatters. Game over.');
+            }
+            return;
+        }
+
         const targets = game.monsterManager.monsters.filter((m) => game.visible[m.y] && game.visible[m.y][m.x]);
         if (!targets.length) {
             game.addMessage(`You read ${displayName}. No targets in sight. It was a ${this.name}!`);
@@ -198,6 +211,30 @@ class TeleportScroll extends Scroll {
         const displayName = this.getDisplayName();
         this.identified = true;
         Game.player.identifyScrollType(this.name);
+
+        if (this.cursed) {
+            // Teleport next to a random monster
+            const monsters = game.monsterManager.monsters;
+            if (monsters.length > 0) {
+                const target = monsters[Math.floor(Math.random() * monsters.length)];
+                const offsets = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+                for (const [dx, dy] of offsets) {
+                    const tx = target.x + dx;
+                    const ty = target.y + dy;
+                    const tile = game.dungeon.getTile(tx, ty);
+                    if (tile && (tile.type === '.' || tile.type === '/') && !game.monsterManager.monsters.some(m => m.x === tx && m.y === ty)) {
+                        Game.player.x = tx;
+                        Game.player.y = ty;
+                        game.addMessage(`You read ${displayName}. Reality twists maliciously—you appear next to a ${target.getDisplayName()}! It was a cursed ${this.name}!`);
+                        game.computeFOV();
+                        game.render();
+                        return;
+                    }
+                }
+            }
+            game.addMessage(`You read ${displayName}. The cursed magic fizzles. It was a cursed ${this.name}!`);
+            return;
+        }
 
         const validPositions = [];
         for (let y = 0; y < game.height; y++) {
@@ -243,6 +280,20 @@ class MappingScroll extends Scroll {
         this.identified = true;
         Game.player.identifyScrollType(this.name);
 
+        if (this.cursed) {
+            // Erase explored tiles except current FOV
+            for (let y = 0; y < game.height; y++) {
+                for (let x = 0; x < game.width; x++) {
+                    if (!game.visible[y][x]) {
+                        game.explored[y][x] = false;
+                    }
+                }
+            }
+            game.addMessage(`You read ${displayName}. Your memories of the dungeon dissolve! It was a cursed ${this.name}!`);
+            game.render();
+            return;
+        }
+
         for (let y = 0; y < game.height; y++) {
             for (let x = 0; x < game.width; x++) {
                 const tile = game.dungeon.getTile(x, y);
@@ -274,6 +325,31 @@ class FireballScroll extends Scroll {
         const displayName = this.getDisplayName();
         this.identified = true;
         Game.player.identifyScrollType(this.name);
+
+        if (this.cursed) {
+            // Fireball centered on player, damages player
+            const fireballEffect = new FireballEffect(
+                Game.player.x,
+                Game.player.y,
+                this.damage,
+                this.radius,
+                game
+            );
+
+            await fireballEffect.execute({
+                animate: true,
+                damagePlayer: true,
+                damageMonsters: true,
+                useFalloff: false,
+                triggerMessage: `You read ${displayName}. The fireball explodes in your face! It was a cursed ${this.name}!`
+            });
+
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('You are incinerated by your own scroll. Game over.');
+            }
+            return;
+        }
 
         // Use shared fireball effect
         const fireballEffect = new FireballEffect(
@@ -325,6 +401,23 @@ class RegenerationScroll extends Scroll {
         this.identified = true;
         Game.player.identifyScrollType(this.name);
 
+        if (this.cursed) {
+            game.addMessage(`You read ${displayName}. Dark energy gnaws at your flesh! It was a cursed ${this.name}!`);
+            for (let i = 1; i <= this.totalHeals; i++) {
+                game.timeManager.scheduleEvent(this.interval * i, this, () => {
+                    Game.player.health -= this.healPerTick;
+                    game.addMessage(`The curse drains ${this.healPerTick} HP from you!`);
+                    if (Game.player.isDead()) {
+                        game.gameOver = true;
+                        game.addMessage('The cursed scroll drains your life. Game over.');
+                    }
+                    game.updateUI();
+                    game.render();
+                });
+            }
+            return;
+        }
+
         game.addMessage(`You read ${displayName}. Warm vitality suffuses your frame. It was a ${this.name}!`);
         for (let i = 1; i <= this.totalHeals; i++) {
             game.timeManager.scheduleEvent(this.interval * i, this, () => {
@@ -372,8 +465,20 @@ class EnchantmentScroll extends Scroll {
             return;
         }
         const power = this.enchantmentPower || 1;
-        // Apply enchantment
         const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+
+        if (this.cursed) {
+            // De-enchant: reduce enchantments
+            if (item instanceof Weapon) {
+                item.enchantments.damage = (item.enchantments.damage || 0) - power;
+                game.addMessage(`${displayName} dims! -${power} damage enchantment. It was a cursed scroll!`);
+            } else if (item instanceof Armor) {
+                item.enchantments.defense = (item.enchantments.defense || 0) - power;
+                game.addMessage(`${displayName} weakens! -${power} defense enchantment. It was a cursed scroll!`);
+            }
+            return;
+        }
+
         if (item instanceof Weapon) {
             item.enchantments.damage = (item.enchantments.damage || 0) + power;
             game.addMessage(`${displayName} glows with power! +${power} damage enchantment applied.`);
@@ -413,6 +518,18 @@ class UncurseScroll extends Scroll {
     }
 
     onSelectItem(game, item) {
+        if (this.cursed) {
+            // Cursed uncurse scroll curses the selected item
+            if (item && !item.cursed) {
+                item.applyCurse();
+                const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+                game.addMessage(`Dark energy engulfs ${displayName}! It is now cursed! It was a cursed scroll!`);
+            } else {
+                game.addMessage('The cursed scroll fizzles—that item is already cursed.');
+            }
+            return;
+        }
+
         if (item && item.cursed && typeof item.removeCurse === 'function') {
             const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
             item.removeCurse();
@@ -440,6 +557,31 @@ class IdentifyScroll extends Scroll {
         const displayName = this.getDisplayName();
         this.identified = true;
         Game.player.identifyScrollType(this.name);
+
+        if (this.cursed) {
+            // Un-identify a random identified potion/scroll/wand type
+            const types = [
+                { set: Player.identifiedPotionTypes, label: 'potion', inv: 'potions' },
+                { set: Player.identifiedScrollTypes, label: 'scroll', inv: 'scrolls' },
+                { set: Player.identifiedWandTypes, label: 'wand', inv: 'wands' },
+            ].filter(t => t.set && t.set.size > 0);
+
+            if (types.length > 0) {
+                const chosen = types[Math.floor(Math.random() * types.length)];
+                const names = [...chosen.set];
+                const targetName = names[Math.floor(Math.random() * names.length)];
+                chosen.set.delete(targetName);
+                // Un-identify matching items in inventory
+                const inv = Game.player.inventory[chosen.inv];
+                if (inv) {
+                    inv.forEach(item => { if (item.name === targetName) item.identified = false; });
+                }
+                game.addMessage(`You read ${displayName}. Your knowledge of ${targetName} fades! It was a cursed ${this.name}!`);
+            } else {
+                game.addMessage(`You read ${displayName}. A wave of confusion washes over you. It was a cursed ${this.name}!`);
+            }
+            return { success: true, scroll: this };
+        }
 
         // Trigger the item selection UI
         game.startItemSelection(this);
@@ -478,6 +620,60 @@ class IdentifyScroll extends Scroll {
     }
 }
 
+// Poison Enchantment: adds poison damage to a weapon
+class PoisonEnchantmentScroll extends Scroll {
+    static dropChance = SCROLL_CONFIGS.poisonEnchantment.dropChance;
+    static levelRange = SCROLL_CONFIGS.poisonEnchantment.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Poison Enchantment Scroll', 'poisonEnchantment');
+        this.description = 'Venomous script writhes across the parchment—its power coats a blade in lasting toxin.';
+    }
+
+    getColor() {
+        return SCROLL_CONFIGS.poisonEnchantment.color;
+    }
+
+    use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
+        game.startItemSelection(this);
+        return {
+            success: true,
+            message: `You read ${displayName}. Select a weapon to envenom... It was a ${this.name}!`,
+            scroll: this,
+        };
+    }
+
+    onSelectItem(game, item) {
+        if (!item || !(item instanceof Weapon)) {
+            game.addMessage('You can only apply poison to weapons.');
+            return;
+        }
+        const displayName = item.getDisplayName ? item.getDisplayName() : item.name;
+
+        if (this.cursed) {
+            // Remove poison enchantment
+            if (item.enchantments.elemental && item.enchantments.elemental.poison > 0) {
+                const removed = Math.min(item.enchantments.elemental.poison, SCROLL_CONFIGS.poisonEnchantment.poisonPower);
+                item.enchantments.elemental.poison -= removed;
+                if (item.enchantments.elemental.poison <= 0) delete item.enchantments.elemental.poison;
+                game.addMessage(`${displayName}'s venom evaporates! -${removed} poison damage. It was a cursed scroll!`);
+            } else {
+                game.addMessage(`The cursed scroll fizzles—${displayName} has no poison to remove.`);
+            }
+            return;
+        }
+
+        const power = SCROLL_CONFIGS.poisonEnchantment.poisonPower;
+        if (!item.enchantments.elemental) item.enchantments.elemental = {};
+        item.enchantments.elemental.poison = (item.enchantments.elemental.poison || 0) + power;
+        game.addMessage(`${displayName} drips with venom! +${power} poison damage enchantment applied.`);
+    }
+}
+
 if (typeof module !== 'undefined') {
     module.exports = {
         SCROLL_MAGIC_PHRASES,
@@ -492,7 +688,8 @@ if (typeof module !== 'undefined') {
         RegenerationScroll,
         EnchantmentScroll,
         IdentifyScroll,
-        UncurseScroll
+        UncurseScroll,
+        PoisonEnchantmentScroll
     };
 }
 

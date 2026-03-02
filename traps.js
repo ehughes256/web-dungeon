@@ -153,8 +153,9 @@ class FireballEffect {
 
                     // Only draw on visible tiles
                     if (this.game.visible && this.game.visible[ty] && this.game.visible[ty][tx]) {
-                        const px = tx * ts;
-                        const py = ty * ts;
+                        // Convert world coordinates to screen coordinates
+                        const px = (tx - this.game.cameraX) * ts;
+                        const py = (ty - this.game.cameraY) * ts;
 
                         // Calculate alpha based on distance from center
                         const alpha = Math.max(0.3, 1 - (dist / radius) * 0.7);
@@ -290,13 +291,23 @@ class PoisonDartTrap extends Trap {
             const actualDamage = entity.hitPlayer(this.damage, 'poison');
             game.addMessage(`A poison dart shoots out! You take ${actualDamage} damage.`);
 
-            // Additional poison effect - reduce max health temporarily (not implemented yet)
+            // Apply poison DoT effect (2-4 damage per tick for 5-8 ticks)
+            const poisonDmg = 2 + Math.floor(Math.random() * 3);
+            const poisonTicks = 5 + Math.floor(Math.random() * 4);
+            entity.applyPoison(poisonDmg, poisonTicks);
+            game.addMessage('You feel poison spreading through your veins!');
+
             if (entity.isDead()) {
                 game.handlePlayerDeath();
             }
         } else {
             // Monster triggered the trap
             const result = entity.takeDamage(this.damage, 'poison');
+
+            // Apply poison DoT to monster
+            const poisonDmg = 2 + Math.floor(Math.random() * 3);
+            const poisonTicks = 5 + Math.floor(Math.random() * 4);
+            entity.applyPoison(poisonDmg, poisonTicks);
 
             if (isVisible) {
                 this.discovered = true;

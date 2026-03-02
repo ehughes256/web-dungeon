@@ -58,7 +58,7 @@ const POTION_COLOR_ASSIGNMENTS = {};
 
 // Initialize random color assignments for potion types
 function initializePotionColors() {
-    const potionTypes = ['Health Potion', 'Speed Potion'];
+    const potionTypes = ['Health Potion', 'Speed Potion', 'Antidote Potion'];
     const shuffledColors = [...POTION_COLORS].sort(() => Math.random() - 0.5);
 
     potionTypes.forEach((type, index) => {
@@ -74,6 +74,14 @@ const POTION_CONFIGS = {
         dropChance: 0.05,
         levelRange: [1, 5],
         color: '#00ff00',
+        speed: 10,
+        weight: 1,
+        size: 2
+    },
+    antidote: {
+        dropChance: 0.04,
+        levelRange: [1, 6],
+        color: '#88ffaa',
         speed: 10,
         weight: 1,
         size: 2
@@ -152,6 +160,18 @@ class HealthPotion extends Potion {
         const displayName = this.getDisplayName();
         this.identified = true;
         Game.player.identifyPotionType(this.name);
+
+        if (this.cursed) {
+            const damage = this.healAmount;
+            Game.player.health -= damage;
+            game.addMessage(`You drink ${displayName}. It burns! It was a cursed ${this.name}!`);
+            if (Game.player.isDead()) {
+                game.gameOver = true;
+                game.addMessage('The cursed potion kills you. Game over.');
+            }
+            return { success: true, message: `You take ${damage} damage from the cursed potion!`, potion: this };
+        }
+
         game.addMessage(`You drink the health potion!`);
         const healedAmount = Game.player.heal(this.healAmount);
         return {
@@ -187,6 +207,17 @@ class SpeedPotion extends Potion {
         const displayName = this.getDisplayName();
         this.identified = true;
         Game.player.identifyPotionType(this.name);
+
+        if (this.cursed) {
+            game.addMessage(`You drink ${displayName}. Your limbs feel like lead! It was a cursed ${this.name}!`);
+            Game.player.speed += this.speedBoost;
+            game.timeManager.scheduleEvent(POTION_CONFIGS.speed.duration, this, () => {
+                Game.player.speed -= this.speedBoost;
+                game.addMessage('The sluggishness from the cursed potion wears off.');
+            });
+            return { success: true, message: `You are slowed! (-${this.speedBoost} speed)`, potion: this };
+        }
+
         game.addMessage(`You drink the speed potion!`);
         Game.player.speed -= this.speedBoost;
         game.timeManager.scheduleEvent(POTION_CONFIGS.speed.duration, this, () => {
@@ -201,12 +232,56 @@ class SpeedPotion extends Potion {
     }
 }
 
+class AntidotePotion extends Potion {
+    static dropChance = POTION_CONFIGS.antidote.dropChance;
+    static levelRange = POTION_CONFIGS.antidote.levelRange;
+
+    constructor(x, y, name) {
+        super(x, y, name || 'Antidote Potion', 'antidote');
+        this.description = 'A bitter green tincture that purges toxins and steadies trembling hands.';
+    }
+
+    onCollect(game) {
+        super.onCollect(game);
+        game.addMessage(`Found a ${this.getDisplayName()}!`);
+    }
+
+    use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyPotionType(this.name);
+
+        if (this.cursed) {
+            Game.player.applyPoison(3, 6);
+            game.addMessage(`You drink ${displayName}. It's toxic! It was a cursed ${this.name}!`);
+            return { success: true, message: 'Poison courses through your veins!', potion: this };
+        }
+
+        if (Game.player.poisoned) {
+            Game.player.curePoison();
+            return {
+                success: true,
+                message: `You drink ${displayName} and the poison fades! It was a ${this.name}!`,
+                potion: this,
+            };
+        } else {
+            // Still consumed but grants temporary poison immunity (reduces next poison by half)
+            return {
+                success: true,
+                message: `You drink ${displayName}. You feel hardened against toxins. It was a ${this.name}!`,
+                potion: this,
+            };
+        }
+    }
+}
+
 // Export for module systems
 if (typeof module !== 'undefined') {
     module.exports = {
         Potion,
         HealthPotion,
         SpeedPotion,
+        AntidotePotion,
         POTION_COLOR_ASSIGNMENTS,
         POTION_COLORS,
         POTION_COLOR_HEX,
