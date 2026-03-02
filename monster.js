@@ -37,6 +37,9 @@ class Monster {
         this.poisonDamage = 0;
         this.poisonTicksRemaining = 0;
 
+        // Whether this monster can open unlocked doors
+        this.canOpenDoors = false;
+
         // Set stats - to be overridden by subclasses
         this.setStats();
     }
@@ -76,13 +79,13 @@ class Monster {
             this.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
             this.lastSawPlayerMoves = 0;
             const step =
-                monsterManager.aStarNextStep(this.x, this.y, Game.player.x, Game.player.y) ||
-                monsterManager.pathStepToward(this.x, this.y, Game.player.x, Game.player.y);
+                monsterManager.aStarNextStep(this.x, this.y, Game.player.x, Game.player.y, this) ||
+                monsterManager.pathStepToward(this.x, this.y, Game.player.x, Game.player.y, this);
             if (step) {
                 const [tx, ty] = step;
                 if (
                     !(tx === Game.player.x && ty === Game.player.y) &&
-                    monsterManager.isWalkableForMonster(tx, ty)
+                    monsterManager.isWalkableForMonster(tx, ty, this)
                 ) {
                     this.moveTo(tx, ty);
                 }
@@ -92,12 +95,12 @@ class Monster {
             if (this.lastSawPlayerMoves < 15) { // remember for 15 moves
                 const [lx, ly] = this.lastKnownPlayerLocation;
                 const step =
-                    monsterManager.aStarNextStep(this.x, this.y, lx, ly) ||
-                    monsterManager.pathStepToward(this.x, this.y, lx, ly);
+                    monsterManager.aStarNextStep(this.x, this.y, lx, ly, this) ||
+                    monsterManager.pathStepToward(this.x, this.y, lx, ly, this);
                 if (step) {
                     const [tx, ty] = step;
                     if (!(tx === Game.player.x && ty === Game.player.y) &&
-                        monsterManager.isWalkableForMonster(tx, ty)) {
+                        monsterManager.isWalkableForMonster(tx, ty, this)) {
                         this.moveTo(tx, ty);
                     }
                 }
@@ -114,7 +117,7 @@ class Monster {
             const d = dirs[Math.floor(Math.random() * dirs.length)];
             const wx = this.x + d[0];
             const wy = this.y + d[1];
-            if (monsterManager.isWalkableForMonster(wx, wy)) {
+            if (monsterManager.isWalkableForMonster(wx, wy, this)) {
                 this.moveTo(wx, wy);
             }
         }
@@ -181,6 +184,16 @@ class Monster {
 
 
     moveTo(x, y) {
+        // Open closed unlocked doors if able
+        if (this.canOpenDoors && Game.instance) {
+            const tile = Game.instance.dungeon.getTile(x, y);
+            if (tile && tile.type === '+' && !tile.locked) {
+                tile.type = '/';
+                if (Game.instance.visible[y] && Game.instance.visible[y][x]) {
+                    Game.instance.addMessage(`The ${this.getDisplayName()} opens a door.`);
+                }
+            }
+        }
         this.x = x;
         this.y = y;
     }
@@ -235,6 +248,7 @@ class Goblin extends Monster {
         this.speed = 75;
         this.size = 80; // Smaller size
         this.experience = 5; // Experience given to player on death
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -266,6 +280,7 @@ class Orc extends Monster {
         this.size = 110;
         this.speed = 200; // Acts every 2.0 time units (slow)
         this.experience = 15; // Experience given to player on death
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -302,6 +317,7 @@ class Skeleton extends Monster {
         this.size = 90;
         this.speed = 120; // Medium speed
         this.experience = 10; // Experience given to player on death
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -362,7 +378,7 @@ class Spider extends Monster {
                 const newX = this.x + dx;
                 const newY = this.y + dy;
                 const newDist = Math.abs(newX - Game.player.x) + Math.abs(newY - Game.player.y);
-                if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY)) {
+                if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY, this)) {
                     this.moveTo(newX, newY);
                     break;
                 }
@@ -468,7 +484,7 @@ class Bat extends Monster {
             const d = dirs[Math.floor(Math.random() * dirs.length)];
             const wx = this.x + d[0];
             const wy = this.y + d[1];
-            if (monsterManager.isWalkableForMonster(wx, wy)) {
+            if (monsterManager.isWalkableForMonster(wx, wy, this)) {
                 this.moveTo(wx, wy);
             }
         } else {
@@ -499,6 +515,7 @@ class Wizard extends Monster {
         this.size = 100;
         this.speed = 150; // Medium-slow
         this.experience = 20; // Experience given to player on death
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -531,7 +548,7 @@ class Wizard extends Monster {
                 const newX = this.x + dx;
                 const newY = this.y + dy;
                 const newDist = Math.abs(newX - Game.player.x) + Math.abs(newY - Game.player.y);
-                if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY)) {
+                if (newDist > dist && monsterManager.isWalkableForMonster(newX, newY, this)) {
                     this.moveTo(newX, newY);
                     return;
                 }
@@ -564,6 +581,7 @@ class Minotaur extends Monster {
         this.size = 130;
         this.speed = 130; // Medium-slow normally
         this.experience = 50; // Experience given to player on death
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -699,6 +717,7 @@ class UrukHai extends Monster {
         this.size = 120;
         this.speed = 140; // Faster than regular orc
         this.experience = 25;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -730,6 +749,7 @@ class OrcBerserker extends Monster {
         this.size = 115;
         this.speed = 120;
         this.experience = 30;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -766,6 +786,7 @@ class OrcShaman extends Monster {
         this.size = 105;
         this.speed = 160;
         this.experience = 35;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -844,6 +865,7 @@ class Hobgoblin extends Monster {
         this.size = 95;
         this.speed = 100;
         this.experience = 12;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -875,6 +897,7 @@ class GoblinArcher extends Monster {
         this.size = 75;
         this.speed = 80;
         this.experience = 8;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -945,6 +968,7 @@ class GoblinKing extends Monster {
         this.size = 105;
         this.speed = 90;
         this.experience = 40;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -1023,6 +1047,7 @@ class Wight extends Monster {
         this.size = 105;
         this.speed = 130;
         this.experience = 45;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -1062,6 +1087,7 @@ class Lich extends Monster {
         this.size = 100;
         this.speed = 140;
         this.experience = 80;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -1158,6 +1184,7 @@ class Vampire extends Monster {
         this.size = 100;
         this.speed = 80; // Very fast
         this.experience = 60;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -1479,6 +1506,7 @@ class Imp extends Monster {
         this.size = 70;
         this.speed = 70; // Very fast
         this.experience = 15;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -1516,6 +1544,7 @@ class Demon extends Monster {
         this.speed = 110;
         this.armor = 2;
         this.experience = 50;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -1555,6 +1584,7 @@ class DemonLord extends Monster {
         this.speed = 120;
         this.armor = 4;
         this.experience = 120;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -2010,6 +2040,7 @@ class IronGolem extends Monster {
         this.speed = 180;
         this.armor = 6;
         this.experience = 75;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -2292,6 +2323,7 @@ class Manticore extends Monster {
         this.speed = 100;
         this.armor = 2;
         this.experience = 48;
+        this.canOpenDoors = true;
     }
 
     getSymbol() {
@@ -3005,15 +3037,19 @@ class MonsterManager {
     }
 
     // Helper for monster walkability
-    isWalkableForMonster(x, y) {
+    isWalkableForMonster(x, y, monster) {
         if (x < 0 || y < 0 || x >= this.game.width || y >= this.game.height) return false;
         const tile = this.game.dungeon.getTile(x, y);
-        if (!tile || tile.type === '#' || tile.type === '+') return false; // wall or closed door
+        if (!tile || tile.type === '#') return false; // wall
+        if (tile.type === '+') {
+            // Closed door: only passable if monster can open doors and door is unlocked
+            if (!(monster && monster.canOpenDoors && !tile.locked)) return false;
+        }
         return !this.monsters.some((m) => m.x === x && m.y === y);
     }
 
     // Greedy step toward target (simple heuristic)
-    pathStepToward(sx, sy, tx, ty) {
+    pathStepToward(sx, sy, tx, ty, monster) {
         const dx = Math.sign(tx - sx);
         const dy = Math.sign(ty - sy);
         const primaryFirst = Math.random() < 0.5; // small variation
@@ -3028,7 +3064,7 @@ class MonsterManager {
             ];
 
         for (const [nx, ny] of options) {
-            if (this.isWalkableForMonster(nx, ny) || (nx === Game.player.x && ny === Game.player.y)) {
+            if (this.isWalkableForMonster(nx, ny, monster) || (nx === Game.player.x && ny === Game.player.y)) {
                 return [nx, ny];
             }
         }
@@ -3036,7 +3072,7 @@ class MonsterManager {
     }
 
     // A* pathfinding for smarter monster movement
-    aStarNextStep(sx, sy, tx, ty, maxNodes = 800) {
+    aStarNextStep(sx, sy, tx, ty, monster, maxNodes = 800) {
         if (sx === tx && sy === ty) return null;
 
         const open = new Map();
@@ -3087,7 +3123,8 @@ class MonsterManager {
                 const nk = key(nx, ny);
                 if (closed.has(nk)) continue;
                 const tile = this.game.dungeon.getTile(nx, ny);
-                if (!tile || tile.type === '#' || tile.type === '+') continue;
+                if (!tile || tile.type === '#') continue;
+                if (tile.type === '+' && !(monster && monster.canOpenDoors && !tile.locked)) continue;
                 if (this.monsters.some((m) => m.x === nx && m.y === ny && !(nx === tx && ny === ty))) continue;
 
                 const tentativeG = (gScore.get(currentKey) ?? Infinity) + 1;

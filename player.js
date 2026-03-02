@@ -71,7 +71,10 @@ class Player {
         this.maxMana = 100;
         this.mana = this.maxMana;
         this.level = 1;
-        this.inventory = {gold: 0, potions: [], scrolls: [], wands: [], weapons: [], armor: [], keys: [], lockpicks: []};
+        this.inventory = {gold: 0, potions: [], scrolls: [], wands: [], weapons: [], armor: [], keys: [], lockpicks: [], food: []};
+        this.hunger = 1000;
+        this.maxHunger = 1000;
+        this.hungerRate = 1;
         this.body = new PlayerBody(this);
 
         // Attributes (1-100 scale)
@@ -97,6 +100,7 @@ class Player {
         const starterWeapons = [Stick, RustyKnife, Club, BoneShard, SmallDagger];
         const WeaponClass = starterWeapons[Math.floor(Math.random() * starterWeapons.length)];
         const weapon = new WeaponClass(0, 0);
+        weapon.identified = true;
         this.addWeapon(weapon);
         this.equipWeapon(weapon);
 
@@ -119,6 +123,7 @@ class Player {
             const armor = new Helmet(0, 0, 'Leather Cap');
             armor.defense = 1;
             armor.weight = 3;
+            armor.identified = true;
             this.addArmor(armor);
             this.equipArmor(armor);
         }
@@ -129,6 +134,10 @@ class Player {
             potion.identified = true;
             this.addPotion(potion);
         }
+
+        // Start with 2 Bread
+        this.addFood(new Bread(0, 0));
+        this.addFood(new Bread(0, 0));
     }
 
     equippedWeapon() {
@@ -398,8 +407,38 @@ class Player {
         this.poisonTicksRemaining = 0;
     }
 
+    // Hunger management
+    eat(amount) {
+        const missing = this.maxHunger - this.hunger;
+        const actual = Math.min(amount, missing);
+        this.hunger += actual;
+        return actual;
+    }
+
+    isStarving() {
+        return this.hunger <= 0;
+    }
+
+    isHungry() {
+        return this.hunger < this.maxHunger * 0.15;
+    }
+
+    addFood(food) {
+        if (!this.inventory.food) this.inventory.food = [];
+        const match = this.inventory.food.find(f => f.name === food.name);
+        if (match) match.count += 1;
+        else {
+            food.count = 1;
+            this.inventory.food.push(food);
+        }
+    }
+
     // Equipment management
     equipWeapon(weapon) {
+        // Check if current weapon is cursed before removing anything
+        if (this.body.weapon && this.body.weapon.cursed) {
+            return 'cursed';
+        }
         this.inventory.weapons.splice(this.inventory.weapons.indexOf(weapon), 1);
         const oldWeapon = this.unEquipWeapon();
         this.body.equipWeapon(weapon);
@@ -430,6 +469,11 @@ class Player {
         const {bodyLocation} = armor;
         if (!bodyLocation || !PlayerBody.armorLocations.includes(bodyLocation)) {
             return false;
+        }
+        // Check if current item in that slot is cursed before removing anything
+        const equippedItem = this.body[bodyLocation];
+        if (equippedItem && equippedItem.cursed) {
+            return 'cursed';
         }
         this.inventory.armor.splice(this.inventory.armor.indexOf(armor), 1);
         const oldArmor = this.unEquipArmor(armor);
@@ -723,6 +767,13 @@ class Player {
             stack.count -= 1;
             if (stack.count <= 0) arr.splice(index, 1);
             this.game.addMessage('You drop a lockpick.');
+        } else if (category === 'food') {
+            const stack = arr[index];
+            const single = new stack.constructor(this.x, this.y);
+            tile.addItem(single);
+            stack.count -= 1;
+            if (stack.count <= 0) arr.splice(index, 1);
+            this.game.addMessage(`You drop ${stack.name}.`);
         } else if (category === 'potions' || category === 'scrolls') {
             const stack = arr[index];
             const single = this.game.instantiateDroppedItem(stack, this.x, this.y);
@@ -778,15 +829,14 @@ class Player {
 
     // Calculate ticks needed to identify an item based on intelligence and wisdom
     getIdentificationTime() {
-        const baseTicks = 1500; // Base time to identify
+        const baseTicks = 15000; // Base time to identify by wearing
 
         // Int and Wis reduce identification time
-        // Each 10 points above 50 reduces time by 10 ticks
-        const intBonus = Math.floor((this.intelligence - 50) / 10) * 10;
-        const wisBonus = Math.floor((this.wisdom - 50) / 10) * 10;
-        
-         // Min 30 ticks
-        return Math.max(30, baseTicks - intBonus - wisBonus);
+        // Each 10 points above 50 reduces time by 100 ticks
+        const intBonus = Math.floor((this.intelligence - 50) / 10) * 100;
+        const wisBonus = Math.floor((this.wisdom - 50) / 10) * 100;
+
+        return Math.max(3000, baseTicks - intBonus - wisBonus);
     }
 
     // Update equipped items' identification progress

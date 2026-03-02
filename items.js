@@ -310,6 +310,70 @@ class Lockpick extends Item {
     }
 }
 
+// Food base class
+class Food extends Item {
+    constructor(x, y, name, hungerRestore, color) {
+        super(x, y, name);
+        this.hungerRestore = hungerRestore;
+        this.color = color;
+        this.identified = true;
+        this.weight = 2;
+    }
+
+    getSymbol() { return '%'; }
+    getColor() { return this.color; }
+
+    onCollect(game) {
+        Game.player.addFood(this);
+        game.addMessage(`Found ${this.name}.`);
+    }
+
+    use(game) {
+        const restored = Game.player.eat(this.hungerRestore);
+        return { message: `You eat the ${this.name}. (+${restored} hunger)`, restored };
+    }
+}
+
+class Bread extends Food {
+    static dropChance = 0.08;
+    static levelRange = [1, 8];
+
+    constructor(x, y) {
+        super(x, y, 'Bread', 300, '#D2691E');
+        this.description = 'A crusty loaf, surprisingly fresh.';
+    }
+}
+
+class DriedMeat extends Food {
+    static dropChance = 0.06;
+    static levelRange = [1, 12];
+
+    constructor(x, y) {
+        super(x, y, 'Dried Meat', 500, '#8B4513');
+        this.description = 'Salt-cured strips of mystery meat.';
+    }
+}
+
+class Ration extends Food {
+    static dropChance = 0.04;
+    static levelRange = [3, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Iron Ration', 800, '#808080');
+        this.description = 'A compact military ration, nourishing if bland.';
+    }
+}
+
+class Fruit extends Food {
+    static dropChance = 0.07;
+    static levelRange = [1, 6];
+
+    constructor(x, y) {
+        super(x, y, 'Dungeon Fruit', 200, '#32CD32');
+        this.description = 'A strange luminescent fruit.';
+    }
+}
+
 class EquippableItem extends Item {
     constructor(x, y, name, bodyLocation = null) {
         super(x, y, name);
@@ -551,6 +615,11 @@ class ItemFactory {
                 {class: Gold, chance: Gold.dropChance}, // move Gold to top again for clarity
                 {class: Key, chance: Key.dropChance},
                 {class: Lockpick, chance: Lockpick.dropChance},
+                // Food
+                {class: Bread, chance: Bread.dropChance},
+                {class: DriedMeat, chance: DriedMeat.dropChance},
+                {class: Ration, chance: Ration.dropChance},
+                {class: Fruit, chance: Fruit.dropChance},
                 // Low-level weapons (reduced chances)
                 {class: Stick, chance: Stick.dropChance},
                 {class: RustyKnife, chance: RustyKnife.dropChance},
@@ -956,6 +1025,11 @@ if (typeof module !== 'undefined') {
         EmptyItem,
         Key,
         Lockpick,
+        Food,
+        Bread,
+        DriedMeat,
+        Ration,
+        Fruit,
         ItemRarity,
         ItemCategory,
         // Re-export weapon classes from weapons module for backward compatibility

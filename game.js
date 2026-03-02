@@ -188,6 +188,9 @@ class Game {
         // Lock some doors
         mazeGenerator.lockDoors(this.dungeon, this.dungeonLevel);
 
+        // Place treasure chests
+        mazeGenerator.placeChests(this.dungeon, this.dungeonLevel);
+
         if (this.dungeon.rooms.length && !this.levelCache[this.dungeonLevel]) {
             const r = this.dungeon.rooms[0];
             Game.player.x = r.x + Math.floor(r.width / 2);
@@ -231,6 +234,10 @@ class Game {
 
                 // Check for traps - this will also stop running if trap is discovered
                 this.checkForTraps();
+
+                // Check for chests - stop running on unopened chests
+                const chestResult = this.checkForChest();
+                if (chestResult) this.running = false;
 
                 const foundItem = this.itemManager.checkForItems();
                 if (foundItem) this.running = false;
@@ -406,6 +413,7 @@ class Game {
             // Direction select mode (for force / lockpick)
             if (this.directionSelectMode) {
                 let ddx = 0, ddy = 0;
+                let selfTarget = false;
                 switch (k) {
                     case 'arrowup': case 'k': ddy = -1; break;
                     case 'arrowdown': case 'j': ddy = 1; break;
@@ -415,13 +423,14 @@ class Game {
                     case 'u': ddx = 1; ddy = -1; break;
                     case 'b': ddx = -1; ddy = 1; break;
                     case 'n': ddx = 1; ddy = 1; break;
+                    case '.': case 'enter': selfTarget = true; break;
                     case 'escape':
                         this.directionSelectMode = null;
                         this.addMessage('Cancelled.');
                         return;
                     default: return;
                 }
-                if (ddx || ddy) {
+                if (ddx || ddy || selfTarget) {
                     await this.handleDirectionSelect(ddx, ddy);
                     e.preventDefault();
                 }
@@ -478,7 +487,11 @@ class Game {
                     this.useUpStairs();
                     return;
                 case 'o':
-                    await this.openAdjacentDoors();
+                    if (shiftHeld) {
+                        await this.openChestAtPlayer();
+                    } else {
+                        await this.openAdjacentDoors();
+                    }
                     return;
                 case 'c':
                     await this.closeAdjacentDoors();
@@ -672,6 +685,17 @@ class Game {
                 return;
             }
         }
+        // Chest description (if visible)
+        if (tile && tile.chest && this.visible[y] && this.visible[y][x]) {
+            if (tile.chest.opened) {
+                this.addMessage('An opened chest, picked clean.');
+            } else if (tile.chest.locked) {
+                this.addMessage('A sturdy locked chest.');
+            } else {
+                this.addMessage('A wooden chest.');
+            }
+            return;
+        }
         // Tile description - delegate to dungeon
         const tilDesc = this.dungeon.getTileDescription(x, y);
         this.addMessage(tilDesc);
@@ -706,11 +730,9 @@ class Game {
                 if (hasItem) {
                     itemText = `<span class="item-name-clickable" onclick="game.showEquippedItemInfo('${bodyPartName}')">${itemText}</span>`;
 
-                    // Add identification progress indicator for unidentified items
-                    if (!itemObject.identified && itemObject.equippedTime !== undefined) {
-                        const idTime = Game.player.getIdentificationTime();
-                        const progress = Math.min(100, Math.floor((itemObject.equippedTime / idTime) * 100));
-                        itemText += ` <span class="tag" style="background-color: #6666aa; font-size: 0.8em;">${progress}%</span>`;
+                    // Show unidentified indicator
+                    if (!itemObject.identified) {
+                        itemText += ` <span class="tag" style="background-color: #6666aa; font-size: 0.8em;">Unidentified</span>`;
                     }
 
                     // Add cursed indicator
@@ -732,7 +754,21 @@ class Game {
             lines.push(renderSlot("ring"));
             lines.push(renderSlot("gloves"));
             lines.push(renderSlot("boots"));
-            lines.push('</div></div>');
+            lines.push('</div>');
+            // Show consumables (food, potions, scrolls, wands, keys, lockpicks) under equipped view
+            const quickSection = (title, arr, renderFn) => {
+                if (!arr || !arr.length) return;
+                lines.push(`<div class='inv-section'><h4>${title}</h4>`);
+                arr.forEach((item, idx) => lines.push(renderFn(item, idx)));
+                lines.push('</div>');
+            };
+            quickSection('Food', p.inventory.food, (it, i) => this.renderInvRow('food', it, i));
+            quickSection('Potions', p.inventory.potions, (it, i) => this.renderInvRow('potions', it, i));
+            quickSection('Scrolls', p.inventory.scrolls, (it, i) => this.renderInvRow('scrolls', it, i));
+            quickSection('Wands', p.inventory.wands, (it, i) => this.renderInvRow('wands', it, i));
+            quickSection('Keys', p.inventory.keys, (it, i) => this.renderInvRow('keys', it, i));
+            quickSection('Lockpicks', p.inventory.lockpicks, (it, i) => this.renderInvRow('lockpicks', it, i));
+            lines.push('</div>');
         } else {
             const section = (title, arr, renderFn) => {
                 if (!arr || !arr.length) return;
@@ -747,6 +783,7 @@ class Game {
             section('Wands', p.inventory.wands, (it, i) => this.renderInvRow('wands', it, i));
             section('Weapons', p.inventory.weapons, (it, i) => this.renderInvRow('weapons', it, i, p.equippedWeapon() === it));
             section('Armor', p.inventory.armor, (it, i) => this.renderInvRow('armor', it, i, p.equippedArmor().includes(it)));
+            section('Food', p.inventory.food, (it, i) => this.renderInvRow('food', it, i));
             section('Keys', p.inventory.keys, (it, i) => this.renderInvRow('keys', it, i));
             section('Lockpicks', p.inventory.lockpicks, (it, i) => this.renderInvRow('lockpicks', it, i));
             lines.push(`</div>`);
@@ -758,11 +795,9 @@ class Game {
         const tags = [];
         if (equipped) tags.push('<span class="tag">Eq</span>');
 
-        // Add identification progress for equipped unidentified items
-        if (equipped && !item.identified && item.equippedTime !== undefined && (category === 'weapons' || category === 'armor')) {
-            const idTime = Game.player.getIdentificationTime();
-            const progress = Math.min(100, Math.floor((item.equippedTime / idTime) * 100));
-            tags.push(`<span class="tag" style="background-color: #6666aa;">ID: ${progress}%</span>`);
+        // Show unidentified indicator for equipped items
+        if (equipped && !item.identified && (category === 'weapons' || category === 'armor')) {
+            tags.push(`<span class="tag" style="background-color: #6666aa;">Unidentified</span>`);
         }
 
         if (item.cursed && item.identified) tags.push('<span class="tag" style="background-color: #aa0000; color: #fff;">CURSED</span>');
@@ -782,6 +817,10 @@ class Game {
                 tags.push(`<span class='tag'>?/?</span>`);
             }
         }
+        if (category === 'food') {
+            tags.push(`<span class='tag'>+${item.hungerRestore} food</span>`);
+            if (item.count > 1) tags.push(`<span class='tag'>x${item.count}</span>`);
+        }
         if (category === 'keys' || category === 'lockpicks') {
             if (item.count > 1) tags.push(`<span class='tag'>x${item.count}</span>`);
         }
@@ -795,6 +834,7 @@ class Game {
         if (category === 'potions') actionButtons += `<button onclick="game.useInventoryItem('potions',${index})">Drink</button>`;
         if (category === 'scrolls') actionButtons += `<button onclick="game.useInventoryItem('scrolls',${index})">Cast</button>`;
         if (category === 'wands') actionButtons += `<button onclick="game.useInventoryItem('wands',${index})">Zap</button>`;
+        if (category === 'food') actionButtons += `<button onclick="game.useInventoryItem('food',${index})">Eat</button>`;
         if (category === 'lockpicks') actionButtons += `<button onclick="game.useInventoryItem('lockpicks',${index})">Use</button>`;
         actionButtons += `<button onclick="Game.player.dropInventoryItem('${category}',${index})">Drop</button>`;
 
@@ -809,15 +849,27 @@ class Game {
         if (category === 'weapons') {
             const w = Game.player.inventory.weapons[index];
             if (!w) return;
-            Game.player.equipWeapon(w);
-            const displayName = w.getDisplayName ? w.getDisplayName() : w.name;
-            this.addMessage(`You equip ${displayName}.`);
+            const result = Game.player.equipWeapon(w);
+            if (result === 'cursed') {
+                const current = Game.player.equippedWeapon();
+                const displayName = current.getDisplayName ? current.getDisplayName() : current.name;
+                this.addMessage(`The ${displayName} is cursed! You cannot remove it!`);
+            } else {
+                const displayName = w.getDisplayName ? w.getDisplayName() : w.name;
+                this.addMessage(`You equip ${displayName}.`);
+            }
         } else if (PlayerBody.armorLocations.includes(category)) {
             const a = Game.player.inventory.armor[index];
             if (!a) return;
-            Game.player.equipArmor(a);
-            const displayName = a.getDisplayName ? a.getDisplayName() : a.name;
-            this.addMessage(`You don ${displayName}.`);
+            const result = Game.player.equipArmor(a);
+            if (result === 'cursed') {
+                const current = Game.player.body[a.bodyLocation];
+                const displayName = current.getDisplayName ? current.getDisplayName() : current.name;
+                this.addMessage(`The ${displayName} is cursed! You cannot remove it!`);
+            } else {
+                const displayName = a.getDisplayName ? a.getDisplayName() : a.name;
+                this.addMessage(`You don ${displayName}.`);
+            }
         }
         this.buildInventory();
         this.updateUI();
@@ -924,6 +976,12 @@ class Game {
                     await this.consumeTurn(item.speed || 15);
                 }
             }
+        } else if (category === 'food') {
+            const result = item.use(this);
+            if (result && result.message) this.addMessage(result.message);
+            item.count -= 1;
+            if (item.count <= 0) arr.splice(index, 1);
+            this.consumeTurn(10);
         } else if (category === 'lockpicks') {
             this.startLockpickMode();
             return; // Don't consume turn yet - direction select will handle it
@@ -972,6 +1030,9 @@ class Game {
 
             // Check for traps
             this.checkForTraps();
+
+            // Check for chests
+            this.checkForChest();
 
             this.itemManager.checkForItems();
             await this.consumeTurn(Game.player.speed);
@@ -1080,6 +1141,92 @@ class Game {
         }
     }
 
+    // Check if player stepped on a chest
+    checkForChest() {
+        const tile = this.dungeon.getTile(Game.player.x, Game.player.y);
+        if (!tile || !tile.chest || tile.chest.opened) return false;
+
+        if (tile.chest.locked) {
+            this.addMessage('You find a locked chest.');
+            return true;
+        }
+        // Auto-open unlocked chests
+        this.openChest(tile.chest, tile, false);
+        return true;
+    }
+
+    async openChestAtPlayer() {
+        const tile = this.dungeon.getTile(Game.player.x, Game.player.y);
+        if (!tile || !tile.chest || tile.chest.opened) {
+            this.addMessage('There is no chest to open here.');
+            return;
+        }
+        if (tile.chest.locked) {
+            if (Game.player.hasKey()) {
+                Game.player.useKey();
+                tile.chest.locked = false;
+                this.openChest(tile.chest, tile, false);
+                this.addMessage('You unlock and open the chest with a key.');
+                await this.consumeTurn(20);
+            } else {
+                this.addMessage('The chest is locked.');
+            }
+        } else {
+            this.openChest(tile.chest, tile, false);
+            await this.consumeTurn(10);
+        }
+    }
+
+    openChest(chest, tile, forced) {
+        chest.opened = true;
+        let items = chest.items;
+
+        if (forced) {
+            items = this.breakChestItems(items);
+        }
+
+        // Dump surviving items onto the floor tile
+        for (const item of items) {
+            item.x = chest.x;
+            item.y = chest.y;
+            tile.addItem(item);
+        }
+        chest.items = [];
+
+        if (!forced) {
+            this.addMessage('You open the chest!');
+        }
+
+        this.itemManager.updateItemMemory();
+        this.updateUI();
+    }
+
+    breakChestItems(items) {
+        const survivors = [];
+        for (const item of items) {
+            let breakChance = 0;
+            let breakMsg = '';
+
+            if (item instanceof Potion) {
+                breakChance = 0.50;
+                breakMsg = `A ${item.name} shatters!`;
+            } else if (item instanceof Scroll) {
+                breakChance = 0.25;
+                breakMsg = `A ${item.name} is torn to pieces!`;
+            } else if (item instanceof Wand) {
+                breakChance = 0.10;
+                breakMsg = `A ${item.name} snaps in half!`;
+            }
+
+            if (breakChance > 0 && Math.random() < breakChance) {
+                this.addMessage(breakMsg);
+            } else {
+                survivors.push(item);
+            }
+        }
+        return survivors;
+    }
+
     startForceMode() {
         this.addMessage('Force in which direction? (movement key)');
         this.directionSelectMode = 'force';
@@ -1101,35 +1248,59 @@ class Game {
         const tx = Game.player.x + dx;
         const ty = Game.player.y + dy;
         const tile = this.dungeon.getTile(tx, ty);
-
-        if (!tile || tile.type !== '+') {
-            this.addMessage('There is no door there.');
+        if (!tile) {
+            this.addMessage('Nothing there.');
             return;
         }
 
-        if (!tile.locked) {
-            this.addMessage('That door is not locked.');
+        // Determine target: locked door or locked chest
+        const isDoor = tile.type === '+' && tile.locked;
+        const isChest = tile.chest && tile.chest.locked && !tile.chest.opened;
+
+        if (!isDoor && !isChest) {
+            this.addMessage('Nothing locked there.');
             return;
         }
 
         if (mode === 'force') {
             const successChance = Math.min(80, Math.floor(Game.player.strength / 2) + Game.player.level * 2);
-            if (Math.random() * 100 < successChance) {
-                tile.locked = false;
-                this.dungeon.setTileType(tx, ty, '/');
-                this.addMessage('You force the door open!');
-            } else {
-                this.addMessage('You fail to force the door open.');
+            const success = Math.random() * 100 < successChance;
+            if (isDoor) {
+                if (success) {
+                    tile.locked = false;
+                    this.dungeon.setTileType(tx, ty, '/');
+                    this.addMessage('You force the door open!');
+                } else {
+                    this.addMessage('You fail to force the door open.');
+                }
+            } else if (isChest) {
+                if (success) {
+                    tile.chest.locked = false;
+                    this.addMessage('You force the chest open!');
+                    this.openChest(tile.chest, tile, true);
+                } else {
+                    this.addMessage('You fail to force the chest open.');
+                }
             }
             await this.consumeTurn(50);
         } else if (mode === 'lockpick') {
             const successChance = Math.min(95, 60 + Math.floor(Game.player.dexterity / 5));
             Game.player.useLockpick();
-            if (Math.random() * 100 < successChance) {
-                tile.locked = false;
-                this.addMessage('You pick the lock!');
-            } else {
-                this.addMessage('The lockpick snaps!');
+            const success = Math.random() * 100 < successChance;
+            if (isDoor) {
+                if (success) {
+                    tile.locked = false;
+                    this.addMessage('You pick the lock!');
+                } else {
+                    this.addMessage('The lockpick snaps!');
+                }
+            } else if (isChest) {
+                if (success) {
+                    tile.chest.locked = false;
+                    this.addMessage('You pick the chest lock!');
+                } else {
+                    this.addMessage('The lockpick snaps!');
+                }
             }
             await this.consumeTurn(30);
         }
@@ -1246,6 +1417,30 @@ class Game {
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillStyle = tile.trap.color || '#ff4444';
                     this.ctx.fillText(tile.trap.symbol, px + ts / 2, py + ts / 2);
+                }
+            }
+        }
+
+        // Draw chests
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                if (!this.explored[y][x]) continue;
+                const tile = this.dungeon.getTile(x, y);
+                if (tile && tile.chest) {
+                    const px = (x - cameraX) * ts, py = (y - cameraY) * ts;
+                    this.ctx.font = '16px monospace';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    if (tile.chest.opened) {
+                        this.ctx.fillStyle = '#666666';
+                        this.ctx.fillText('_', px + ts / 2, py + ts / 2);
+                    } else if (tile.chest.locked) {
+                        this.ctx.fillStyle = '#aa6600';
+                        this.ctx.fillText('=', px + ts / 2, py + ts / 2);
+                    } else {
+                        this.ctx.fillStyle = '#FFD700';
+                        this.ctx.fillText('=', px + ts / 2, py + ts / 2);
+                    }
                 }
             }
         }
@@ -1387,6 +1582,20 @@ class Game {
         const poisonEl = document.getElementById('poison-status');
         if (poisonEl) {
             poisonEl.style.display = Game.player.poisoned ? '' : 'none';
+        }
+        const hungerEl = document.getElementById('hunger-status');
+        if (hungerEl) {
+            if (Game.player.isStarving()) {
+                hungerEl.style.display = '';
+                hungerEl.style.color = '#ff4444';
+                hungerEl.textContent = 'STARVING';
+            } else if (Game.player.isHungry()) {
+                hungerEl.style.display = '';
+                hungerEl.style.color = '#ffaa00';
+                hungerEl.textContent = 'Hungry';
+            } else {
+                hungerEl.style.display = 'none';
+            }
         }
         this.buildInventory();
     }
@@ -1608,7 +1817,20 @@ class Game {
         // Enchantments
         if (item.enchantments && Object.keys(item.enchantments).length > 0) {
             Object.entries(item.enchantments).forEach(([key, value]) => {
-                if (value !== 0) {
+                if (typeof value === 'object' && value !== null) {
+                    // Nested enchantments (elemental, resistances)
+                    Object.entries(value).forEach(([subKey, subVal]) => {
+                        const label = `${subKey} ${key}`;
+                        const display = typeof subVal === 'number' && subVal < 1
+                            ? `${Math.round(subVal * 100)}%`
+                            : `+${subVal}`;
+                        stats.push({
+                            label: label,
+                            value: isIdentified ? display : '???',
+                            positive: isIdentified && subVal > 0
+                        });
+                    });
+                } else if (value !== 0) {
                     stats.push({
                         label: `${key} enchantment`,
                         value: isIdentified ? `+${value}` : '???',
@@ -1725,7 +1947,7 @@ class Game {
             equippedSection.forEach(({item, slot}) => {
                 const currentEnchant = item.enchantments || {};
                 const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k, v]) => `+${v} ${k}`).join(', ')}`
+                    ? `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`
                     : 'No enchantments';
 
                 let statsText = '';
@@ -1751,7 +1973,7 @@ class Game {
             weaponSection.forEach(({item, category, index}) => {
                 const currentEnchant = item.enchantments || {};
                 const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k, v]) => `+${v} ${k}`).join(', ')}`
+                    ? `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`
                     : 'No enchantments';
 
                 html += `<div class="enchantable-item" onclick="game.applyEnchantment('${category}', ${index})">
@@ -1770,7 +1992,7 @@ class Game {
             armorSection.forEach(({item, category, index}) => {
                 const currentEnchant = item.enchantments || {};
                 const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).map(([k, v]) => `+${v} ${k}`).join(', ')}`
+                    ? `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`
                     : 'No enchantments';
 
                 html += `<div class="enchantable-item" onclick="game.applyEnchantment('${category}', ${index})">

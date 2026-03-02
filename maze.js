@@ -3,6 +3,7 @@ class FloorTile {
         this.type = type; // '#': wall, '.': floor, '+': door, '/': stair
         this.items = [];
         this.trap = null;
+        this.chest = null;
         this.discovered = false;
         this.locked = false;
     }
@@ -158,6 +159,17 @@ class Dungeon {
         // Add trap information if trap is discovered
         if (tile.trap && tile.trap.discovered) {
             description += ` You notice a ${tile.trap.name} here!`;
+        }
+
+        // Add chest information
+        if (tile.chest) {
+            if (tile.chest.opened) {
+                description += ' An opened chest sits here, picked clean.';
+            } else if (tile.chest.locked) {
+                description += ' You see a sturdy locked chest here.';
+            } else {
+                description += ' You see a wooden chest here.';
+            }
         }
 
         return description;
@@ -370,6 +382,37 @@ class MazeGenerator {
         };
     }
 
+    placeChests(dungeon, dungeonLevel = 1) {
+        const numChests = 1 + Math.floor(dungeonLevel / 3);
+        const lockChance = Math.min(0.70, 0.30 + dungeonLevel * 0.03);
+        let chestsPlaced = 0;
+        const maxAttempts = 50;
+
+        for (let i = 0; i < numChests; i++) {
+            let attempts = 0;
+            while (attempts < maxAttempts) {
+                attempts++;
+                if (dungeon.rooms.length === 0) break;
+                const room = dungeon.rooms[Math.floor(Math.random() * dungeon.rooms.length)];
+                const x = room.x + Math.floor(Math.random() * room.width);
+                const y = room.y + Math.floor(Math.random() * room.height);
+                const tile = dungeon.getTile(x, y);
+                if (!tile || tile.type !== '.' || tile.trap || tile.chest) continue;
+                if ((dungeon.upStair && x === dungeon.upStair.x && y === dungeon.upStair.y) ||
+                    (dungeon.downStair && x === dungeon.downStair.x && y === dungeon.downStair.y)) continue;
+
+                const locked = Math.random() < lockChance;
+                const playerLuck = (typeof Game !== 'undefined' && Game.player) ? Game.player.luck : 50;
+                const items = (typeof ItemFactory !== 'undefined')
+                    ? ItemFactory.createTreasureChestLoot(x, y, dungeonLevel, playerLuck)
+                    : [];
+                tile.chest = new Chest(x, y, locked, items);
+                chestsPlaced++;
+                break;
+            }
+        }
+    }
+
     lockDoors(dungeon, dungeonLevel = 1) {
         // ~20% base chance, scaling with level (up to ~40% at level 10)
         const lockChance = 0.20 + Math.min(0.20, dungeonLevel * 0.02);
@@ -435,8 +478,18 @@ class MazeGenerator {
     }
 }
 
+class Chest {
+    constructor(x, y, locked, items) {
+        this.x = x;
+        this.y = y;
+        this.locked = locked;
+        this.opened = false;
+        this.items = items;
+    }
+}
+
 // Export for Node.js testing
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {FloorTile, Dungeon, MazeGenerator};
+    module.exports = {FloorTile, Dungeon, MazeGenerator, Chest};
 }
 

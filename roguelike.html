@@ -469,6 +469,7 @@
                 <div class="stat">$:<span id="gold">0</span></div>
                 <div class="stat">Wt:<span id="weight">0</span></div>
                 <div class="stat" id="poison-status" style="color: #44ff44; display: none;">POISONED</div>
+                <div class="stat" id="hunger-status" style="display: none;"></div>
             </div>
         </div>
         <div id="messages">
@@ -496,11 +497,27 @@
 
             let hadPlayerActivity = false;
 
+            // Hunger drain (every 100 ticks — a normal 100-tick move costs 1 hunger)
+            if (this.game.currentTick % 50 === 0) {
+                Game.player.hunger = Math.max(-100, Game.player.hunger - Game.player.hungerRate);
+            }
+
+            // Starvation damage (every 1000 ticks)
+            if (Game.player.isStarving() && this.game.currentTick % 1000 === 0) {
+                Game.player.health -= 1;
+                this.game.addMessage('You are starving!');
+                hadPlayerActivity = true;
+                if (Game.player.isDead()) {
+                    this.game.gameOver = true;
+                    this.game.addMessage('You starved to death. Game over.');
+                }
+            }
+
             // Natural healing - constitution affects regeneration speed
             // CON 50 = 3000 ticks, CON 100 = 1500 ticks (2x faster), CON 10 = 4200 ticks (slower)
             const conBonus = Math.floor((Game.player.constitution - 50) / 10);
             const healInterval = Math.max(1500, Math.min(6000, 3000 - conBonus * 300));
-            if (Game.player.nextFreeHealTime <= this.game.currentTick) {
+            if (!Game.player.isStarving() && Game.player.nextFreeHealTime <= this.game.currentTick) {
                 Game.player.nextFreeHealTime = this.game.currentTick + healInterval;
                 const baseHeal = 1;
                 const regenBonus = Game.player.getRegenerationBonus();
