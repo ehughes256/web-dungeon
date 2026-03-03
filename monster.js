@@ -40,6 +40,9 @@ class Monster {
         // Whether this monster can open unlocked doors
         this.canOpenDoors = false;
 
+        // Wander target for idle movement (null = standing still)
+        this.wanderTarget = null;
+
         // Set stats - to be overridden by subclasses
         this.setStats();
     }
@@ -78,6 +81,7 @@ class Monster {
         if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x] && dist <= 10 && !Game.player.invisible) {
             this.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
             this.lastSawPlayerMoves = 0;
+            this.wanderTarget = null;
             const step =
                 monsterManager.aStarNextStep(this.x, this.y, Game.player.x, Game.player.y, this) ||
                 monsterManager.pathStepToward(this.x, this.y, Game.player.x, Game.player.y, this);
@@ -108,18 +112,9 @@ class Monster {
                 this.lastKnownPlayerLocation = null; // forget after some time
             }
             this.lastSawPlayerMoves += 1;
-        } else if (Math.random() < 0.2) {
-            // Random movement when not chasing - now includes diagonal directions
-            const dirs = [
-                [1, 0], [-1, 0], [0, 1], [0, -1], // Cardinal directions
-                [1, 1], [1, -1], [-1, 1], [-1, -1] // Diagonal directions
-            ];
-            const d = dirs[Math.floor(Math.random() * dirs.length)];
-            const wx = this.x + d[0];
-            const wy = this.y + d[1];
-            if (monsterManager.isWalkableForMonster(wx, wy, this)) {
-                this.moveTo(wx, wy);
-            }
+        } else {
+            // Idle wandering: move toward wander target or pick a new one
+            this.idleWander(monsterManager);
         }
         this.scheduleNextAction(monsterManager.game.currentTick);
     }
@@ -196,6 +191,55 @@ class Monster {
         }
         this.x = x;
         this.y = y;
+    }
+
+    // Idle wandering: pick a random walkable spot or stand still
+    idleWander(monsterManager) {
+        // Arrived at target or no target — decide what to do next
+        if (!this.wanderTarget || (this.x === this.wanderTarget[0] && this.y === this.wanderTarget[1])) {
+            this.wanderTarget = null;
+            // 50% chance to stand still, 50% to pick a new destination
+            if (Math.random() < 0.5) return;
+            this.wanderTarget = this.pickWanderTarget(monsterManager);
+            if (!this.wanderTarget) return;
+        }
+
+        const [wx, wy] = this.wanderTarget;
+        const step =
+            monsterManager.aStarNextStep(this.x, this.y, wx, wy, this) ||
+            monsterManager.pathStepToward(this.x, this.y, wx, wy, this);
+        if (step) {
+            const [tx, ty] = step;
+            if (!(tx === Game.player.x && ty === Game.player.y) &&
+                monsterManager.isWalkableForMonster(tx, ty, this)) {
+                this.moveTo(tx, ty);
+            } else {
+                // Path blocked — give up on this target
+                this.wanderTarget = null;
+            }
+        } else {
+            // No path found — give up
+            this.wanderTarget = null;
+        }
+    }
+
+    // Pick a random walkable floor tile as a wander destination
+    pickWanderTarget(monsterManager) {
+        const dungeon = monsterManager.game.dungeon;
+        const rooms = dungeon.rooms;
+        if (!rooms || rooms.length === 0) return null;
+
+        // Try a few times to find a valid spot
+        for (let i = 0; i < 10; i++) {
+            const room = rooms[Math.floor(Math.random() * rooms.length)];
+            const tx = room.x + Math.floor(Math.random() * room.width);
+            const ty = room.y + Math.floor(Math.random() * room.height);
+            const tile = dungeon.getTile(tx, ty);
+            if (tile && tile.type === '.') {
+                return [tx, ty];
+            }
+        }
+        return null;
     }
 
     // Check if monster triggered a trap
@@ -331,7 +375,7 @@ class Skeleton extends Monster {
 
 // Spider - Very fast, low HP, poison attack
 class Spider extends Monster {
-    static levelRange = [2, 6];
+    static levelRange = [3, 8];
 
     constructor(id, x, y) {
         super(id, x, y);
@@ -387,6 +431,179 @@ class Spider extends Monster {
         }
 
         // Default spider behavior if not adjacent
+        super.performAction(monsterManager);
+    }
+}
+
+// Phase Spider - Teleports short distances, stronger venom
+class PhaseSpider extends Monster {
+    static levelRange = [6, 11];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A spider that flickers between planes of existence, its translucent body phasing in and out of sight.';
+        this.resistances.poison = 0.0;
+        this.resistances.fire = 1.5;
+        this.resistances.physical = 0.7; // Partially phased
+        this.poisonChance = 0.5;
+        this.poisonDmgPerTick = 2;
+        this.poisonDuration = 5;
+        this.phaseCooldown = 0;
+    }
+
+    getType() {
+        return 'phase spider';
+    }
+
+    setStats() {
+        this.hp = 10 + Math.floor(Math.random() * 5); // 10-14 HP
+        this.maxHp = this.hp;
+        this.dmg = 6;
+        this.size = 60;
+        this.speed = 50;
+        this.experience = 18;
+    }
+
+    getSymbol() {
+        return 'x';
+    }
+
+    getColor() {
+        return '#00CCCC'; // Cyan — ethereal
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            // Phase away after attacking
+            if (this.phaseCooldown <= 0) {
+                this.phaseShift(monsterManager);
+                this.phaseCooldown = 3;
+            }
+            return;
+        }
+
+        this.phaseCooldown = Math.max(0, this.phaseCooldown - 1);
+
+        // Phase toward player if in range but not adjacent
+        if (dist <= 6 && dist > 2 && this.phaseCooldown <= 0 &&
+            monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
+            // Teleport to a tile adjacent to the player
+            const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            const shuffled = dirs.sort(() => Math.random() - 0.5);
+            for (const [dx, dy] of shuffled) {
+                const tx = Game.player.x + dx;
+                const ty = Game.player.y + dy;
+                if (monsterManager.isWalkableForMonster(tx, ty, this)) {
+                    if (monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
+                        monsterManager.game.addMessage(`The ${this.getDisplayName()} blinks through reality!`);
+                    }
+                    this.moveTo(tx, ty);
+                    this.phaseCooldown = 3;
+                    this.scheduleNextAction(monsterManager.game.currentTick);
+                    return;
+                }
+            }
+        }
+
+        // Fall back to spider hit-and-run behavior
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+        super.performAction(monsterManager);
+    }
+
+    phaseShift(monsterManager) {
+        // Teleport 2-3 tiles away from current position
+        const candidates = [];
+        for (let dx = -3; dx <= 3; dx++) {
+            for (let dy = -3; dy <= 3; dy++) {
+                const d = Math.abs(dx) + Math.abs(dy);
+                if (d < 2 || d > 3) continue;
+                const tx = this.x + dx;
+                const ty = this.y + dy;
+                if (monsterManager.isWalkableForMonster(tx, ty, this)) {
+                    candidates.push([tx, ty]);
+                }
+            }
+        }
+        if (candidates.length > 0) {
+            const [tx, ty] = candidates[Math.floor(Math.random() * candidates.length)];
+            this.moveTo(tx, ty);
+        }
+    }
+}
+
+// Brood Mother - Large spider that spawns spiderlings
+class BroodMother extends Monster {
+    static levelRange = [8, 13];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A bloated spider queen, her abdomen swollen with writhing offspring ready to spill forth.';
+        this.resistances.poison = 0.0;
+        this.resistances.fire = 1.5;
+        this.poisonChance = 0.3;
+        this.poisonDmgPerTick = 2;
+        this.poisonDuration = 6;
+        this.spawnCooldown = 0;
+    }
+
+    getType() {
+        return 'brood mother';
+    }
+
+    setStats() {
+        this.hp = 22 + Math.floor(Math.random() * 8); // 22-29 HP
+        this.maxHp = this.hp;
+        this.dmg = 8;
+        this.size = 120;
+        this.speed = 150; // Slow — heavy
+        this.experience = 35;
+    }
+
+    getSymbol() {
+        return 'x';
+    }
+
+    getColor() {
+        return '#4B0082'; // Indigo — darker, larger
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Try to spawn a spiderling when hurt and player is nearby
+        if (this.spawnCooldown <= 0 && this.hp < this.maxHp && dist <= 6 &&
+            monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
+            const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+            const shuffled = dirs.sort(() => Math.random() - 0.5);
+            for (const [dx, dy] of shuffled) {
+                const sx = this.x + dx;
+                const sy = this.y + dy;
+                if (monsterManager.isWalkableForMonster(sx, sy, this) &&
+                    !(sx === Game.player.x && sy === Game.player.y)) {
+                    const spiderling = monsterManager.spawnSpecificMonster(Spider, sx, sy);
+                    if (spiderling && monsterManager.game.visible[sy] && monsterManager.game.visible[sy][sx]) {
+                        monsterManager.game.addMessage(`The ${this.getDisplayName()} births a spider!`);
+                    }
+                    this.spawnCooldown = 6;
+                    this.scheduleNextAction(monsterManager.game.currentTick);
+                    return;
+                }
+            }
+        }
+
+        this.spawnCooldown = Math.max(0, this.spawnCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
         super.performAction(monsterManager);
     }
 }
@@ -489,6 +706,157 @@ class Bat extends Monster {
             }
         } else {
             // Sometimes chase player normally
+            super.performAction(monsterManager);
+        }
+    }
+}
+
+// Vampire Bat - Drains life on hit, faster than regular bat
+class VampireBat extends Monster {
+    static levelRange = [5, 10];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Red-eyed and ravenous, this bat\'s fangs drip with an unholy thirst for warm blood.';
+        this.resistances.dark = 0.5;
+        this.resistances.holy = 1.5;
+    }
+
+    getType() {
+        return 'vampire bat';
+    }
+
+    setStats() {
+        this.hp = 5 + Math.floor(Math.random() * 3); // 5-7 HP
+        this.maxHp = this.hp;
+        this.dmg = 4;
+        this.size = 55;
+        this.speed = 35; // Very fast
+        this.experience = 10;
+    }
+
+    getSymbol() {
+        return 'b';
+    }
+
+    getColor() {
+        return '#8B0000'; // Dark red
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        if (dist < 1.5) {
+            // Custom attack with life drain
+            monsterManager.game.running = false;
+            const chanceToEvade = Game.player.chanceToEvade();
+            if ((Math.random() * 100) < chanceToEvade) {
+                monsterManager.game.addMessage(`You evade the ${this.getDisplayName()}'s bite!`);
+                this.scheduleNextAction(monsterManager.game.currentTick, this.attackSpeed);
+                return;
+            }
+            const dmg = Math.max(1, this.getDamage());
+            const actualDamage = Game.player.hitPlayer(dmg);
+            if (actualDamage > 0) {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} bites you for ${actualDamage} damage and drinks your blood!`);
+                this.hp = Math.min(this.maxHp, this.hp + Math.ceil(actualDamage / 2));
+            } else {
+                monsterManager.game.addMessage(`The ${this.getDisplayName()} bites but can't pierce your armor!`);
+            }
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You die. Game over.');
+            }
+            this.scheduleNextAction(monsterManager.game.currentTick, this.attackSpeed);
+            return;
+        }
+
+        // Erratic movement like regular bat, but more aggressive (50/50 instead of 70/30)
+        if (Math.random() < 0.5) {
+            const dirs = [
+                [1, 0], [-1, 0], [0, 1], [0, -1],
+                [1, 1], [1, -1], [-1, 1], [-1, -1]
+            ];
+            const d = dirs[Math.floor(Math.random() * dirs.length)];
+            const wx = this.x + d[0];
+            const wy = this.y + d[1];
+            if (monsterManager.isWalkableForMonster(wx, wy, this)) {
+                this.moveTo(wx, wy);
+            }
+        } else {
+            super.performAction(monsterManager);
+        }
+    }
+}
+
+// Dire Bat - Large bat, screech stuns, tougher
+class DireBat extends Monster {
+    static levelRange = [7, 12];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A monstrous bat with a wingspan wider than a man is tall, its shriek rattles the bones.';
+        this.screechCooldown = 0;
+    }
+
+    getType() {
+        return 'dire bat';
+    }
+
+    setStats() {
+        this.hp = 14 + Math.floor(Math.random() * 5); // 14-18 HP
+        this.maxHp = this.hp;
+        this.dmg = 7;
+        this.size = 100;
+        this.speed = 55;
+        this.experience = 20;
+    }
+
+    getSymbol() {
+        return 'b';
+    }
+
+    getColor() {
+        return '#2F2F2F'; // Near-black
+    }
+
+    performAction(monsterManager) {
+        const dist = this.distanceTo(Game.player.x, Game.player.y);
+
+        // Screech attack: slows the player temporarily
+        if (dist <= 3 && dist > 1 && this.screechCooldown <= 0 && Math.random() < 0.3 &&
+            monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
+            monsterManager.game.addMessage(`The ${this.getDisplayName()} lets out a bone-rattling screech!`);
+            monsterManager.game.running = false;
+            Game.player.speed = Math.min(250, Game.player.speed + 50);
+            monsterManager.game.timeManager.scheduleEvent(300, () => {
+                Game.player.speed = Math.max(100, Game.player.speed - 50);
+            });
+            this.screechCooldown = 5;
+            this.scheduleNextAction(monsterManager.game.currentTick);
+            return;
+        }
+
+        this.screechCooldown = Math.max(0, this.screechCooldown - 1);
+
+        if (dist < 1.5) {
+            monsterManager.monsterAttackPlayer(this);
+            return;
+        }
+
+        // Less erratic than normal bat (40% random, 60% chase)
+        if (Math.random() < 0.4) {
+            const dirs = [
+                [1, 0], [-1, 0], [0, 1], [0, -1],
+                [1, 1], [1, -1], [-1, 1], [-1, -1]
+            ];
+            const d = dirs[Math.floor(Math.random() * dirs.length)];
+            const wx = this.x + d[0];
+            const wy = this.y + d[1];
+            if (monsterManager.isWalkableForMonster(wx, wy, this)) {
+                this.moveTo(wx, wy);
+            }
+        } else {
             super.performAction(monsterManager);
         }
     }
@@ -2898,8 +3266,12 @@ class MonsterFactory {
         {class: Orc, weight: 2},
         {class: Skeleton, weight: 2},
         {class: Spider, weight: 3},
+        {class: PhaseSpider, weight: 1.5},
+        {class: BroodMother, weight: 1},
         {class: Troll, weight: 1},
         {class: Bat, weight: 3},
+        {class: VampireBat, weight: 2},
+        {class: DireBat, weight: 1.5},
         {class: Wizard, weight: 2},
         {class: Minotaur, weight: 1},
         {class: Ghost, weight: 2},
@@ -3002,6 +3374,13 @@ class MonsterManager {
         this.game = game;
         this.monsters = [];
         this.monsterIdCounter = 1;
+    }
+
+    // Spawn a specific monster type at a given position
+    spawnSpecificMonster(MonsterClass, x, y) {
+        const monster = new MonsterClass(this.monsterIdCounter++, x, y);
+        this.monsters.push(monster);
+        return monster;
     }
 
     // Monster spawning logic using factory

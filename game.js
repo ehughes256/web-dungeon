@@ -1748,6 +1748,14 @@ class Game {
                         positive: isIdentified
                     });
                 }
+                if (item.attribute !== undefined && item.boost !== undefined) {
+                    const attrLabel = item.attribute.charAt(0).toUpperCase() + item.attribute.slice(1);
+                    stats.push({
+                        label: `${attrLabel} Boost`,
+                        value: isIdentified ? `+${item.boost}` : '???',
+                        positive: isIdentified
+                    });
+                }
             }
             if (item.count !== undefined && item.count > 1) {
                 stats.push({label: 'Quantity', value: item.count});
@@ -1790,6 +1798,15 @@ class Game {
                 }
             } else {
                 stats.push({label: 'Charges', value: '???'});
+            }
+        } else {
+            // Food, keys, lockpicks, and any other items
+            descEl.textContent = item.description || 'A mysterious item.';
+            if (item.hungerRestore !== undefined) {
+                stats.push({label: 'Hunger Restored', value: `+${item.hungerRestore}`, positive: true});
+            }
+            if (item.count !== undefined && item.count > 1) {
+                stats.push({label: 'Quantity', value: item.count});
             }
         }
 
@@ -1885,6 +1902,12 @@ class Game {
             item = Game.player.inventory.scrolls[index];
         } else if (category === 'wands') {
             item = Game.player.inventory.wands[index];
+        } else if (category === 'food') {
+            item = Game.player.inventory.food[index];
+        } else if (category === 'keys') {
+            item = Game.player.inventory.keys[index];
+        } else if (category === 'lockpicks') {
+            item = Game.player.inventory.lockpicks[index];
         }
 
         if (item) {

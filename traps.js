@@ -489,7 +489,7 @@ class AlarmTrap extends Trap {
                 if (distance <= alertRadius) {
                     // Make monster aware and move towards player
                     monster.lastKnownPlayerLocation = [Game.player.x, Game.player.y];
-                    monster.lastSawPlayerMoves = 0;
+                    monster.lastSawPlayerMoves = -1000;
                     monster.state = 'aggressive';
                 }
             });

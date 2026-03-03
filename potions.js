@@ -58,7 +58,11 @@ const POTION_COLOR_ASSIGNMENTS = {};
 
 // Initialize random color assignments for potion types
 function initializePotionColors() {
-    const potionTypes = ['Health Potion', 'Speed Potion', 'Antidote Potion'];
+    const potionTypes = [
+        'Health Potion', 'Speed Potion', 'Antidote Potion',
+        'Strength Potion', 'Dexterity Potion', 'Intelligence Potion',
+        'Wisdom Potion', 'Constitution Potion', 'Charisma Potion', 'Luck Potion'
+    ];
     const shuffledColors = [...POTION_COLORS].sort(() => Math.random() - 0.5);
 
     potionTypes.forEach((type, index) => {
@@ -275,6 +279,116 @@ class AntidotePotion extends Potion {
     }
 }
 
+// Base class for attribute-boosting potions
+class AttributePotion extends Potion {
+    constructor(x, y, name, attribute, boost, configKey) {
+        super(x, y, name, configKey);
+        this.attribute = attribute;
+        this.boost = boost;
+    }
+
+    use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyPotionType(this.name);
+
+        const attrLabel = this.attribute.charAt(0).toUpperCase() + this.attribute.slice(1);
+
+        if (this.cursed) {
+            Game.player[this.attribute] = Math.max(1, Game.player[this.attribute] - this.boost);
+            game.addMessage(`You drink ${displayName}. You feel diminished! It was a cursed ${this.name}!`);
+            return {
+                success: true,
+                message: `Your ${attrLabel} permanently decreased by ${this.boost}!`,
+                potion: this
+            };
+        }
+
+        Game.player[this.attribute] = Math.min(100, Game.player[this.attribute] + this.boost);
+        game.addMessage(`You drink ${displayName} and feel empowered!`);
+        return {
+            success: true,
+            message: `Your ${attrLabel} permanently increased by ${this.boost}! It was a ${this.name}!`,
+            potion: this,
+        };
+    }
+
+    onCollect(game) {
+        super.onCollect(game);
+        game.addMessage(`Found a ${this.getDisplayName()}!`);
+    }
+}
+
+class StrengthPotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [4, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Strength Potion', 'strength', 5, null);
+        this.description = 'A thick, iron-tasting brew that hardens sinew and broadens the shoulders.';
+    }
+}
+
+class DexterityPotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [4, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Dexterity Potion', 'dexterity', 5, null);
+        this.description = 'A quicksilver draught that makes fingers nimble and footwork sure.';
+    }
+}
+
+class IntelligencePotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [4, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Intelligence Potion', 'intelligence', 5, null);
+        this.description = 'A phosphorescent elixir that sharpens the mind and illuminates hidden connections.';
+    }
+}
+
+class WisdomPotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [5, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Wisdom Potion', 'wisdom', 5, null);
+        this.description = 'A calm, fragrant tonic that deepens intuition and steadies the soul.';
+    }
+}
+
+class ConstitutionPotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [5, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Constitution Potion', 'constitution', 5, null);
+        this.description = 'A thick, bitter syrup that toughens the body against injury and fatigue.';
+    }
+}
+
+class CharismaPotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [3, 12];
+
+    constructor(x, y) {
+        super(x, y, 'Charisma Potion', 'charisma', 5, null);
+        this.description = 'A honeyed cordial that lends warmth to the voice and magnetism to the gaze.';
+    }
+}
+
+class LuckPotion extends AttributePotion {
+    static dropChance = 0.015;
+    static levelRange = [3, 15];
+
+    constructor(x, y) {
+        super(x, y, 'Luck Potion', 'luck', 5, null);
+        this.description = 'A shimmering draught that bends fortune ever so slightly in your favor.';
+    }
+}
+
 // Export for module systems
 if (typeof module !== 'undefined') {
     module.exports = {
@@ -282,6 +396,14 @@ if (typeof module !== 'undefined') {
         HealthPotion,
         SpeedPotion,
         AntidotePotion,
+        AttributePotion,
+        StrengthPotion,
+        DexterityPotion,
+        IntelligencePotion,
+        WisdomPotion,
+        ConstitutionPotion,
+        CharismaPotion,
+        LuckPotion,
         POTION_COLOR_ASSIGNMENTS,
         POTION_COLORS,
         POTION_COLOR_HEX,
