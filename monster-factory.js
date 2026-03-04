@@ -29,6 +29,9 @@ class MonsterFactory {
 
         // Undead hierarchy
         {class: Zombie, weight: 4},
+        {class: PlagueZombie, weight: 2},
+        {class: BloatedZombie, weight: 2},
+        {class: ZombieHorde, weight: 3},
         {class: Wight, weight: 2},
         {class: Lich, weight: 1}, // Rare boss
         {class: Vampire, weight: 1},

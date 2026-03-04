@@ -365,6 +365,7 @@ class Armor extends EquippableItem {
         this.size = 0;
         this.bonuses = {};
         this.enchantments = {};
+        this.enchantable = true;
         this.defense = 0;
         this.resistances = {}; // e.g., { fire: 0.2, ice: 0.15 }
 

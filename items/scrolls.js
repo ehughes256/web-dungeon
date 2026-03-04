@@ -28,7 +28,8 @@ function initializeScrollMagicPhrases() {
         'Enchantment Scroll',
         'Uncurse Scroll',
         'Identify Scroll',
-        'Poison Enchantment Scroll'
+        'Poison Enchantment Scroll',
+        'Recharging Scroll'
     ];
     const shuffledPhrases = [...SCROLL_MAGIC_PHRASES].sort(() => Math.random() - 0.5);
 
@@ -73,7 +74,8 @@ const SCROLL_CONFIGS = {
     },
     uncurse: {dropChance: 0.06, levelRange: [1, 15], color: '#ffddaa', speed: 30, weight: 1, size: 1},
     identify: {dropChance: 0.08, levelRange: [1, 20], color: '#88ddff', speed: 30, weight: 1, size: 1},
-    poisonEnchantment: {poisonPower: 3, dropChance: 0.03, levelRange: [3, 12], color: '#44ff44', speed: 30, weight: 1, size: 1}
+    poisonEnchantment: {poisonPower: 3, dropChance: 0.03, levelRange: [3, 12], color: '#44ff44', speed: 30, weight: 1, size: 1},
+    recharging: {rechargeAmount: 3, dropChance: 0.04, levelRange: [3, 15], color: '#77bbff', speed: 30, weight: 1, size: 1}
 };
 
 // Base Scroll class
@@ -460,8 +462,8 @@ class EnchantmentScroll extends Scroll {
     }
 
     onSelectItem(game, item) {
-        if (!item || !(item instanceof Weapon || item instanceof Armor)) {
-            game.addMessage('You can only enchant weapons or armor.');
+        if (!item || !item.enchantable) {
+            game.addMessage('That item cannot be enchanted.');
             return;
         }
         const power = this.enchantmentPower || 1;
@@ -648,7 +650,7 @@ class PoisonEnchantmentScroll extends Scroll {
     }
 
     onSelectItem(game, item) {
-        if (!item || !(item instanceof Weapon)) {
+        if (!item || !(item instanceof Weapon) || !item.enchantable) {
             game.addMessage('You can only apply poison to weapons.');
             return;
         }
@@ -674,6 +676,74 @@ class PoisonEnchantmentScroll extends Scroll {
     }
 }
 
+// Recharging: restores charges to wands in inventory
+class RechargingScroll extends Scroll {
+    static dropChance = SCROLL_CONFIGS.recharging.dropChance;
+    static levelRange = SCROLL_CONFIGS.recharging.levelRange;
+
+    constructor(x, y) {
+        super(x, y, 'Recharging Scroll', 'recharging');
+        this.rechargeAmount = SCROLL_CONFIGS.recharging.rechargeAmount;
+        this.description = 'Crackling arcs of captured lightning dance between the lines—their release floods spent foci with renewed vigor.';
+    }
+
+    getColor() {
+        return SCROLL_CONFIGS.recharging.color;
+    }
+
+    use(game) {
+        const displayName = this.getDisplayName();
+        this.identified = true;
+        Game.player.identifyScrollType(this.name);
+
+        const wands = Game.player.inventory.wands || [];
+
+        if (this.cursed) {
+            // Drain charges from all wands
+            let drained = 0;
+            for (const wand of wands) {
+                if (wand.charges > 0) {
+                    const loss = Math.min(wand.charges, this.rechargeAmount);
+                    wand.charges -= loss;
+                    drained += loss;
+                }
+            }
+            if (drained > 0) {
+                game.addMessage(`You read ${displayName}. Energy drains from your wands! ${drained} total charges lost. It was a cursed ${this.name}!`);
+            } else {
+                game.addMessage(`You read ${displayName}. A draining pulse fizzles—no charges to steal. It was a cursed ${this.name}!`);
+            }
+            return;
+        }
+
+        if (wands.length === 0) {
+            game.addMessage(`You read ${displayName}. The energy has nowhere to go—you carry no wands. It was a ${this.name}!`);
+            return;
+        }
+
+        // Recharge the most depleted wand (largest gap between max and current)
+        let bestWand = null;
+        let bestGap = 0;
+        for (const wand of wands) {
+            const gap = wand.maxCharges - wand.charges;
+            if (gap > bestGap) {
+                bestGap = gap;
+                bestWand = wand;
+            }
+        }
+
+        if (!bestWand || bestGap === 0) {
+            game.addMessage(`You read ${displayName}. All your wands are fully charged. It was a ${this.name}!`);
+            return;
+        }
+
+        const restored = Math.min(this.rechargeAmount, bestWand.maxCharges - bestWand.charges);
+        bestWand.charges += restored;
+        const wandName = bestWand.getDisplayName ? bestWand.getDisplayName() : bestWand.name;
+        game.addMessage(`You read ${displayName}. Energy surges into your ${wandName}! ${restored} charges restored. It was a ${this.name}!`);
+    }
+}
+
 if (typeof module !== 'undefined') {
     module.exports = {
         SCROLL_MAGIC_PHRASES,
@@ -689,7 +759,8 @@ if (typeof module !== 'undefined') {
         EnchantmentScroll,
         IdentifyScroll,
         UncurseScroll,
-        PoisonEnchantmentScroll
+        PoisonEnchantmentScroll,
+        RechargingScroll
     };
 }
 

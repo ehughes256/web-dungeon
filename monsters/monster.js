@@ -252,6 +252,10 @@ class Monster {
     getDisplayName() {
         return this.type.charAt(0).toUpperCase() + this.type.slice(1);
     }
+
+    onDeath(monsterManager) {
+        // Override in subclasses for death effects
+    }
 }
 
 // Export for Node.js testing

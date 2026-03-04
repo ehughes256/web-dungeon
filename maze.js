@@ -219,9 +219,20 @@ class MazeGenerator {
             }
         }
 
-        // Connect rooms with corridors
+        // Connect rooms with corridors, collecting door candidates
+        const allDoorCandidates = [];
         for (let i = 0; i < dungeon.rooms.length - 1; i++) {
-            this.connectRooms(dungeon.rooms[i], dungeon.rooms[i + 1], dungeon);
+            this.connectRooms(dungeon.rooms[i], dungeon.rooms[i + 1], dungeon, allDoorCandidates);
+        }
+
+        // Place doors AFTER all corridors are carved so no later corridor invalidates a door
+        for (const doorPos of allDoorCandidates) {
+            const tile = dungeon.getTile(doorPos.x, doorPos.y);
+            if (tile && tile.type === '.' && !this.doorAdjacent(doorPos.x, doorPos.y, dungeon)) {
+                if (this.isValidDoorPosition(doorPos.x, doorPos.y, dungeon)) {
+                    dungeon.setTileType(doorPos.x, doorPos.y, '+');
+                }
+            }
         }
 
         // Place stairs
@@ -253,7 +264,16 @@ class MazeGenerator {
         return x >= room.x && x < room.x + room.width && y >= room.y && y < room.y + room.height;
     }
 
-    connectRooms(r1, r2, dungeon) {
+    isAdjacentToRoom(x, y, room) {
+        // True if (x,y) is NOT inside the room but is cardinally adjacent to a room interior tile
+        if (this.isInsideRoom(x, y, room)) return false;
+        return this.isInsideRoom(x - 1, y, room) ||
+               this.isInsideRoom(x + 1, y, room) ||
+               this.isInsideRoom(x, y - 1, room) ||
+               this.isInsideRoom(x, y + 1, room);
+    }
+
+    connectRooms(r1, r2, dungeon, doorCandidates) {
         const x1 = r1.x + Math.floor(r1.width / 2);
         const y1 = r1.y + Math.floor(r1.height / 2);
         const x2 = r2.x + Math.floor(r2.width / 2);
@@ -280,48 +300,21 @@ class MazeGenerator {
             path.push({x, y});
         }
 
-        // Track door positions
-        const doorPositions = [];
-
-        // Carve corridor and identify door positions at room boundaries
-        for (let i = 0; i < path.length; i++) {
-            const curr = path[i];
-            const prev = i > 0 ? path[i - 1] : null;
-
-            const currInR1 = this.isInsideRoom(curr.x, curr.y, r1);
-            const currInR2 = this.isInsideRoom(curr.x, curr.y, r2);
-            const prevInR1 = prev ? this.isInsideRoom(prev.x, prev.y, r1) : false;
-            const prevInR2 = prev ? this.isInsideRoom(prev.x, prev.y, r2) : false;
-
+        // Identify door candidates BEFORE carving — wall tiles adjacent to a room
+        for (const curr of path) {
             const tile = dungeon.getTile(curr.x, curr.y);
-            if (!tile) continue;
+            if (!tile || tile.type !== '#') continue;
 
-            // Carve floor if it's a wall
-            if (tile.type === '#') {
-                dungeon.setTileType(curr.x, curr.y, '.');
-            }
-
-            // Detect transition from room to corridor (door location)
-            if (prev) {
-                // Exiting room 1
-                if (prevInR1 && !currInR1 && !currInR2) {
-                    doorPositions.push({x: curr.x, y: curr.y, room: 1});
-                }
-                // Entering room 2
-                if (!prevInR1 && !prevInR2 && currInR2) {
-                    doorPositions.push({x: curr.x, y: curr.y, room: 2});
-                }
+            if (this.isAdjacentToRoom(curr.x, curr.y, r1) || this.isAdjacentToRoom(curr.x, curr.y, r2)) {
+                doorCandidates.push({x: curr.x, y: curr.y});
             }
         }
 
-        // Place doors at detected positions
-        for (const doorPos of doorPositions) {
-            const tile = dungeon.getTile(doorPos.x, doorPos.y);
-            if (tile && tile.type === '.' && !this.doorAdjacent(doorPos.x, doorPos.y, dungeon)) {
-                // Verify this is a proper doorway (has walls on perpendicular sides)
-                if (this.isValidDoorPosition(doorPos.x, doorPos.y, dungeon)) {
-                    dungeon.setTileType(doorPos.x, doorPos.y, '+');
-                }
+        // Carve the corridor
+        for (const curr of path) {
+            const tile = dungeon.getTile(curr.x, curr.y);
+            if (tile && tile.type === '#') {
+                dungeon.setTileType(curr.x, curr.y, '.');
             }
         }
     }

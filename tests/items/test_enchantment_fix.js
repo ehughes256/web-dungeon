@@ -1,6 +1,6 @@
 // Test enchantment scroll functionality
 const { Player } = require('../../player.js');
-const { Weapon } = require('../../items/weapons.js');
+const { EquippableItem, Weapon } = require('../../items/items.js');
 const { Armor } = require('../../items/armor.js');
 const { EnchantmentScroll, UncurseScroll } = require('../../items/scrolls.js');
 const { Game } = require('../../game.js');

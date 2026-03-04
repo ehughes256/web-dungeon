@@ -46,6 +46,49 @@ class MonsterManager {
         }
     }
 
+    // Occasionally spawn a new monster far from the player
+    trySpawnWanderingMonster() {
+        // Cap total monsters to avoid runaway growth
+        const maxMonsters = Math.max(8, Math.floor(this.game.dungeon.rooms.length * 1.2));
+        if (this.monsters.length >= maxMonsters) return;
+
+        // Find rooms far from the player (at least 15 tiles away)
+        const px = Game.player.x;
+        const py = Game.player.y;
+        const farRooms = this.game.dungeon.rooms.filter(room => {
+            const cx = room.x + Math.floor(room.width / 2);
+            const cy = room.y + Math.floor(room.height / 2);
+            const dist = Math.sqrt((cx - px) ** 2 + (cy - py) ** 2);
+            return dist >= 15;
+        });
+
+        if (farRooms.length === 0) return;
+
+        const room = farRooms[Math.floor(Math.random() * farRooms.length)];
+
+        // Try a few positions in the room
+        for (let i = 0; i < 5; i++) {
+            const x = room.x + Math.floor(Math.random() * room.width);
+            const y = room.y + Math.floor(Math.random() * room.height);
+
+            if (!this.isWalkableForMonster(x, y)) continue;
+            const tile = this.game.dungeon.getTile(x, y);
+            if (tile && tile.hasItems()) continue;
+            if (x === px && y === py) continue;
+            // Don't spawn on stairs
+            if ((this.game.upStair && x === this.game.upStair.x && y === this.game.upStair.y) ||
+                (this.game.downStair && x === this.game.downStair.x && y === this.game.downStair.y)) continue;
+            // Don't spawn in player's field of view
+            if (this.game.visible[y] && this.game.visible[y][x]) continue;
+
+            const currentLevel = this.game.dungeonLevel || 1;
+            const monster = MonsterFactory.createRandomMonster(this.monsterIdCounter++, x, y, currentLevel);
+            monster.scheduleNextAction(this.game.currentTick);
+            this.monsters.push(monster);
+            return;
+        }
+    }
+
     // Helper for monster walkability
     isWalkableForMonster(x, y, monster) {
         if (x < 0 || y < 0 || x >= this.game.width || y >= this.game.height) return false;
@@ -184,7 +227,10 @@ class MonsterManager {
                 // Check for traps after monster moves
                 monster.checkForTraps(this.game);
 
-                // Remove dead monsters (killed by traps)
+                // Handle death effects and remove dead monsters (killed by traps)
+                for (const m of this.monsters) {
+                    if (!m.isAlive()) m.onDeath(this);
+                }
                 this.monsters = this.monsters.filter((m) => m.isAlive());
 
                 // Only add delay if the monster is visible to the player
@@ -196,6 +242,11 @@ class MonsterManager {
                     await this.game.sleep(50);
                 }
             }
+        }
+
+        // Occasionally spawn a wandering monster (check every 200 ticks, ~3% chance)
+        if (this.game.currentTick % 200 === 0 && Math.random() < 0.03) {
+            this.trySpawnWanderingMonster();
         }
 
         // Process poison ticks (every 500 ticks, same rate as player)
@@ -214,6 +265,7 @@ class MonsterManager {
                                 this.game.addMessage(`The ${monster.getDisplayName()} dies from poison!`);
                             }
                             Game.player.experience += monster.experience;
+                            monster.onDeath(this);
                         }
                     }
                 }
@@ -339,6 +391,7 @@ class MonsterManager {
         if (died) {
             this.game.addMessage(`${monster.getDisplayName()} dies.`);
             Game.player.gainExperience(monster.experience);
+            monster.onDeath(this);
 
             // Check for loot drops
             this.rollMonsterLoot(monster);

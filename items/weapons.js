@@ -124,6 +124,7 @@ class Weapon extends EquippableItem {
         this.size = 0;
         this.bonuses = {};
         this.enchantments = {};
+        this.enchantable = true;
         this.damage = Weapon.baseDamage;
         this.attackBonus = 0;
         this.damageType = DamageType.PHYSICAL; // Base damage type

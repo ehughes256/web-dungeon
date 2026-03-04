@@ -1967,106 +1967,80 @@ class Game {
         const dialog = document.getElementById('enchantmentDialog');
         const itemsContainer = document.getElementById('enchantmentItems');
 
+        const formatEnchantText = (item) => {
+            const currentEnchant = item.enchantments || {};
+            if (Object.keys(currentEnchant).length === 0) return 'No enchantments';
+            return `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`;
+        };
+
+        const getStatsText = (item) => {
+            if (item instanceof Weapon) return `Damage: ${item.getDamage()}`;
+            if (item instanceof Armor) return `Defense: ${item.defense}`;
+            if (item.charges !== undefined) return `Charges: ${item.charges}/${item.maxCharges}`;
+            return '';
+        };
+
         // Add equipped items
         const equippedSection = [];
         Object.entries(Game.player.body).forEach(([slot, item]) => {
             if (item && !(item instanceof EmptyItem) && !(item instanceof Fists)) {
-                if (item instanceof Weapon || item instanceof Armor) {
-                    if (filterFn(item)) {
-                        equippedSection.push({item, slot, equipped: true});
+                if (item.enchantable && filterFn(item)) {
+                    equippedSection.push({item, slot, equipped: true});
+                }
+            }
+        });
+
+        // Add inventory items from all categories
+        const inventorySections = [];
+        const categoryLabels = {weapons: 'Weapons', armor: 'Armor', wands: 'Wands', potions: 'Potions', scrolls: 'Scrolls', food: 'Food', lockpicks: 'Tools'};
+        for (const [category, label] of Object.entries(categoryLabels)) {
+            const items = Game.player.inventory[category];
+            if (!items) continue;
+            const section = [];
+            items.forEach((item, index) => {
+                if (item && !(item instanceof EmptyItem) && !(item instanceof Fists)) {
+                    if (item.enchantable && filterFn(item)) {
+                        section.push({item, category, index});
                     }
                 }
+            });
+            if (section.length > 0) {
+                inventorySections.push({label, items: section});
             }
-        });
-
-        // Add inventory weapons
-        const weaponSection = [];
-        Game.player.inventory.weapons.forEach((item, index) => {
-            if (item && !(item instanceof EmptyItem) && !(item instanceof Fists)) {
-                if (filterFn(item)) {
-                    weaponSection.push({item, category: 'weapons', index});
-                }
-            }
-        });
-
-        // Add inventory armor
-        const armorSection = [];
-        Game.player.inventory.armor.forEach((item, index) => {
-            if (item && !(item instanceof EmptyItem)) {
-                if (filterFn(item)) {
-                    armorSection.push({item, category: 'armor', index});
-                }
-            }
-        });
+        }
 
         let html = '';
 
         if (equippedSection.length > 0) {
             html += '<div class="enchantment-section"><h4>Equipped Items</h4>';
             equippedSection.forEach(({item, slot}) => {
-                const currentEnchant = item.enchantments || {};
-                const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`
-                    : 'No enchantments';
-
-                let statsText = '';
-                if (item instanceof Weapon) {
-                    statsText = `Damage: ${item.getDamage()}`;
-                } else if (item instanceof Armor) {
-                    statsText = `Defense: ${item.defense}`;
-                }
-
                 html += `<div class="enchantable-item" onclick="game.applyEnchantment('equipped', '${slot}')">
                     <div class="enchantable-item-info">
                         <div class="enchantable-item-name">${item.name} (${slot})</div>
-                        <div class="enchantable-item-stats">${statsText}</div>
-                        <div class="enchantable-item-current">${enchantText}</div>
+                        <div class="enchantable-item-stats">${getStatsText(item)}</div>
+                        <div class="enchantable-item-current">${formatEnchantText(item)}</div>
                     </div>
                 </div>`;
             });
             html += '</div>';
         }
 
-        if (weaponSection.length > 0) {
-            html += '<div class="enchantment-section"><h4>Weapons in Inventory</h4>';
-            weaponSection.forEach(({item, category, index}) => {
-                const currentEnchant = item.enchantments || {};
-                const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`
-                    : 'No enchantments';
-
+        for (const {label, items} of inventorySections) {
+            html += `<div class="enchantment-section"><h4>${label} in Inventory</h4>`;
+            items.forEach(({item, category, index}) => {
                 html += `<div class="enchantable-item" onclick="game.applyEnchantment('${category}', ${index})">
                     <div class="enchantable-item-info">
                         <div class="enchantable-item-name">${item.name}</div>
-                        <div class="enchantable-item-stats">Damage: ${item.getDamage()}</div>
-                        <div class="enchantable-item-current">${enchantText}</div>
+                        <div class="enchantable-item-stats">${getStatsText(item)}</div>
+                        <div class="enchantable-item-current">${formatEnchantText(item)}</div>
                     </div>
                 </div>`;
             });
             html += '</div>';
         }
 
-        if (armorSection.length > 0) {
-            html += '<div class="enchantment-section"><h4>Armor in Inventory</h4>';
-            armorSection.forEach(({item, category, index}) => {
-                const currentEnchant = item.enchantments || {};
-                const enchantText = Object.keys(currentEnchant).length > 0
-                    ? `Current enchantments: ${Object.entries(currentEnchant).flatMap(([k, v]) => typeof v === 'object' && v !== null ? Object.entries(v).map(([sk, sv]) => typeof sv === 'number' && sv < 1 ? `${Math.round(sv * 100)}% ${sk} ${k}` : `+${sv} ${sk} ${k}`) : [`+${v} ${k}`]).join(', ')}`
-                    : 'No enchantments';
-
-                html += `<div class="enchantable-item" onclick="game.applyEnchantment('${category}', ${index})">
-                    <div class="enchantable-item-info">
-                        <div class="enchantable-item-name">${item.name}</div>
-                        <div class="enchantable-item-stats">Defense: ${item.defense}</div>
-                        <div class="enchantable-item-current">${enchantText}</div>
-                    </div>
-                </div>`;
-            });
-            html += '</div>';
-        }
-
-        if (equippedSection.length === 0 && weaponSection.length === 0 && armorSection.length === 0) {
-            html = '<div style="color: #aaa; text-align: center; padding: 20px;">You have no enchantable items (weapons or armor).</div>';
+        if (equippedSection.length === 0 && inventorySections.length === 0) {
+            html = '<div style="color: #aaa; text-align: center; padding: 20px;">You have no enchantable items.</div>';
         }
 
         itemsContainer.innerHTML = html;
@@ -2079,10 +2053,8 @@ class Game {
         if (source === 'equipped') {
             // identifier is a body slot name
             item = Game.player.body[identifier];
-        } else if (source === 'weapons') {
-            item = Game.player.inventory.weapons[identifier];
-        } else if (source === 'armor') {
-            item = Game.player.inventory.armor[identifier];
+        } else if (Game.player.inventory[source]) {
+            item = Game.player.inventory[source][identifier];
         }
 
         if (!item) {

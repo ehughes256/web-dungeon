@@ -28,6 +28,7 @@ class Item {
         this.size = 0;
         this.identified = false;
         this.cursed = false;
+        this.enchantable = false;
         this.description = 'This is a plain old item.';
     }
 
@@ -645,6 +646,7 @@ class ItemFactory {
                 {class: UncurseScroll, chance: UncurseScroll.dropChance},
                 {class: IdentifyScroll, chance: IdentifyScroll.dropChance},
                 {class: PoisonEnchantmentScroll, chance: PoisonEnchantmentScroll.dropChance},
+                {class: RechargingScroll, chance: RechargingScroll.dropChance},
                 // Wands
                 {class: MagicMissileWand, chance: MagicMissileWand.dropChance},
                 {class: LightningWand, chance: LightningWand.dropChance},

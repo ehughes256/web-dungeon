@@ -61,6 +61,136 @@ class Zombie extends Undead {
     getColor() { return '#556B2F'; }
 }
 
+class PlagueZombie extends Zombie {
+    static levelRange = [3, 8];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'Weeping sores cover this shambling corpse. A miasma of disease trails in its wake.';
+        this.poisonChance = 0.4;
+        this.poisonDmgPerTick = 2;
+        this.poisonDuration = 6;
+    }
+
+    getType() { return 'plague zombie'; }
+    getColor() { return '#9ACD32'; }
+
+    setStats() {
+        this.hp = 20 + Math.floor(Math.random() * 6);
+        this.maxHp = this.hp;
+        this.dmg = 4;
+        this.size = 105;
+        this.speed = 270;
+        this.experience = 12;
+    }
+}
+
+class BloatedZombie extends Zombie {
+    static levelRange = [3, 8];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A grotesquely swollen corpse, skin stretched taut with trapped gases. It looks ready to burst.';
+    }
+
+    getType() { return 'bloated zombie'; }
+    getColor() { return '#8B8B00'; }
+
+    setStats() {
+        this.hp = 24 + Math.floor(Math.random() * 8);
+        this.maxHp = this.hp;
+        this.dmg = 4;
+        this.size = 120;
+        this.speed = 300;
+        this.experience = 14;
+    }
+
+    onDeath(monsterManager) {
+        const radius = 1.5;
+        monsterManager.game.addMessage(`The ${this.getDisplayName()} explodes in a shower of gore!`);
+
+        // Damage the player if adjacent
+        const playerDist = this.distanceTo(Game.player.x, Game.player.y);
+        if (playerDist <= radius) {
+            const dmg = Game.player.hitPlayer(8);
+            if (dmg > 0) {
+                monsterManager.game.addMessage(`The explosion hits you for ${dmg} damage!`);
+            }
+            if (Game.player.isDead()) {
+                monsterManager.game.gameOver = true;
+                monsterManager.game.addMessage('You are blown apart. Game over.');
+            }
+        }
+
+        // Damage nearby monsters
+        for (const m of monsterManager.monsters) {
+            if (m === this || !m.isAlive()) continue;
+            const dist = this.distanceTo(m.x, m.y);
+            if (dist <= radius) {
+                const result = m.takeDamage(8);
+                if (monsterManager.game.visible[m.y] && monsterManager.game.visible[m.y][m.x]) {
+                    monsterManager.game.addMessage(`The explosion hits ${m.getDisplayName()} for ${result.actualDamage} damage!`);
+                }
+            }
+        }
+    }
+}
+
+class ZombieHorde extends Zombie {
+    static levelRange = [2, 7];
+
+    constructor(id, x, y) {
+        super(id, x, y);
+        this.description = 'A lurching pack of the undead, stumbling over each other in mindless hunger.';
+        this.hasSpawned = false;
+    }
+
+    getType() { return 'zombie horde'; }
+    getColor() { return '#6B8E23'; }
+
+    setStats() {
+        this.hp = 12 + Math.floor(Math.random() * 4);
+        this.maxHp = this.hp;
+        this.dmg = 4;
+        this.size = 100;
+        this.speed = 260;
+        this.experience = 6;
+    }
+
+    performAction(monsterManager) {
+        // Spawn 1-2 extra zombies the first time the player is spotted
+        if (!this.hasSpawned && monsterManager.game.visible[this.y] && monsterManager.game.visible[this.y][this.x]) {
+            const dist = this.distanceTo(Game.player.x, Game.player.y);
+            if (dist <= 8) {
+                this.hasSpawned = true;
+                const spawnCount = 1 + Math.floor(Math.random() * 2); // 1-2
+                const offsets = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+                let spawned = 0;
+                for (const [dx, dy] of offsets) {
+                    if (spawned >= spawnCount) break;
+                    const sx = this.x + dx;
+                    const sy = this.y + dy;
+                    const tile = monsterManager.game.dungeon.getTile(sx, sy);
+                    if (tile && tile.type !== '#' && tile.type !== '+' &&
+                        !monsterManager.monsters.some(m => m.x === sx && m.y === sy) &&
+                        !(sx === Game.player.x && sy === Game.player.y)) {
+                        const zombie = new ZombieHorde(monsterManager.monsterIdCounter++, sx, sy);
+                        zombie.hasSpawned = true; // Don't chain-spawn
+                        zombie.scheduleNextAction(monsterManager.game.currentTick);
+                        monsterManager.monsters.push(zombie);
+                        spawned++;
+                    }
+                }
+                if (spawned > 0) {
+                    monsterManager.game.addMessage(`More zombies shamble out of the darkness!`);
+                }
+            }
+        }
+
+        super.performAction(monsterManager);
+    }
+}
+
 class Ghost extends Undead {
     static levelRange = [3, 9];
 
@@ -303,5 +433,5 @@ class Vampire extends Undead {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {Undead, Skeleton, Zombie, Ghost, Wight, Lich, Vampire};
+    module.exports = {Undead, Skeleton, Zombie, PlagueZombie, BloatedZombie, ZombieHorde, Ghost, Wight, Lich, Vampire};
 }
