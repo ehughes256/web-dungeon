@@ -269,6 +269,24 @@ class Player {
         return total;
     }
 
+    // Stealth: higher = harder for monsters to notice you
+    // Dexterity helps, heavy armor hurts
+    getStealthScore() {
+        // Base stealth from dexterity: 0 at dex 50, up to +25 at dex 100, down to -25 at dex 0
+        let stealth = (this.dexterity - 50) / 2;
+
+        // Armor noise penalty based on total equipped armor weight
+        // Light armor (leather): low penalty. Heavy armor (plate): big penalty.
+        let armorWeight = 0;
+        for (const piece of this.equippedArmor()) {
+            if (piece.weight) armorWeight += piece.weight;
+        }
+        // Every 10 weight = -5 stealth. Leather vest (20) = -10, plate mail (80) = -40
+        stealth -= armorWeight / 2;
+
+        return stealth;
+    }
+
     // Combat stats
     getAttack() {
         return {
@@ -409,10 +427,12 @@ class Player {
 
     // Hunger management
     eat(amount) {
-        const missing = this.maxHunger - this.hunger;
-        const actual = Math.min(amount, missing);
-        this.hunger += actual;
-        return actual;
+        if (this.hunger < 0) {
+            this.hunger = Math.min(amount, this.maxHunger);
+        } else {
+            this.hunger = Math.min(this.hunger + amount, this.maxHunger);
+        }
+        return amount;
     }
 
     isStarving() {

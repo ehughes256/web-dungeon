@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Browser Load</title>
+    <script src="../../monsters/monster.js"></script>
+    <script src="../../monsters/orc.js"></script>
+    <script src="../../monsters/goblin.js"></script>
+    <script src="../../monsters/wolf.js"></script>
+    <script src="../../monsters/spider.js"></script>
+    <script src="../../monsters/bat.js"></script>
+    <script src="../../monsters/dragon.js"></script>
+    <script src="../../monsters/demon.js"></script>
+    <script src="../../monsters/elemental.js"></script>
+    <script src="../../monsters/golem.js"></script>
+    <script src="../../monsters/undead.js"></script>
+    <script src="../../monsters/human.js"></script>
+    <script src="../../monsters/unique.js"></script>
+    <script src="../../monsters/classic.js"></script>
+    <script src="../../monster-factory.js"></script>
+    <script src="../../monster-manager.js"></script>
+    <script src="../../items/items.js"></script>
+    <script src="../../items/potions.js"></script>
+    <script src="../../items/scrolls.js"></script>
+    <script src="../../items/wands.js"></script>
+    <script src="../../items/weapons.js"></script>
+    <script src="../../items/armor.js"></script>
+    <script src="../../player.js"></script>
+    <script src="../../maze.js"></script>
+</head>
+<body>
+    <h1>Testing Class Availability</h1>
+    <pre id="output"></pre>
+    <script>
+        const output = document.getElementById('output');
+        const results = [];
+
+        results.push('=== Checking Class Availability ===\n');
+
+        // Check scroll classes
+        results.push('Scroll classes:');
+        results.push('  - Scroll: ' + (typeof Scroll !== 'undefined' ? '✓' : '✗ MISSING'));
+        results.push('  - PsionicScroll: ' + (typeof PsionicScroll !== 'undefined' ? '✓' : '✗ MISSING'));
+        results.push('  - TeleportScroll: ' + (typeof TeleportScroll !== 'undefined' ? '✓' : '✗ MISSING'));
+        results.push('  - FireballScroll: ' + (typeof FireballScroll !== 'undefined' ? '✓' : '✗ MISSING'));
+
+        results.push('\nItem classes:');
+        results.push('  - Item: ' + (typeof Item !== 'undefined' ? '✓' : '✗ MISSING'));
+        results.push('  - ItemManager: ' + (typeof ItemManager !== 'undefined' ? '✓' : '✗ MISSING'));
+        results.push('  - ItemFactory: ' + (typeof ItemFactory !== 'undefined' ? '✓' : '✗ MISSING'));
+
+        results.push('\nTesting ItemFactory.itemTypes:');
+        try {
+            const types = ItemFactory.itemTypes;
+            results.push('  - ItemFactory.itemTypes loaded: ✓');
+            results.push('  - Number of item types: ' + types.length);
+
+            // Check if scroll classes are in the list
+            const hasScrolls = types.some(t => t.class.name.includes('Scroll'));
+            results.push('  - Contains scroll classes: ' + (hasScrolls ? '✓' : '✗ MISSING'));
+        } catch (e) {
+            results.push('  - ERROR: ' + e.message);
+        }
+
+        results.push('\nTesting scroll initialization:');
+        try {
+            initializeScrollMagicPhrases();
+            results.push('  - initializeScrollMagicPhrases: ✓');
+        } catch (e) {
+            results.push('  - ERROR: ' + e.message);
+        }
+
+        results.push('\nTesting scroll creation:');
+        try {
+            const scroll = new PsionicScroll(0, 0);
+            results.push('  - Create PsionicScroll: ✓');
+            results.push('  - Scroll name: ' + scroll.name);
+            results.push('  - Magic phrase: ' + scroll.magicName);
+        } catch (e) {
+            results.push('  - ERROR: ' + e.message);
+        }
+
+        output.textContent = results.join('\n');
+    </script>
+</body>
+</html>
+

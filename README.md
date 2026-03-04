@@ -1,6 +1,25 @@
 # web-dungeon
 
-New Scroll Types Added:
+## 🎯 NEW: Trap System!
+
+Hidden traps now lurk in the dungeon! They remain invisible until you detect them (based on Intelligence and Luck) or trigger them the hard way.
+
+**Features:**
+- **6 Trap Types**: Spike, Poison Dart, Pit, Teleport, Alarm, and Weakening traps
+- **Smart Detection**: Higher INT and LUCK = better trap spotting
+- **Visual Indicators**: Discovered traps show as `^` on the map in color-coded format
+- **Running Risk**: Running is fast but stops when you spot or trigger a trap
+- **Level Scaling**: Deeper dungeons have deadlier traps
+
+**See Full Documentation:**
+- `TRAPS_README.md` - Complete trap mechanics and balance
+- `TRAP_IMPLEMENTATION_SUMMARY.md` - Technical implementation details
+- `trap_guide.html` - Visual guide (open in browser)
+- `test_traps.html` - Test suite for trap system
+
+---
+
+## Scroll Types Added:
 - Psionic Scroll: Damages all visible monsters (existing).
 - Teleportation Scroll: Randomly relocates you to a safe, walkable tile on the current level.
 - Mapping Scroll: Reveals all non-wall tiles on the current dungeon level.

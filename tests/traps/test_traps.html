@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trap System Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        #output {
+            background: #000;
+            padding: 20px;
+            border: 2px solid #444;
+            margin-top: 20px;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff0000; }
+        .info { color: #ffff00; }
+    </style>
+</head>
+<body>
+    <h1>Trap System Test</h1>
+    <div id="output"></div>
+
+    <script src="../../traps.js"></script>
+    <script>
+        const output = document.getElementById('output');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            output.appendChild(div);
+        }
+
+        // Test 1: Create different trap types
+        log('=== Test 1: Creating Traps ===', 'info');
+        const traps = [
+            new SpikeTrap(0, 0),
+            new PoisonDartTrap(1, 0),
+            new PitTrap(2, 0),
+            new TeleportTrap(3, 0),
+            new AlarmTrap(4, 0),
+            new WeakeningTrap(5, 0)
+        ];
+
+        traps.forEach(trap => {
+            log(`✓ Created ${trap.name} at (${trap.x}, ${trap.y})`, 'success');
+            log(`  - Symbol: ${trap.symbol}, Color: ${trap.color}`, 'info');
+            log(`  - Detection Difficulty: ${trap.getDetectionDifficulty()}`, 'info');
+        });
+
+        // Test 2: TrapFactory
+        log('\n=== Test 2: TrapFactory ===', 'info');
+        for (let level = 1; level <= 10; level += 3) {
+            const trap = TrapFactory.createRandomTrap(0, 0, level);
+            log(`✓ Level ${level}: Created ${trap.name}`, 'success');
+        }
+
+        // Test 3: Trap discovery states
+        log('\n=== Test 3: Trap States ===', 'info');
+        const testTrap = new SpikeTrap(5, 5);
+        log(`Initial state - discovered: ${testTrap.discovered}, triggered: ${testTrap.triggered}`, 'info');
+
+        testTrap.discovered = true;
+        log(`After discovery - discovered: ${testTrap.discovered}, triggered: ${testTrap.triggered}`, 'success');
+
+        testTrap.triggered = true;
+        log(`After triggering - discovered: ${testTrap.discovered}, triggered: ${testTrap.triggered}`, 'success');
+
+        // Test 4: Mock game and player for trigger test
+        log('\n=== Test 4: Trap Triggering (Mock) ===', 'info');
+        const mockGame = {
+            addMessage: (msg) => log(`  Game message: ${msg}`, 'info'),
+            width: 40,
+            height: 30,
+            dungeon: {
+                isValidMove: () => true
+            },
+            monsterManager: {
+                monsters: []
+            },
+            computeFOV: () => {}
+        };
+
+        const mockPlayer = {
+            x: 10,
+            y: 10,
+            hitPlayer: (damage) => {
+                log(`  Player takes ${damage} damage`, 'error');
+                return damage;
+            },
+            isDead: () => false,
+            strength: 50,
+            dexterity: 50
+        };
+
+        const damageTraps = [
+            new SpikeTrap(0, 0),
+            new PoisonDartTrap(1, 0),
+            new PitTrap(2, 0)
+        ];
+
+        damageTraps.forEach(trap => {
+            log(`Triggering ${trap.name}...`, 'info');
+            trap.trigger(mockGame, mockPlayer);
+        });
+
+        log('\n=== All Tests Complete ===', 'success');
+    </script>
+</body>
+</html>
+

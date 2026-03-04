@@ -1185,11 +1185,32 @@ class Game {
             items = this.breakChestItems(items);
         }
 
-        // Dump surviving items onto the floor tile
+        // Collect nearby walkable floor tiles to scatter items onto
+        const nearby = [];
+        for (let dx = -2; dx <= 2; dx++) {
+            for (let dy = -2; dy <= 2; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = chest.x + dx;
+                const ny = chest.y + dy;
+                const t = this.dungeon.getTile(nx, ny);
+                if (t && (t.type === '.' || t.type === '/')) {
+                    nearby.push({x: nx, y: ny, tile: t});
+                }
+            }
+        }
+
+        // Scatter items onto random nearby tiles, fall back to chest tile
         for (const item of items) {
-            item.x = chest.x;
-            item.y = chest.y;
-            tile.addItem(item);
+            if (nearby.length > 0) {
+                const spot = nearby[Math.floor(Math.random() * nearby.length)];
+                item.x = spot.x;
+                item.y = spot.y;
+                spot.tile.addItem(item);
+            } else {
+                item.x = chest.x;
+                item.y = chest.y;
+                tile.addItem(item);
+            }
         }
         chest.items = [];
 
@@ -1674,6 +1695,9 @@ class Game {
             if (item.speed !== undefined) {
                 stats.push({label: 'Attack Speed', value: isIdentified ? item.speed : '???'});
             }
+            if (isIdentified && item.qualityBonus && item.qualityBonus > 0) {
+                stats.push({label: 'Quality', value: `+${item.qualityBonus}`, positive: true});
+            }
 
             // Show elemental damage if present
             if (typeof item.getAllElementalDamage === 'function' && isIdentified) {
@@ -1712,6 +1736,9 @@ class Game {
             }
             if (item.bodyLocation) {
                 stats.push({label: 'Slot', value: item.bodyLocation});
+            }
+            if (isIdentified && item.qualityBonus && item.qualityBonus > 0) {
+                stats.push({label: 'Quality', value: `+${item.qualityBonus}`, positive: true});
             }
 
             // Show elemental resistances if present
@@ -1831,13 +1858,22 @@ class Game {
             });
         }
 
-        // Enchantments
+        // Enchantments (skip nested keys already shown by category-specific sections)
+        const shownEnchantKeys = new Set();
+        if (typeof item.getAllElementalDamage === 'function') shownEnchantKeys.add('elemental');
+        if (typeof item.getAllResistances === 'function') shownEnchantKeys.add('resistances');
+
         if (item.enchantments && Object.keys(item.enchantments).length > 0) {
             Object.entries(item.enchantments).forEach(([key, value]) => {
+                if (shownEnchantKeys.has(key)) return;
                 if (typeof value === 'object' && value !== null) {
                     // Nested enchantments (elemental, resistances)
                     Object.entries(value).forEach(([subKey, subVal]) => {
-                        const label = `${subKey} ${key}`;
+                        const subLabel = subKey.charAt(0).toUpperCase() + subKey.slice(1);
+                        const keyLabel = key === 'resistances' ? 'Resistance'
+                            : key === 'elemental' ? 'Damage'
+                            : key.charAt(0).toUpperCase() + key.slice(1);
+                        const label = `${subLabel} ${keyLabel}`;
                         const display = typeof subVal === 'number' && subVal < 1
                             ? `${Math.round(subVal * 100)}%`
                             : `+${subVal}`;
